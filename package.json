@@ -1,11 +1,12 @@
 {
-  "name": "@figma/my-make-file",
+  "name": "@valeska/system",
   "private": true,
-  "version": "0.0.1",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "build": "vite build",
-    "dev": "vite"
+    "dev": "vite",
+    "tauri": "tauri"
   },
   "dependencies": {
     "@emotion/react": "11.14.0",
@@ -65,6 +66,8 @@
   },
   "devDependencies": {
     "@tailwindcss/vite": "4.1.12",
+    "@tauri-apps/cli": "^2.10.0",
+    "@types/node": "^25.3.3",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "4.7.0",
     "tailwindcss": "4.1.12",
