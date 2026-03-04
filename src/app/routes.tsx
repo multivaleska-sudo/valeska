@@ -7,6 +7,7 @@ import { DashboardPage } from "./pages/DashboardPage";
 import { TramitesListPage } from "./pages/tramites/TramitesListPage";
 import { TramiteDetailPage } from "./pages/tramites/TramiteDetailPage";
 import { NewTramitePage } from "./pages/tramites/NewTramitePage";
+import { EditTramitePage } from "./pages/tramites/EditTramitePage";
 import { ClientesListPage } from "./pages/clientes/ClientesListPage";
 import { ClienteDetailPage } from "./pages/clientes/ClienteDetailPage";
 import { SituacionesPage } from "./pages/SituacionesPage";
@@ -46,6 +47,7 @@ export const router = createBrowserRouter([
       { path: "tramites", element: <TramitesListPage /> },
       { path: "tramites/new", element: <NewTramitePage /> },
       { path: "tramites/:id", element: <TramiteDetailPage /> },
+      { path: "tramites/:id/edit", element: <EditTramitePage /> },
       { path: "tramites/:id/documents", element: <DocumentCenterPage /> },
       { path: "clientes", element: <ClientesListPage /> },
       { path: "clientes/:id", element: <ClienteDetailPage /> },
