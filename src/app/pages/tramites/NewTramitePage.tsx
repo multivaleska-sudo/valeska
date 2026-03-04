@@ -1,327 +1,314 @@
-import { useState } from "react";
+import React from "react";
 import { useNavigate } from "react-router";
-import { ArrowLeft, ArrowRight, Check } from "lucide-react";
+import {
+  ArrowLeft,
+  Save,
+  User,
+  Car,
+  ClipboardList,
+  CheckSquare,
+  FileText,
+  Globe,
+  ExternalLink,
+  Printer,
+  FileCheck,
+  FileCode,
+  Search,
+} from "lucide-react";
 
 export function NewTramitePage() {
   const navigate = useNavigate();
-  const [step, setStep] = useState(1);
-  const totalSteps = 5;
-
-  const steps = [
-    "Cliente",
-    "Vehículo",
-    "DUA/Pagos",
-    "Situación/Notas",
-    "Confirmar",
-  ];
-
-  const handleNext = () => {
-    if (step < totalSteps) {
-      setStep(step + 1);
-    } else {
-      navigate("/tramites");
-    }
-  };
-
-  const handlePrev = () => {
-    if (step > 1) {
-      setStep(step - 1);
-    }
-  };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-4">
-        <button
-          onClick={() => navigate("/tramites")}
-          className="p-2 hover:bg-white rounded-md transition-colors"
-        >
-          <ArrowLeft className="w-5 h-5 text-[#6B7280]" />
-        </button>
-        <div>
-          <h1 className="text-2xl font-semibold text-[#111827]">Nuevo Trámite</h1>
-          <p className="text-sm text-[#6B7280] mt-1">
-            Wizard de creación de trámite
-          </p>
+    <div className="p-6 max-w-[1400px] mx-auto space-y-6 animate-in fade-in duration-500">
+      {/* HEADER PRINCIPAL */}
+      <div className="flex justify-between items-center bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => navigate("/tramites")}
+            className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-500"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <div>
+            <h2 className="text-xl font-bold text-gray-900 tracking-tight">
+              Nuevo Expediente
+            </h2>
+            <p className="text-xs text-blue-600 font-semibold uppercase tracking-widest">
+              Ingreso de datos maestros
+            </p>
+          </div>
+        </div>
+        <div className="flex gap-3">
+          <button
+            onClick={() => navigate("/tramites")}
+            className="px-4 py-2 text-gray-500 font-medium hover:text-gray-800 transition-colors text-sm"
+          >
+            Cancelar
+          </button>
+          <button className="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold flex items-center gap-2 shadow-md hover:bg-blue-700 transition-all active:scale-95 text-sm">
+            <Save className="w-4 h-4" /> Guardar Trámite
+          </button>
         </div>
       </div>
 
-      {/* Stepper */}
-      <div className="bg-white rounded-lg border border-[#E5E7EB] p-6">
-        <div className="flex items-center justify-between mb-8">
-          {steps.map((label, index) => {
-            const stepNum = index + 1;
-            const isActive = step === stepNum;
-            const isCompleted = step > stepNum;
-
-            return (
-              <div key={stepNum} className="flex items-center flex-1">
-                <div className="flex items-center">
-                  <div
-                    className={`w-10 h-10 rounded-full flex items-center justify-center font-medium transition-colors ${
-                      isCompleted
-                        ? "bg-[#16A34A] text-white"
-                        : isActive
-                        ? "bg-[#2563EB] text-white"
-                        : "bg-gray-200 text-[#6B7280]"
-                    }`}
-                  >
-                    {isCompleted ? <Check className="w-5 h-5" /> : stepNum}
-                  </div>
-                  <div className="ml-3">
-                    <div
-                      className={`text-sm font-medium ${
-                        isActive || isCompleted ? "text-[#111827]" : "text-[#6B7280]"
-                      }`}
-                    >
-                      {label}
-                    </div>
-                  </div>
-                </div>
-                {stepNum < totalSteps && (
-                  <div
-                    className={`flex-1 h-1 mx-4 ${
-                      isCompleted ? "bg-[#16A34A]" : "bg-gray-200"
-                    }`}
-                  />
-                )}
+      {/* CUERPO DEL FORMULARIO - DOS COLUMNAS ESTILO PYTHON */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* COLUMNA IZQUIERDA: TRÁMITE, PROPIETARIO Y CHECKLIST */}
+        <div className="space-y-6">
+          {/* DATOS DEL TRÁMITE Y PROPIETARIO */}
+          <section className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+            <div className="bg-gray-50 px-4 py-2.5 border-b border-gray-200 flex items-center gap-2 text-blue-600 font-bold text-[10px] uppercase tracking-widest">
+              <User className="w-4 h-4" /> Datos del Trámite y Propietario
+            </div>
+            <div className="p-5 space-y-4">
+              <FormField
+                label="Cliente / Razón Social"
+                placeholder="Nombre completo del titular"
+              />
+              <div className="grid grid-cols-2 gap-4">
+                <FormField label="DNI / RUC" placeholder="8 o 11 dígitos" />
+                <SelectField
+                  label="Tipo de Trámite"
+                  options={[
+                    "Inmatriculación",
+                    "Transferencia Notarial",
+                    "Duplicado de Placa",
+                    "Cambio de Características",
+                  ]}
+                />
               </div>
-            );
-          })}
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  label="N° Título (SUNARP)"
+                  placeholder="2024-XXXXXX"
+                />
+                <FormField
+                  label="N° Formato Inmatriculación"
+                  placeholder="Código de formato"
+                />
+              </div>
+              <SelectField
+                label="Situación Actual"
+                options={[
+                  "En calificación",
+                  "Inscrito",
+                  "Observado",
+                  "Tachado",
+                  "Concluido",
+                ]}
+              />
+            </div>
+          </section>
+
+          {/* CHECKLIST DE ENTREGAS */}
+          <section className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+            <div className="bg-gray-50 px-4 py-2.5 border-b border-gray-200 flex items-center gap-2 text-blue-600 font-bold text-[10px] uppercase tracking-widest">
+              <CheckSquare className="w-4 h-4" /> Checklist de Entregas
+            </div>
+            <div className="p-5 space-y-4">
+              <div className="flex items-center gap-6">
+                <label className="flex items-center gap-2 cursor-pointer group">
+                  <input
+                    type="checkbox"
+                    className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-sm text-gray-700 group-hover:text-blue-600 transition-colors">
+                    Se entregó Recibo de Tarjeta
+                  </span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer group">
+                  <input
+                    type="checkbox"
+                    className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-sm text-gray-700 group-hover:text-blue-600 transition-colors">
+                    Se entregó DNI para Tarjeta
+                  </span>
+                </label>
+              </div>
+              <div className="w-1/2">
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1">
+                  Fecha de Entrega
+                </label>
+                <input
+                  type="date"
+                  className="w-full h-10 px-3 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+                />
+              </div>
+            </div>
+          </section>
+
+          {/* OBSERVACIONES INTERNAS */}
+          <section className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+            <div className="bg-gray-50 px-4 py-2.5 border-b border-gray-200 flex items-center gap-2 text-blue-600 font-bold text-[10px] uppercase tracking-widest">
+              <FileText className="w-4 h-4" /> Observaciones Internas
+            </div>
+            <div className="p-5">
+              <textarea
+                className="w-full p-3 border border-gray-200 rounded-lg text-sm min-h-[120px] focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+                placeholder="Notas adicionales sobre el expediente..."
+              />
+            </div>
+          </section>
         </div>
 
-        {/* Step Content */}
-        <div className="min-h-[400px]">
-          {step === 1 && (
-            <div className="space-y-4">
-              <h2 className="text-lg font-semibold text-[#111827] mb-4">
-                Información del Cliente
-              </h2>
+        {/* COLUMNA DERECHA: VEHÍCULO Y EMPRESA */}
+        <div className="space-y-6">
+          {/* DATOS DEL VEHÍCULO */}
+          <section className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+            <div className="bg-gray-50 px-4 py-2.5 border-b border-gray-200 flex items-center gap-2 text-blue-600 font-bold text-[10px] uppercase tracking-widest">
+              <Car className="w-4 h-4" /> Datos del Vehículo
+            </div>
+            <div className="p-5 space-y-4">
+              <div className="flex gap-2">
+                <div className="flex-1">
+                  <FormField
+                    label="DUA / D.A.M"
+                    placeholder="Ej. 118-2024-10-..."
+                  />
+                </div>
+                <div className="flex items-end">
+                  <button className="h-10 px-4 bg-orange-600 text-white text-xs font-bold rounded-lg hover:bg-orange-700 transition-colors flex items-center gap-2 shadow-sm">
+                    <FileCode className="w-4 h-4" /> Autocompletar con PDF
+                  </button>
+                </div>
+              </div>
               <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-[#111827] mb-2">
-                    Nombre completo
-                  </label>
-                  <input
-                    type="text"
-                    className="w-full px-3 py-2 border border-[#E5E7EB] rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
-                    placeholder="Juan Pérez García"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-[#111827] mb-2">
-                    DNI
-                  </label>
-                  <input
-                    type="text"
-                    className="w-full px-3 py-2 border border-[#E5E7EB] rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
-                    placeholder="12345678"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-[#111827] mb-2">
-                    Email
-                  </label>
-                  <input
-                    type="email"
-                    className="w-full px-3 py-2 border border-[#E5E7EB] rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
-                    placeholder="cliente@email.com"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-[#111827] mb-2">
-                    Teléfono
-                  </label>
-                  <input
-                    type="tel"
-                    className="w-full px-3 py-2 border border-[#E5E7EB] rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
-                    placeholder="987654321"
-                  />
-                </div>
+                <FormField label="VIN / Serie" placeholder="17 caracteres" />
+                <FormField label="N° Motor" placeholder="Código de motor" />
               </div>
-            </div>
-          )}
-
-          {step === 2 && (
-            <div className="space-y-4">
-              <h2 className="text-lg font-semibold text-[#111827] mb-4">
-                Información del Vehículo
-              </h2>
               <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-[#111827] mb-2">
-                    Placa
-                  </label>
-                  <input
-                    type="text"
-                    className="w-full px-3 py-2 border border-[#E5E7EB] rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB] font-mono"
-                    placeholder="ABC-123"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-[#111827] mb-2">
-                    Marca
-                  </label>
-                  <input
-                    type="text"
-                    className="w-full px-3 py-2 border border-[#E5E7EB] rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
-                    placeholder="Toyota"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-[#111827] mb-2">
-                    Modelo
-                  </label>
-                  <input
-                    type="text"
-                    className="w-full px-3 py-2 border border-[#E5E7EB] rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
-                    placeholder="Corolla"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-[#111827] mb-2">
-                    Año
-                  </label>
-                  <input
-                    type="text"
-                    className="w-full px-3 py-2 border border-[#E5E7EB] rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
-                    placeholder="2020"
-                  />
-                </div>
-                <div className="col-span-2">
-                  <label className="block text-sm font-medium text-[#111827] mb-2">
-                    VIN
-                  </label>
-                  <input
-                    type="text"
-                    className="w-full px-3 py-2 border border-[#E5E7EB] rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB] font-mono"
-                    placeholder="1HGBH41JXMN109186"
-                  />
-                </div>
-                <div className="col-span-2">
-                  <label className="block text-sm font-medium text-[#111827] mb-2">
-                    Número de Motor
-                  </label>
-                  <input
-                    type="text"
-                    className="w-full px-3 py-2 border border-[#E5E7EB] rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB] font-mono"
-                    placeholder="4T1BF1FK2CU123456"
-                  />
-                </div>
+                <FormField
+                  label="Placa Actual"
+                  placeholder="ABC-123 o EN TRAMITE"
+                />
+                <FormField label="Marca" placeholder="Ej. BAJAJ" />
               </div>
-            </div>
-          )}
-
-          {step === 3 && (
-            <div className="space-y-4">
-              <h2 className="text-lg font-semibold text-[#111827] mb-4">
-                DUA y Pagos
-              </h2>
               <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-[#111827] mb-2">
-                    Número DUA
-                  </label>
-                  <input
-                    type="text"
-                    className="w-full px-3 py-2 border border-[#E5E7EB] rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
-                    placeholder="DUA-123456"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-[#111827] mb-2">
-                    Fecha DUA
-                  </label>
-                  <input
-                    type="date"
-                    className="w-full px-3 py-2 border border-[#E5E7EB] rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
-                  />
-                </div>
+                <FormField label="Modelo" placeholder="Ej. RE 205" />
+                <FormField
+                  label="Año Fabricación/Modelo"
+                  placeholder="2024 / 2025"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <FormField label="Color" placeholder="Rojo, Azul, Negro..." />
+                <FormField
+                  label="Carrocería"
+                  placeholder="Ej. Trimovil Pasajeros"
+                />
               </div>
             </div>
-          )}
+          </section>
 
-          {step === 4 && (
-            <div className="space-y-4">
-              <h2 className="text-lg font-semibold text-[#111827] mb-4">
-                Situación y Notas
-              </h2>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-[#111827] mb-2">
-                    Situación
-                  </label>
-                  <select className="w-full px-3 py-2 border border-[#E5E7EB] rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB]">
-                    <option>En proceso</option>
-                    <option>Documentación</option>
-                    <option>Pendiente</option>
-                    <option>Entregado</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-[#111827] mb-2">
-                    Notas
-                  </label>
-                  <textarea
-                    rows={4}
-                    className="w-full px-3 py-2 border border-[#E5E7EB] rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
-                    placeholder="Observaciones adicionales..."
-                  />
-                </div>
-              </div>
+          {/* EMPRESA QUE GESTIONA */}
+          <section className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+            <div className="bg-gray-50 px-4 py-2.5 border-b border-gray-200 flex items-center gap-2 text-blue-600 font-bold text-[10px] uppercase tracking-widest">
+              <Globe className="w-4 h-4" /> Empresa que Gestiona
             </div>
-          )}
-
-          {step === 5 && (
-            <div className="space-y-4">
-              <h2 className="text-lg font-semibold text-[#111827] mb-4">
-                Confirmación
-              </h2>
-              <div className="bg-[#EFF6FF] border border-[#BFDBFE] rounded-lg p-6">
-                <p className="text-sm text-[#1E40AF] mb-4">
-                  Revisa los datos antes de crear el trámite:
-                </p>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-[#1E40AF]">Cliente:</span>
-                    <span className="font-medium text-[#1E3A8A]">Juan Pérez García</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-[#1E40AF]">Vehículo:</span>
-                    <span className="font-medium text-[#1E3A8A]">Toyota Corolla 2020</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-[#1E40AF]">Placa:</span>
-                    <span className="font-medium text-[#1E3A8A] font-mono">ABC-123</span>
-                  </div>
-                </div>
-              </div>
+            <div className="p-5">
+              <SelectField
+                label="Empresa"
+                options={[
+                  "MOTOS DANY",
+                  "CROSLAND",
+                  "MULTISERVICIOS VALESKA",
+                  "SUCURSAL NORTE",
+                ]}
+              />
             </div>
-          )}
-        </div>
+          </section>
 
-        {/* Navigation */}
-        <div className="flex items-center justify-between mt-8 pt-6 border-t border-[#E5E7EB]">
-          <button
-            onClick={handlePrev}
-            disabled={step === 1}
-            className="px-6 py-2 text-[#6B7280] hover:text-[#111827] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Anterior
-          </button>
-          <div className="text-sm text-[#6B7280]">
-            Paso {step} de {totalSteps}
-          </div>
-          <button
-            onClick={handleNext}
-            className="px-6 py-2 bg-[#2563EB] text-white rounded-md hover:bg-[#1D4ED8] transition-colors flex items-center gap-2"
-          >
-            {step === totalSteps ? "Crear Trámite" : "Siguiente"}
-            {step !== totalSteps && <ArrowRight className="w-4 h-4" />}
-          </button>
+          {/* DOCUMENTOS Y ENLACES (ACCIONES RÁPIDAS) */}
+          <section className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+            <div className="bg-gray-50 px-4 py-2.5 border-b border-gray-200 flex items-center gap-2 text-blue-600 font-bold text-[10px] uppercase tracking-widest">
+              <ExternalLink className="w-4 h-4" /> Documentos y Enlaces
+            </div>
+            <div className="p-5 grid grid-cols-2 gap-3">
+              <ActionButton
+                icon={<Globe className="w-3.5 h-3.5" />}
+                label="Abrir SUNARP"
+              />
+              <ActionButton
+                icon={<Globe className="w-3.5 h-3.5" />}
+                label="Web AAP Placas"
+              />
+              <ActionButton
+                icon={<Printer className="w-3.5 h-3.5" />}
+                label="Formulario"
+              />
+              <ActionButton
+                icon={<FileCheck className="w-3.5 h-3.5" />}
+                label="Cláusula Cancelación"
+              />
+              <ActionButton
+                icon={<FileText className="w-3.5 h-3.5" />}
+                label="P. Medina"
+              />
+              <ActionButton
+                icon={<FileText className="w-3.5 h-3.5" />}
+                label="P. Pantigoso"
+              />
+            </div>
+          </section>
         </div>
       </div>
     </div>
+  );
+}
+
+// --- COMPONENTES AUXILIARES LOCALES ---
+
+function FormField({
+  label,
+  placeholder,
+}: {
+  label: string;
+  placeholder: string;
+}) {
+  return (
+    <div className="space-y-1">
+      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block ml-1">
+        {label}
+      </label>
+      <input
+        type="text"
+        placeholder={placeholder}
+        className="w-full h-10 px-3 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white shadow-sm hover:border-gray-300 transition-all placeholder:text-gray-300"
+      />
+    </div>
+  );
+}
+
+function SelectField({ label, options }: { label: string; options: string[] }) {
+  return (
+    <div className="space-y-1 text-left">
+      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block ml-1">
+        {label}
+      </label>
+      <select className="w-full h-10 px-3 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white shadow-sm cursor-pointer hover:border-gray-300 transition-all">
+        {options.map((opt) => (
+          <option key={opt} value={opt}>
+            {opt}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
+function ActionButton({
+  icon,
+  label,
+}: {
+  icon: React.ReactNode;
+  label: string;
+}) {
+  return (
+    <button className="flex items-center justify-center gap-2 h-10 px-3 border border-gray-200 rounded-lg text-[11px] font-bold text-gray-600 bg-white hover:bg-gray-50 hover:border-blue-300 hover:text-blue-600 transition-all shadow-sm">
+      {icon}
+      {label}
+    </button>
   );
 }
