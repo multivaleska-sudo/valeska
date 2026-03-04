@@ -1,12 +1,16 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "enables the default permissions",
-  "windows": [
-    "main"
-  ],
+  "description": "Permisos maestros para el Sistema Valeska",
+  "windows": ["*"],
   "permissions": [
     "core:default",
+    "core:path:default",
+    "core:event:default",
+    "core:window:default",
+    "dialog:default",
+    "dialog:allow-open",
+    "log:default",
     "sql:default"
   ]
 }
