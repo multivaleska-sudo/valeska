@@ -1,11 +1,11 @@
-import React from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router";
+import { handlePdfAutofillAction } from "../../logic/tramites/pdfActions";
 import {
   ArrowLeft,
   Save,
   User,
   Car,
-  ClipboardList,
   CheckSquare,
   FileText,
   Globe,
@@ -13,11 +13,60 @@ import {
   Printer,
   FileCheck,
   FileCode,
-  Search,
+  Loader2,
 } from "lucide-react";
 
 export function NewTramitePage() {
   const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
+
+  // --- ESTADO UNIFICADO DEL FORMULARIO ---
+  const [formData, setFormData] = useState({
+    cliente: "",
+    dni: "",
+    tipo_tramite: "Inmatriculación",
+    n_titulo: "",
+    n_formato: "",
+    situacion: "En calificación",
+    check_recibo: false,
+    check_dni: false,
+    fecha_entrega: "",
+    observaciones: "",
+    dua: "",
+    vin: "",
+    motor: "",
+    placa: "",
+    marca: "",
+    modelo: "",
+    anio: "",
+    color: "",
+    carroceria: "MOTOCICLETA",
+    empresa: "MULTISERVICIOS VALESKA",
+  });
+
+  const handleChange = (field: string, value: string | boolean) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  // --- LÓGICA DE AUTOCOMPLETADO (MEJORADA) ---
+  const onAutofill = async () => {
+    console.log("Iniciando autocompletado..."); // Depuración: Verifica si el botón reacciona
+    if (loading) return;
+
+    setLoading(true);
+    try {
+      const data = await handlePdfAutofillAction();
+      console.log("Datos recibidos de la lógica:", data);
+      if (data) {
+        setFormData((prev) => ({ ...prev, ...data }));
+      }
+    } catch (error) {
+      console.error("Error crítico al procesar PDF:", error);
+    } finally {
+      // Pequeño delay para que React termine su ciclo antes de quitar el spinner
+      setTimeout(() => setLoading(false), 200);
+    }
+  };
 
   return (
     <div className="p-6 max-w-[1400px] mx-auto space-y-6 animate-in fade-in duration-500">
@@ -26,9 +75,9 @@ export function NewTramitePage() {
         <div className="flex items-center gap-4">
           <button
             onClick={() => navigate("/tramites")}
-            className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-500"
+            className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-50"
           >
-            <ArrowLeft className="w-5 h-5" />
+            <ArrowLeft className="w-5 h-5 text-gray-500" />
           </button>
           <div>
             <h2 className="text-xl font-bold text-gray-900 tracking-tight">
@@ -52,11 +101,10 @@ export function NewTramitePage() {
         </div>
       </div>
 
-      {/* CUERPO DEL FORMULARIO - DOS COLUMNAS ESTILO PYTHON */}
+      {/* CUERPO DEL FORMULARIO */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* COLUMNA IZQUIERDA: TRÁMITE, PROPIETARIO Y CHECKLIST */}
         <div className="space-y-6">
-          {/* DATOS DEL TRÁMITE Y PROPIETARIO */}
           <section className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
             <div className="bg-gray-50 px-4 py-2.5 border-b border-gray-200 flex items-center gap-2 text-blue-600 font-bold text-[10px] uppercase tracking-widest">
               <User className="w-4 h-4" /> Datos del Trámite y Propietario
@@ -65,11 +113,20 @@ export function NewTramitePage() {
               <FormField
                 label="Cliente / Razón Social"
                 placeholder="Nombre completo del titular"
+                value={formData.cliente}
+                onChange={(v) => handleChange("cliente", v)}
               />
               <div className="grid grid-cols-2 gap-4">
-                <FormField label="DNI / RUC" placeholder="8 o 11 dígitos" />
+                <FormField
+                  label="DNI / RUC"
+                  placeholder="8 o 11 dígitos"
+                  value={formData.dni}
+                  onChange={(v) => handleChange("dni", v)}
+                />
                 <SelectField
                   label="Tipo de Trámite"
+                  value={formData.tipo_tramite}
+                  onChange={(v: string) => handleChange("tipo_tramite", v)}
                   options={[
                     "Inmatriculación",
                     "Transferencia Notarial",
@@ -82,14 +139,20 @@ export function NewTramitePage() {
                 <FormField
                   label="N° Título (SUNARP)"
                   placeholder="2024-XXXXXX"
+                  value={formData.n_titulo}
+                  onChange={(v) => handleChange("n_titulo", v)}
                 />
                 <FormField
                   label="N° Formato Inmatriculación"
                   placeholder="Código de formato"
+                  value={formData.n_formato}
+                  onChange={(v) => handleChange("n_formato", v)}
                 />
               </div>
               <SelectField
                 label="Situación Actual"
+                value={formData.situacion}
+                onChange={(v: string) => handleChange("situacion", v)}
                 options={[
                   "En calificación",
                   "Inscrito",
@@ -101,7 +164,6 @@ export function NewTramitePage() {
             </div>
           </section>
 
-          {/* CHECKLIST DE ENTREGAS */}
           <section className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
             <div className="bg-gray-50 px-4 py-2.5 border-b border-gray-200 flex items-center gap-2 text-blue-600 font-bold text-[10px] uppercase tracking-widest">
               <CheckSquare className="w-4 h-4" /> Checklist de Entregas
@@ -111,6 +173,10 @@ export function NewTramitePage() {
                 <label className="flex items-center gap-2 cursor-pointer group">
                   <input
                     type="checkbox"
+                    checked={formData.check_recibo}
+                    onChange={(e) =>
+                      handleChange("check_recibo", e.target.checked)
+                    }
                     className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                   />
                   <span className="text-sm text-gray-700 group-hover:text-blue-600 transition-colors">
@@ -120,6 +186,10 @@ export function NewTramitePage() {
                 <label className="flex items-center gap-2 cursor-pointer group">
                   <input
                     type="checkbox"
+                    checked={formData.check_dni}
+                    onChange={(e) =>
+                      handleChange("check_dni", e.target.checked)
+                    }
                     className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                   />
                   <span className="text-sm text-gray-700 group-hover:text-blue-600 transition-colors">
@@ -133,19 +203,24 @@ export function NewTramitePage() {
                 </label>
                 <input
                   type="date"
+                  value={formData.fecha_entrega}
+                  onChange={(e) =>
+                    handleChange("fecha_entrega", e.target.value)
+                  }
                   className="w-full h-10 px-3 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white"
                 />
               </div>
             </div>
           </section>
 
-          {/* OBSERVACIONES INTERNAS */}
           <section className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
             <div className="bg-gray-50 px-4 py-2.5 border-b border-gray-200 flex items-center gap-2 text-blue-600 font-bold text-[10px] uppercase tracking-widest">
               <FileText className="w-4 h-4" /> Observaciones Internas
             </div>
             <div className="p-5">
               <textarea
+                value={formData.observaciones}
+                onChange={(e) => handleChange("observaciones", e.target.value)}
                 className="w-full p-3 border border-gray-200 rounded-lg text-sm min-h-[120px] focus:ring-2 focus:ring-blue-500 outline-none bg-white"
                 placeholder="Notas adicionales sobre el expediente..."
               />
@@ -155,54 +230,98 @@ export function NewTramitePage() {
 
         {/* COLUMNA DERECHA: VEHÍCULO Y EMPRESA */}
         <div className="space-y-6">
-          {/* DATOS DEL VEHÍCULO */}
           <section className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
             <div className="bg-gray-50 px-4 py-2.5 border-b border-gray-200 flex items-center gap-2 text-blue-600 font-bold text-[10px] uppercase tracking-widest">
               <Car className="w-4 h-4" /> Datos del Vehículo
             </div>
             <div className="p-5 space-y-4">
-              <div className="flex gap-2">
+              <div className="flex gap-2 items-end">
                 <div className="flex-1">
                   <FormField
                     label="DUA / D.A.M"
                     placeholder="Ej. 118-2024-10-..."
+                    value={formData.dua}
+                    onChange={(v) => handleChange("dua", v)}
                   />
                 </div>
-                <div className="flex items-end">
-                  <button className="h-10 px-4 bg-orange-600 text-white text-xs font-bold rounded-lg hover:bg-orange-700 transition-colors flex items-center gap-2 shadow-sm">
-                    <FileCode className="w-4 h-4" /> Autocompletar con PDF
-                  </button>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <FormField label="VIN / Serie" placeholder="17 caracteres" />
-                <FormField label="N° Motor" placeholder="Código de motor" />
+                <button
+                  type="button"
+                  onClick={onAutofill}
+                  disabled={loading}
+                  className="h-10 px-4 bg-orange-600 text-white text-xs font-bold rounded-lg hover:bg-orange-700 transition-colors flex items-center gap-2 shadow-sm disabled:bg-gray-400 active:scale-95"
+                >
+                  <span
+                    key={loading ? "loading" : "idle"}
+                    className="w-4 h-4 flex items-center justify-center"
+                  >
+                    {loading ? (
+                      <Loader2 className="animate-spin" />
+                    ) : (
+                      <FileCode />
+                    )}
+                  </span>
+                  {loading ? "Cargando..." : "Autocompletar con PDF"}
+                </button>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <FormField
-                  label="Placa Actual"
-                  placeholder="ABC-123 o EN TRAMITE"
+                  label="VIN / Serie"
+                  placeholder="17 caracteres"
+                  value={formData.vin}
+                  onChange={(v) => handleChange("vin", v)}
                 />
-                <FormField label="Marca" placeholder="Ej. BAJAJ" />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <FormField label="Modelo" placeholder="Ej. RE 205" />
                 <FormField
-                  label="Año Fabricación/Modelo"
-                  placeholder="2024 / 2025"
+                  label="N° Motor"
+                  placeholder="Código de motor"
+                  value={formData.motor}
+                  onChange={(v) => handleChange("motor", v)}
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <FormField label="Color" placeholder="Rojo, Azul, Negro..." />
+                <FormField
+                  label="Placa"
+                  placeholder="ABC-123"
+                  value={formData.placa}
+                  onChange={(v) => handleChange("placa", v)}
+                />
+                <FormField
+                  label="Marca"
+                  placeholder="Ej. BAJAJ"
+                  value={formData.marca}
+                  onChange={(v) => handleChange("marca", v)}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  label="Modelo"
+                  placeholder="Ej. RE 205"
+                  value={formData.modelo}
+                  onChange={(v) => handleChange("modelo", v)}
+                />
+                <FormField
+                  label="Año"
+                  placeholder="2024"
+                  value={formData.anio}
+                  onChange={(v) => handleChange("anio", v)}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  label="Color"
+                  placeholder="Rojo, Azul, Negro..."
+                  value={formData.color}
+                  onChange={(v) => handleChange("color", v)}
+                />
                 <FormField
                   label="Carrocería"
                   placeholder="Ej. Trimovil Pasajeros"
+                  value={formData.carroceria}
+                  onChange={(v) => handleChange("carroceria", v)}
                 />
               </div>
             </div>
           </section>
 
-          {/* EMPRESA QUE GESTIONA */}
           <section className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
             <div className="bg-gray-50 px-4 py-2.5 border-b border-gray-200 flex items-center gap-2 text-blue-600 font-bold text-[10px] uppercase tracking-widest">
               <Globe className="w-4 h-4" /> Empresa que Gestiona
@@ -210,6 +329,8 @@ export function NewTramitePage() {
             <div className="p-5">
               <SelectField
                 label="Empresa"
+                value={formData.empresa}
+                onChange={(v: string) => handleChange("empresa", v)}
                 options={[
                   "MOTOS DANY",
                   "CROSLAND",
@@ -220,7 +341,6 @@ export function NewTramitePage() {
             </div>
           </section>
 
-          {/* DOCUMENTOS Y ENLACES (ACCIONES RÁPIDAS) */}
           <section className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
             <div className="bg-gray-50 px-4 py-2.5 border-b border-gray-200 flex items-center gap-2 text-blue-600 font-bold text-[10px] uppercase tracking-widest">
               <ExternalLink className="w-4 h-4" /> Documentos y Enlaces
@@ -242,14 +362,6 @@ export function NewTramitePage() {
                 icon={<FileCheck className="w-3.5 h-3.5" />}
                 label="Cláusula Cancelación"
               />
-              <ActionButton
-                icon={<FileText className="w-3.5 h-3.5" />}
-                label="P. Medina"
-              />
-              <ActionButton
-                icon={<FileText className="w-3.5 h-3.5" />}
-                label="P. Pantigoso"
-              />
             </div>
           </section>
         </div>
@@ -258,15 +370,15 @@ export function NewTramitePage() {
   );
 }
 
-// --- COMPONENTES AUXILIARES LOCALES ---
-
-function FormField({
-  label,
-  placeholder,
-}: {
+// --- COMPONENTES AUXILIARES ---
+interface FormFieldProps {
   label: string;
+  value: string;
+  onChange: (val: string) => void;
   placeholder: string;
-}) {
+}
+
+function FormField({ label, value, onChange, placeholder }: FormFieldProps) {
   return (
     <div className="space-y-1">
       <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block ml-1">
@@ -274,21 +386,27 @@ function FormField({
       </label>
       <input
         type="text"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full h-10 px-3 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white shadow-sm hover:border-gray-300 transition-all placeholder:text-gray-300"
+        className="w-full h-10 px-3 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white shadow-sm transition-all"
       />
     </div>
   );
 }
 
-function SelectField({ label, options }: { label: string; options: string[] }) {
+function SelectField({ label, value, onChange, options }: any) {
   return (
-    <div className="space-y-1 text-left">
+    <div className="space-y-1">
       <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block ml-1">
         {label}
       </label>
-      <select className="w-full h-10 px-3 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white shadow-sm cursor-pointer hover:border-gray-300 transition-all">
-        {options.map((opt) => (
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full h-10 px-3 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white shadow-sm cursor-pointer"
+      >
+        {options.map((opt: string) => (
           <option key={opt} value={opt}>
             {opt}
           </option>
@@ -306,9 +424,8 @@ function ActionButton({
   label: string;
 }) {
   return (
-    <button className="flex items-center justify-center gap-2 h-10 px-3 border border-gray-200 rounded-lg text-[11px] font-bold text-gray-600 bg-white hover:bg-gray-50 hover:border-blue-300 hover:text-blue-600 transition-all shadow-sm">
-      {icon}
-      {label}
+    <button className="flex items-center justify-center gap-2 h-10 px-3 border border-gray-200 rounded-lg text-[10px] font-bold text-gray-600 bg-white hover:bg-gray-50 transition-all shadow-sm uppercase tracking-tighter">
+      {icon} {label}
     </button>
   );
 }
