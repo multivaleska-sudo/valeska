@@ -14,6 +14,7 @@ pub fn run() {
         // 🟢 REGISTRO OBLIGATORIO DE PLUGINS
         .plugin(tauri_plugin_sql::Builder::default().build())
         .plugin(tauri_plugin_dialog::init()) // 👈 Esto es lo que "despierta" al botón
+        .plugin(tauri_plugin_shell::init()) 
         .plugin(
             tauri_plugin_log::Builder::default()
                 .level(LevelFilter::Info)
