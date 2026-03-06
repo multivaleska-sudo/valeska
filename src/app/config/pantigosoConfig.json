@@ -1,0 +1,72 @@
+{
+  "document_name": "Carta Poder P. Pantigoso",
+  "settings": {
+    "unit": "mm",
+    "format": "a4",
+    "font_family": "helvetica",
+    "default_city": "Puerto Maldonado",
+    "margin_x": 20
+  },
+  "images": {
+    "logo_aap": {
+      "path": "/src/app/image/logo_aap.jpg",
+      "x": 15,
+      "y": 12,
+      "w": 45,
+      "h": 18
+    }
+  },
+  "apoderados_fijos": [
+    { "nombre": "PANDURO VEINTEMILLAS, ISMENIA", "dni": "46971794" },
+    {
+      "nombre": "MULTISERVICIOS VALESKA PUERTO MALDONADO S.A.C.",
+      "dni": "11165540"
+    }
+  ],
+  "common_labels": {
+    "firma_line": "FIRMA: ……………………………………………………………….…",
+    "nombre_label": "NOMBRES:",
+    "dni_label": "D.N.I. N°:",
+    "footer_valeska": "DOCUMENTO CREADO Y AUTORIZADO POR MULTISERVICIOS VALESKA-PUERTO MALDONADO S.A.C. PROHIBIDA SU MODIFICACIÓN Y/O IMITACIÓN SOLO PARA EL USO DE EMPRESAS COLABORADORAS - GESTOR AUTORIZADO"
+  },
+  "page_1_sunarp": {
+    "title": {
+      "x": 105,
+      "y": 30,
+      "text": "CARTA  PODER",
+      "size": 28,
+      "style": "bold"
+    },
+    "date_pos": { "x": 105, "y": 50, "size": 11 },
+    "addressee": {
+      "x": 20,
+      "y": 65,
+      "lines": ["Sr. REGISTRADOR DE SUNARP.-", "C I U D A D .-"],
+      "size": 10
+    },
+    "intro_text": "Por medio de la presente, otorgo poder para que, en representación de mis derechos y acciones, se proceda de acuerdo a lo mencionado en este documento con respecto a mi vehículo con el número de:",
+    "vehicle_table": { "y": 100, "h": 18 },
+    "faculties_text": "Asimismo, proceda a presentar, recoger, subsanar, objetar y recoger observaciones, así como a apersonarse ante las oficinas de SUNARP en la ciudad de Puerto Maldonado, para obtener la tarjeta de propiedad de mi vehículo antes mencionado. Para ello, mi apoderado(a) está facultado(a) para firmar y legalizar todos los formularios correspondientes de SUNARP, tales como formato de inmatriculación, cláusula de cancelación, cambio de uso, rectificación de oficio y/o parte, cambio de características o declaración jurada de medio de pago, carta poder para el recojo de la placa de rodaje, entre otros documentos. Me responsabilizo por todas las acciones que él o ella pueda llevar a cabo en mi representación con respecto a mi tarjeta de propiedad y placa de rodaje.",
+    "apoderados_table": { "y": 188 },
+    "legal_footer_text": "Estando facultados mis apoderados antes detallados, para firmar este documento y su reverso el mismo que contiene las POLÍTICAS DE PRIVACIDAD DE DATOS PERSONALES en mi representación. Otorgo este Poder con las facultades de los Artículos 74° y 75° del Código Procesal Civil.",
+    "closing": "Agradeciendo por anticipado a la presente atención.",
+    "signature_y": 255,
+    "page_tag": { "text": "PAGINA 01", "x": 190, "y": 275 }
+  },
+  "page_2_aap": {
+    "date_pos": { "x": 105, "y": 50, "size": 11 },
+    "addressee": {
+      "x": 20,
+      "y": 70,
+      "lines": ["Señores", "ASOCIACIÓN AUTOMOTRIZ DEL PERÚ"],
+      "bold_line": "Cliente",
+      "size": 10
+    },
+    "body_text": "De conformidad con lo establecido en el numeral 115.1 del Art. 115° de la Ley del Procedimiento Administrativo General, Ley N° 27444, tengo a bien dirigirme a ustedes con el objeto de conferir poder general para que, en representación de mi persona, acciones y derechos, las personas que a continuación se mencionan, en calidad de apoderado pueda apersonarse a sus oficinas con el objeto de recoger la placa única nacional de rodaje que corresponde al vehículo de propiedad con las siguientes caracteristicas:",
+    "vehicle_table": { "y": 140, "h": 20 },
+    "post_table_text": "Así como suscribir la constancia y/o formulario de recepción correspondiente.",
+    "apoderados_table": { "y": 190 },
+    "closing": "Atentamente,",
+    "signature_y": 260
+  }
+}

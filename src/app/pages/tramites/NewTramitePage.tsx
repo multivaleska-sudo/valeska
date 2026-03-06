@@ -19,6 +19,7 @@ import {
 import { generateLegacyForm } from "../../logic/pdf/formGeneratorPdf";
 import { generateClausulaPdf } from "../../logic/pdf/clausulaGeneratorPdf";
 import { generateMedinaPdf } from "../../logic/pdf/medinaGeneratorPdf";
+import { generatePantigosoPdf } from "../../logic/pdf/pantigosoGeneratorPdf";
 
 export function NewTramitePage() {
   const navigate = useNavigate();
@@ -397,6 +398,7 @@ export function NewTramitePage() {
               <ActionButton
                 icon={<FileText className="w-3.5 h-3.5" />}
                 label="P. Pantigoso"
+                onClick={() => generatePantigosoPdf(formData)}
               />
             </div>
           </section>
