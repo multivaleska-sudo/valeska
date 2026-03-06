@@ -27,3 +27,4 @@ tauri-plugin-sql = { version = "2", features = ["sqlite"] }
 pdf-extract = "0.7"
 regex = "1.10"
 tauri-plugin-dialog = "2"
+tauri-plugin-shell = "2"
