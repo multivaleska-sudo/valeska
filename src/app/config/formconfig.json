@@ -1,0 +1,82 @@
+{
+  "document_name": "PDF Formulario",
+  "grid": {
+    "show": false,
+    "col_step": 10,
+    "row_step": 8,
+    "line_color": [220, 220, 220]
+  },
+  "static_data": {
+    "boleta_serie": "EB01-433",
+    "fecha_header": "31-12-2024",
+    "region": "MADRE DE DIOS",
+    "email_empresa": "multivaleska@gmail.com",
+    "direccion_empresa": "JR. PUNO N°744",
+    "tramite_label": "Primera Inscripción Vehicular",
+    "otorgante_label": "OTORGA: MAZA CORPORACION IMPORTADORA E.I.R.L.",
+    "a_favor_label": "A FAVOR: HUGO ALLENDE HUILLCA",
+    "dua_literal": "118-2024-10-418554-53",
+    "formato_literal": "6689693",
+    "vin_1_literal": "JP162FMJ24J2560213",
+    "vin_2_literal": "LAACEKNE4R5890125",
+    "fecha_dua_literal": "01/06/2025"
+  },
+  "mapping": {
+    "boleta": { "x": 102, "y": 15, "size": 10, "text": "EB01-433" },
+    "fecha_header": { "x": 102, "y": 22, "size": 9, "text": "28-12-2024" },
+    "region": { "x": 102, "y": 68, "size": 9, "text": "MADRE DE DIOS" },
+    "check_derecha_superior": { "x": 185, "y": 85, "size": 10, "text": "X" },
+    "apellido_paterno": { "x": 35, "y": 115, "size": 9, "text": "FERNANDEZ" },
+    "apellido_materno": { "x": 80, "y": 115, "size": 9, "text": "HERRERA" },
+    "nombres": { "x": 130, "y": 115, "size": 9, "text": "DEIVID PAUL JUNIOR" },
+    "dni": { "x": 90, "y": 124, "size": 10, "text": "46654053" },
+    "email": { "x": 85, "y": 142, "size": 9, "text": "multivaleska@gmail.com" },
+    "direccion": { "x": 85, "y": 158, "size": 9, "text": "JR. PUNO N°744" },
+    "check_tramite": { "x": 32, "y": 178, "size": 10, "text": "X" },
+    "tramite_nombre": {
+      "x": 65,
+      "y": 178,
+      "size": 9,
+      "text": "Primera Inscripción Vehicular"
+    },
+    "otorgante": {
+      "x": 65,
+      "y": 202,
+      "size": 8,
+      "text": "OTORGA: MAZA CORPORACION IMPORTADORA E.I.R.L."
+    },
+    "afavor": {
+      "x": 65,
+      "y": 210,
+      "size": 8,
+      "text": "A FAVOR: HUGO ALLENDE HUILLCA"
+    },
+    "check_poder": { "x": 50, "y": 218, "size": 10, "text": "X" },
+    "dua_label": {
+      "x": 65,
+      "y": 235,
+      "size": 8,
+      "text": "DUA Nº 118-2024-10-418554-53"
+    },
+    "fecha_dua_valor": { "x": 165, "y": 235, "size": 8, "text": "01/06/2025" },
+    "n_formato_label": {
+      "x": 65,
+      "y": 243,
+      "size": 8,
+      "text": "Formato de Inmatriculación N° 6689625"
+    },
+    "poder_label": {
+      "x": 65,
+      "y": 251,
+      "size": 8,
+      "text": "CARTA PODER( X ) TIKET ( )"
+    },
+    "check_folios": { "x": 50, "y": 265, "size": 10, "text": "X" },
+    "folios_label": { "x": 65, "y": 265, "size": 8, "text": "FOLIOS( )" },
+    "vin_1": { "x": 40, "y": 282, "size": 8, "text": "JP162FMJ24J2560213" },
+    "vin_2": { "x": 115, "y": 282, "size": 8, "text": "LAACEKNE4R5890125" },
+    "dia_pie": { "x": 30, "y": 292, "size": 9, "text": "6" },
+    "mes_pie": { "x": 65, "y": 292, "size": 9, "text": "Enero" },
+    "anio_pie": { "x": 95, "y": 292, "size": 9, "text": "2025" }
+  }
+}
