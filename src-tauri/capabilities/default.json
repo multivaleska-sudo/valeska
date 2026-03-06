@@ -11,6 +11,7 @@
     "dialog:default",
     "dialog:allow-open",
     "log:default",
-    "sql:default"
+    "sql:default",
+    "shell:allow-open"
   ]
 }
