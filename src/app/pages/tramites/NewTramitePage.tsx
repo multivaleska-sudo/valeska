@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router";
 import { handlePdfAutofillAction } from "../../logic/tramites/pdfActions";
+import { open as openExternalLink } from "@tauri-apps/plugin-shell";
 import {
   ArrowLeft,
   Save,
@@ -15,6 +16,9 @@ import {
   FileCode,
   Loader2,
 } from "lucide-react";
+import { generateLegacyForm } from "../../logic/pdf/formGeneratorPdf";
+import { generateClausulaPdf } from "../../logic/pdf/clausulaGeneratorPdf";
+import { generateMedinaPdf } from "../../logic/pdf/medinaGeneratorPdf";
 
 export function NewTramitePage() {
   const navigate = useNavigate();
@@ -48,22 +52,27 @@ export function NewTramitePage() {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
-  // --- LÓGICA DE AUTOCOMPLETADO (MEJORADA) ---
-  const onAutofill = async () => {
-    console.log("Iniciando autocompletado..."); // Depuración: Verifica si el botón reacciona
-    if (loading) return;
+  // --- LÓGICA DE ENLACES EXTERNOS (Navegador del Sistema) ---
+  const handleOpenLink = async (url: string) => {
+    try {
+      await openExternalLink(url);
+    } catch (error) {
+      console.error("Error al intentar abrir el navegador:", error);
+    }
+  };
 
+  // --- LÓGICA DE AUTOCOMPLETADO PDF ---
+  const onAutofill = async () => {
+    if (loading) return;
     setLoading(true);
     try {
       const data = await handlePdfAutofillAction();
-      console.log("Datos recibidos de la lógica:", data);
       if (data) {
         setFormData((prev) => ({ ...prev, ...data }));
       }
     } catch (error) {
       console.error("Error crítico al procesar PDF:", error);
     } finally {
-      // Pequeño delay para que React termine su ciclo antes de quitar el spinner
       setTimeout(() => setLoading(false), 200);
     }
   };
@@ -75,7 +84,7 @@ export function NewTramitePage() {
         <div className="flex items-center gap-4">
           <button
             onClick={() => navigate("/tramites")}
-            className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-50"
+            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
           >
             <ArrowLeft className="w-5 h-5 text-gray-500" />
           </button>
@@ -95,7 +104,7 @@ export function NewTramitePage() {
           >
             Cancelar
           </button>
-          <button className="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold flex items-center gap-2 shadow-md hover:bg-blue-700 transition-all active:scale-95 text-sm">
+          <button className="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold flex items-center gap-2 shadow-md hover:bg-blue-700 active:scale-95 text-sm transition-all">
             <Save className="w-4 h-4" /> Guardar Trámite
           </button>
         </div>
@@ -260,19 +269,21 @@ export function NewTramitePage() {
                       <FileCode />
                     )}
                   </span>
-                  {loading ? "Cargando..." : "Autocompletar con PDF"}
+                  <span>
+                    {loading ? "Cargando..." : "Autocompletar con PDF"}
+                  </span>
                 </button>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <FormField
                   label="VIN / Serie"
-                  placeholder="17 caracteres"
+                  placeholder="17 carac."
                   value={formData.vin}
                   onChange={(v) => handleChange("vin", v)}
                 />
                 <FormField
                   label="N° Motor"
-                  placeholder="Código de motor"
+                  placeholder="Motor"
                   value={formData.motor}
                   onChange={(v) => handleChange("motor", v)}
                 />
@@ -286,7 +297,7 @@ export function NewTramitePage() {
                 />
                 <FormField
                   label="Marca"
-                  placeholder="Ej. BAJAJ"
+                  placeholder="BAJAJ"
                   value={formData.marca}
                   onChange={(v) => handleChange("marca", v)}
                 />
@@ -294,7 +305,7 @@ export function NewTramitePage() {
               <div className="grid grid-cols-2 gap-4">
                 <FormField
                   label="Modelo"
-                  placeholder="Ej. RE 205"
+                  placeholder="Modelo"
                   value={formData.modelo}
                   onChange={(v) => handleChange("modelo", v)}
                 />
@@ -308,13 +319,13 @@ export function NewTramitePage() {
               <div className="grid grid-cols-2 gap-4">
                 <FormField
                   label="Color"
-                  placeholder="Rojo, Azul, Negro..."
+                  placeholder="Rojo"
                   value={formData.color}
                   onChange={(v) => handleChange("color", v)}
                 />
                 <FormField
                   label="Carrocería"
-                  placeholder="Ej. Trimovil Pasajeros"
+                  placeholder="Motocicleta"
                   value={formData.carroceria}
                   onChange={(v) => handleChange("carroceria", v)}
                 />
@@ -343,24 +354,49 @@ export function NewTramitePage() {
 
           <section className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
             <div className="bg-gray-50 px-4 py-2.5 border-b border-gray-200 flex items-center gap-2 text-blue-600 font-bold text-[10px] uppercase tracking-widest">
-              <ExternalLink className="w-4 h-4" /> Documentos y Enlaces
+              <ExternalLink className="w-4 h-4" /> Enlaces de Consulta
             </div>
             <div className="p-5 grid grid-cols-2 gap-3">
               <ActionButton
                 icon={<Globe className="w-3.5 h-3.5" />}
                 label="Abrir SUNARP"
+                onClick={() =>
+                  handleOpenLink(
+                    "https://enlinea.sunarp.gob.pe/sunarpweb/pages/acceso/frmTitulos.faces",
+                  )
+                }
               />
               <ActionButton
                 icon={<Globe className="w-3.5 h-3.5" />}
                 label="Web AAP Placas"
+                onClick={() => handleOpenLink("https://placas.pe/#/home")}
               />
+            </div>
+          </section>
+
+          <section className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+            <div className="bg-gray-50 px-4 py-2.5 border-b border-gray-200 flex items-center gap-2 text-blue-600 font-bold text-[10px] uppercase tracking-widest">
+              <Printer className="w-4 h-4" /> Documentos e Impresión
+            </div>
+            <div className="p-5 grid grid-cols-2 gap-3">
               <ActionButton
                 icon={<Printer className="w-3.5 h-3.5" />}
                 label="Formulario"
+                onClick={() => generateLegacyForm()}
               />
               <ActionButton
                 icon={<FileCheck className="w-3.5 h-3.5" />}
                 label="Cláusula Cancelación"
+                onClick={() => generateClausulaPdf(formData)}
+              />
+              <ActionButton
+                icon={<FileText className="w-3.5 h-3.5" />}
+                label="P. Medina"
+                onClick={() => generateMedinaPdf(formData)}
+              />
+              <ActionButton
+                icon={<FileText className="w-3.5 h-3.5" />}
+                label="P. Pantigoso"
               />
             </div>
           </section>
@@ -377,7 +413,6 @@ interface FormFieldProps {
   onChange: (val: string) => void;
   placeholder: string;
 }
-
 function FormField({ label, value, onChange, placeholder }: FormFieldProps) {
   return (
     <div className="space-y-1">
@@ -419,12 +454,17 @@ function SelectField({ label, value, onChange, options }: any) {
 function ActionButton({
   icon,
   label,
+  onClick,
 }: {
   icon: React.ReactNode;
   label: string;
+  onClick?: () => void;
 }) {
   return (
-    <button className="flex items-center justify-center gap-2 h-10 px-3 border border-gray-200 rounded-lg text-[10px] font-bold text-gray-600 bg-white hover:bg-gray-50 transition-all shadow-sm uppercase tracking-tighter">
+    <button
+      onClick={onClick}
+      className="flex items-center justify-center gap-2 h-10 px-3 border border-gray-200 rounded-lg text-[10px] font-bold text-gray-600 bg-white hover:bg-gray-50 hover:text-blue-600 transition-all shadow-sm uppercase tracking-tighter"
+    >
       {icon} {label}
     </button>
   );
