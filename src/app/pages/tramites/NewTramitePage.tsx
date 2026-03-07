@@ -91,10 +91,10 @@ export function NewTramitePage() {
           </button>
           <div>
             <h2 className="text-xl font-bold text-gray-900 tracking-tight">
-              Nuevo Expediente
+              Nuevo Tramite
             </h2>
             <p className="text-xs text-blue-600 font-semibold uppercase tracking-widest">
-              Ingreso de datos maestros
+              Ingreso de datos del tramite
             </p>
           </div>
         </div>
