@@ -2,7 +2,7 @@ import { NavLink } from "react-router";
 import {
   LayoutDashboard,
   FileText,
-  Users,
+  Building2,
   Tag,
   FileCode,
   FolderOpen,
@@ -23,7 +23,7 @@ interface SidebarProps {
 const navItems = [
   { path: "/", label: "Dashboard", icon: LayoutDashboard, end: true },
   { path: "/tramites", label: "Trámites", icon: FileText },
-  { path: "/clientes", label: "Clientes", icon: Users },
+  { path: "/empresas", label: "Empresas", icon: Building2 },
   { path: "/situaciones", label: "Situaciones", icon: Tag },
   { path: "/xml", label: "XML SUNAT", icon: FileCode },
   { path: "/documentos", label: "Documentos", icon: FolderOpen },
@@ -41,16 +41,12 @@ export function Sidebar({ collapsed }: SidebarProps) {
       <aside
         className={cn(
           "bg-white border-r border-[#E5E7EB] transition-all duration-300 shrink-0",
-          collapsed ? "w-[72px]" : "w-[264px]"
+          collapsed ? "w-[72px]" : "w-[264px]",
         )}
       >
         <nav className="p-2 space-y-1">
           {navItems.map((item) => (
-            <NavItem
-              key={item.path}
-              {...item}
-              collapsed={collapsed}
-            />
+            <NavItem key={item.path} {...item} collapsed={collapsed} />
           ))}
         </nav>
       </aside>
@@ -75,10 +71,8 @@ function NavItem({ path, label, icon: Icon, collapsed, end }: NavItemProps) {
         cn(
           "flex items-center gap-3 px-3 py-2 rounded-md transition-colors group",
           "hover:bg-[#EFF6FF] hover:text-[#2563EB]",
-          isActive
-            ? "bg-[#EFF6FF] text-[#2563EB]"
-            : "text-[#6B7280]",
-          collapsed && "justify-center"
+          isActive ? "bg-[#EFF6FF] text-[#2563EB]" : "text-[#6B7280]",
+          collapsed && "justify-center",
         )
       }
     >
@@ -90,9 +84,7 @@ function NavItem({ path, label, icon: Icon, collapsed, end }: NavItemProps) {
   if (collapsed) {
     return (
       <Tooltip.Root>
-        <Tooltip.Trigger asChild>
-          {content}
-        </Tooltip.Trigger>
+        <Tooltip.Trigger asChild>{content}</Tooltip.Trigger>
         <Tooltip.Portal>
           <Tooltip.Content
             side="right"

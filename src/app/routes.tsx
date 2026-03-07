@@ -8,8 +8,8 @@ import { TramitesListPage } from "./pages/tramites/TramitesListPage";
 import { TramiteDetailPage } from "./pages/tramites/TramiteDetailPage";
 import { NewTramitePage } from "./pages/tramites/NewTramitePage";
 import { EditTramitePage } from "./pages/tramites/EditTramitePage";
-import { ClientesListPage } from "./pages/clientes/ClientesListPage";
-import { ClienteDetailPage } from "./pages/clientes/ClienteDetailPage";
+import { EmpresaListPage } from "./pages/empresas/EmpresaListPage";
+import { EmpresaForm } from "./pages/empresas/EmpresaForm";
 import { SituacionesPage } from "./pages/SituacionesPage";
 import { XMLImportPage } from "./pages/xml/XMLImportPage";
 import { XMLReviewPage } from "./pages/xml/XMLReviewPage";
@@ -49,8 +49,9 @@ export const router = createBrowserRouter([
       { path: "tramites/:id", element: <TramiteDetailPage /> },
       { path: "tramites/:id/edit", element: <EditTramitePage /> },
       { path: "tramites/:id/documents", element: <DocumentCenterPage /> },
-      { path: "clientes", element: <ClientesListPage /> },
-      { path: "clientes/:id", element: <ClienteDetailPage /> },
+      { path: "empresas", element: <EmpresaListPage /> },
+      { path: "empresas/form", element: <EmpresaForm /> },
+      { path: "empresas/form/:id", element: <EmpresaForm /> },
       { path: "situaciones", element: <SituacionesPage /> },
       { path: "xml", element: <XMLImportPage /> },
       { path: "xml/:id", element: <XMLReviewPage /> },
