@@ -16,11 +16,9 @@ import { XMLReviewPage } from "./pages/xml/XMLReviewPage";
 import { RecibosListPage } from "./pages/recibos/RecibosListPage";
 import { ReciboDetailPage } from "./pages/recibos/ReciboDetailPage";
 import { SyncPage } from "./pages/SyncPage";
-import { UsuariosPage } from "./pages/UsuariosPage";
+import { UsuariosPage } from "./pages/usuarios/UsuariosPage";
 import { CentralPage } from "./pages/central/CentralPage";
 import { DocumentCenterPage } from "./pages/documents/DocumentCenterPage";
-import { TemplateManagerPage } from "./pages/central/TemplateManagerPage";
-import { CalibrationPage } from "./pages/central/CalibrationPage";
 import { ConflictListPage } from "./pages/central/ConflictListPage";
 import { ResolveConflictPage } from "./pages/central/ResolveConflictPage";
 import { ConfigPage } from "./pages/ConfigPage";
@@ -63,8 +61,6 @@ export const router = createBrowserRouter([
       { path: "central", element: <CentralPage /> },
       { path: "central/conflictos", element: <ConflictListPage /> },
       { path: "central/conflictos/:id", element: <ResolveConflictPage /> },
-      { path: "central/templates", element: <TemplateManagerPage /> },
-      { path: "central/calibration", element: <CalibrationPage /> },
       { path: "ayuda", element: <HelpPage /> },
       { path: "config", element: <ConfigPage /> },
     ],
