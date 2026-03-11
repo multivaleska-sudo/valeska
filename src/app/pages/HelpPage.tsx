@@ -1,9 +1,8 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import {
   Book,
   Rocket,
   Mail,
-  ChevronRight,
   Copy,
   Check,
   FileText,
@@ -18,17 +17,14 @@ export function HelpPage() {
   const [copied, setCopied] = useState(false);
   const [isRedirecting, setIsRedirecting] = useState(false);
 
-  // --- LÓGICA DE COPIADO ---
   const copyEmail = () => {
     navigator.clipboard.writeText("soporte@valeska.com");
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
-  // --- SIMULACIÓN DE ENLACE A DOCUSAURUS ---
   const handleHistoryRedirect = () => {
     setIsRedirecting(true);
-    // Simulamos que el sistema prepara la apertura del navegador
     setTimeout(() => {
       setIsRedirecting(false);
       // Aquí iría el openExternalLink de Tauri a tu subdominio de documentación

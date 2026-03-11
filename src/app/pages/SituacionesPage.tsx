@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import { useMemo } from "react";
 import {
   Tag,
   TrendingUp,
@@ -6,12 +6,10 @@ import {
   PieChart as PieIcon,
   Activity,
   Printer,
-  FileDown,
 } from "lucide-react";
 import { generateSituacionesReport } from "../logic/situaciones/reportGenerator";
 
 export function SituacionesPage() {
-  // --- MOCK DE DATOS ACTUALIZADO ---
   const situaciones = [
     { id: 1, nombre: "En proceso", color: "#2563EB", count: 15 },
     { id: 2, nombre: "Documentación", color: "#F59E0B", count: 8 },
@@ -19,13 +17,11 @@ export function SituacionesPage() {
     { id: 4, nombre: "Pendiente", color: "#DC2626", count: 5 },
   ];
 
-  // Cálculos para los gráficos
   const total = useMemo(
     () => situaciones.reduce((acc, curr) => acc + curr.count, 0),
     [situaciones],
   );
 
-  // Generar coordenadas para el Pie Chart SVG
   const pieSlices = useMemo(() => {
     let cumulativePercent = 0;
     return situaciones.map((sit) => {
@@ -37,7 +33,6 @@ export function SituacionesPage() {
       const endY = Math.sin(2 * Math.PI * cumulativePercent);
       const largeArcFlag = percent > 0.5 ? 1 : 0;
 
-      // Path de SVG para el sector circular
       const pathData = [
         `M ${startX} ${startY}`,
         `A 1 1 0 ${largeArcFlag} 1 ${endX} ${endY}`,
@@ -165,7 +160,6 @@ export function SituacionesPage() {
   );
 }
 
-// --- COMPONENTE: TARJETA DE ESTADO CON GRÁFICO RADIAL ---
 function StatusCard({ situation, total }: { situation: any; total: number }) {
   const percentage = (situation.count / total) * 100;
   const strokeDasharray = `${percentage}, 100`;

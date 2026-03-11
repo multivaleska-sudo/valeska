@@ -1,4 +1,3 @@
-import React from "react";
 import {
   Radio,
   AlertCircle,
@@ -7,15 +6,9 @@ import {
   ShieldAlert,
   Activity,
   ArrowUpRight,
-  Settings2,
 } from "lucide-react";
 import { useNavigate } from "react-router";
 
-/**
- * 🛰️ CentralPage V2.0 - Núcleo de Control Maestro
- * Módulo simplificado enfocado en Dispositivos y Conflictos de Sincronización.
- * Acceso exclusivo para administradores de la red Valeska.
- */
 export function CentralPage() {
   const navigate = useNavigate();
 
@@ -93,7 +86,6 @@ export function CentralPage() {
             onClick={() => navigate(module.path)}
             className="group bg-white rounded-[3rem] border border-gray-100 p-10 hover:shadow-2xl hover:shadow-blue-900/5 transition-all duration-500 text-left relative overflow-hidden active:scale-[0.98]"
           >
-            {/* Elemento decorativo de fondo */}
             <div
               className={`absolute -right-10 -top-10 opacity-[0.03] group-hover:opacity-[0.08] transition-opacity duration-500 ${module.textColor}`}
             >
@@ -149,7 +141,7 @@ export function CentralPage() {
         <div className="flex items-center gap-4">
           <div className="w-1.5 h-1.5 rounded-full bg-blue-600" />
           <span className="text-[10px] font-black uppercase tracking-[0.4em]">
-            Valeska Central Node V2.1
+            Valeska Central
           </span>
           <div className="w-1.5 h-1.5 rounded-full bg-blue-600" />
         </div>
