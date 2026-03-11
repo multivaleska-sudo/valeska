@@ -1,43 +1,20 @@
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import { ask } from "@tauri-apps/plugin-dialog";
-
-/**
- * 📊 Motor de Generación de Reportes: Situaciones v1.3 (ULTRA-STABLE & CALIBRATED)
- * v1.3:
- * 1. Implementación de 'ask' para confirmación de usuario.
- * 2. Corrección del motor vectorial (coordenadas relativas para doc.lines).
- * 3. Calibración de márgenes Y para evitar solapamiento de títulos.
- */
-
-interface SituationData {
-  id: number;
-  nombre: string;
-  color: string;
-  count: number;
-}
+import { SituationData } from "../../types/reports/situation";
 
 export const generateSituacionesReport = async (
   situaciones: SituationData[],
 ) => {
   try {
-    // 1. Ventana de advertencia nativa (Tauri Plugin Dialog)
-    const confirmed = await ask(
-      "¿Deseas generar el reporte estadístico detallado en formato PDF?",
-      {
-        title: "Confirmación de Reporte",
-        kind: "info",
-        okLabel: "Generar PDF",
-        cancelLabel: "Cancelar",
-      },
-    );
+    const confirmed = await ask("¿Deseas generar el reporte en formato PDF?", {
+      title: "Confirmación de Reporte",
+      kind: "info",
+      okLabel: "Generar PDF",
+      cancelLabel: "Cancelar",
+    });
 
-    if (!confirmed) {
-      console.log("Generación cancelada por el usuario.");
-      return;
-    }
-
-    console.log("Iniciando motor de reporte Valeska V1.3...");
+    if (!confirmed) return;
 
     const doc = new jsPDF({
       orientation: "portrait",
@@ -49,7 +26,6 @@ export const generateSituacionesReport = async (
     const now = new Date();
     const dateStr = now.toLocaleDateString() + " " + now.toLocaleTimeString();
 
-    // 1. Cabecera Corporativa
     doc.setFillColor(30, 58, 138);
     doc.rect(0, 0, 210, 40, "F");
 
@@ -60,7 +36,7 @@ export const generateSituacionesReport = async (
 
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
-    doc.text(`Sistema de Gestión Valeska v2 - Generado el: ${dateStr}`, 20, 30);
+    doc.text(`Sistema de Gestión Valeska - Generado el: ${dateStr}`, 20, 30);
 
     // 2. Tabla de Resumen
     doc.setTextColor(0, 0, 0);
@@ -84,10 +60,8 @@ export const generateSituacionesReport = async (
       margin: { left: 20, right: 20 },
     });
 
-    // 3. Gráfico Circular (Cálculo de Coordenadas Relativas)
     const finalY = (doc as any).lastAutoTable.finalY || 100;
 
-    // CALIBRACIÓN: Bajamos el título y el gráfico para evitar amontonamiento
     const titleY = finalY + 20;
     const centerY = titleY + 45;
     const centerX = 70;
@@ -113,7 +87,6 @@ export const generateSituacionesReport = async (
       doc.setDrawColor(255, 255, 255);
       doc.setLineWidth(0.5);
 
-      // --- DIBUJO DE SEGMENTO CERRADO (Lógica Relativa Fix) ---
       const lines = [];
 
       // Primer punto: Del centro al inicio del arco
@@ -130,21 +103,18 @@ export const generateSituacionesReport = async (
         const nextX = radius * Math.cos(angle);
         const nextY = radius * Math.sin(angle);
 
-        lines.push([nextX - lastX, nextY - lastY]); // Desplazamiento delta
+        lines.push([nextX - lastX, nextY - lastY]);
         lastX = nextX;
         lastY = nextY;
       }
 
-      // Último punto: Volver al centro
       lines.push([-lastX, -lastY]);
 
-      // Dibujamos la forma cerrada en el origen centerX, centerY
       doc.lines(lines, centerX, centerY, [1, 1], "FD", true);
 
       currentAngle += sliceAngle;
     });
 
-    // Efecto Donut
     doc.setFillColor(255, 255, 255);
     doc.circle(centerX, centerY, radius * 0.55, "F");
 
@@ -183,7 +153,6 @@ export const generateSituacionesReport = async (
       legendY += 15;
     });
 
-    // 5. Pie de Página
     doc.setFontSize(8);
     doc.setTextColor(180, 180, 180);
     doc.text(
@@ -193,9 +162,7 @@ export const generateSituacionesReport = async (
       { align: "center" },
     );
 
-    // Guardado
     doc.save(`REPORTE_SITUACIONES_${now.getTime()}.pdf`);
-    console.log("¡Reporte emitido con éxito!");
   } catch (error) {
     console.error("CRASH EN GENERADOR PDF:", error);
   }
