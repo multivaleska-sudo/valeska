@@ -10,13 +10,11 @@ import {
   Building2,
   UserCheck,
   MapPin,
-  FileText,
   X,
   Inbox,
 } from "lucide-react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 
-// --- MOCK DE DATOS BASADO EN EL SISTEMA ORIGINAL ---
 const MOCK_EMPRESAS = [
   {
     id: "1",
@@ -51,7 +49,6 @@ export function EmpresaListPage() {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
 
-  // --- LÓGICA DE FILTRADO GLOBAL (Python Style) ---
   const filteredEmpresas = useMemo(() => {
     return MOCK_EMPRESAS.filter((e) => {
       const term = search.toLowerCase();
@@ -70,17 +67,14 @@ export function EmpresaListPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900 tracking-tight flex items-center gap-2">
             <Building2 className="text-blue-600 w-7 h-7" /> Directorio de
-            Empresas y Entidades
+            Empresas
           </h1>
-          <p className="text-sm text-gray-500">
-            Administración centralizada de clientes, proveedores y apoderados
-          </p>
         </div>
         <button
           onClick={() => navigate("/empresas/form")}
           className="bg-blue-600 text-white px-5 py-2.5 rounded-lg flex items-center gap-2 font-bold hover:bg-blue-700 shadow-md active:scale-95 transition-all text-sm"
         >
-          <Plus className="w-5 h-5" /> Nueva Empresa / Entidad
+          <Plus className="w-5 h-5" /> Nueva Empresa
         </button>
       </div>
 
@@ -105,7 +99,6 @@ export function EmpresaListPage() {
         </div>
       </div>
 
-      {/* TABLA DE ALTA DENSIDAD (Columnas Python Mapped) */}
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm overflow-x-auto">
         {filteredEmpresas.length > 0 ? (
           <table className="w-full text-left text-sm min-w-[1000px]">
