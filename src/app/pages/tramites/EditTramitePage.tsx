@@ -1,6 +1,5 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router";
-// Importaciones de lógica (Asegúrate de que estas rutas existan en tu proyecto real)
 import { handlePdfAutofillAction } from "../../logic/tramites/pdfActions";
 import { open as openExternalLink } from "@tauri-apps/plugin-shell";
 import {
@@ -17,14 +16,14 @@ import {
   FileCode,
   Loader2,
 } from "lucide-react";
-
-// --- MOTORES DE GENERACIÓN PDF ---
 import { generateLegacyForm } from "../../logic/pdf/formGeneratorPdf";
 import { generateClausulaPdf } from "../../logic/pdf/clausulaGeneratorPdf";
 import { generateMedinaPdf } from "../../logic/pdf/medinaGeneratorPdf";
 import { generatePantigosoPdf } from "../../logic/pdf/pantigosoGeneratorPdf";
+import { FormField } from "../../components/shared/FormField";
+import { SelectField } from "../../components/shared/SelectField";
+import { ActionButton } from "../../components/shared/ActionButton";
 
-// --- MOCK DE DATOS (Simulando base de datos) ---
 const MOCK_TRAMITES = [
   {
     id: "1",
@@ -53,7 +52,6 @@ export function EditTramitePage() {
   const { id } = useParams();
   const [loading, setLoading] = useState(false);
 
-  // --- ESTADO UNIFICADO (Idéntico a NewTramite) ---
   const [formData, setFormData] = useState({
     cliente: "",
     dni: "",
@@ -77,7 +75,6 @@ export function EditTramitePage() {
     empresa: "MULTISERVICIOS VALESKA",
   });
 
-  // --- LÓGICA DE CARGA: Buscamos por ID en el Mock ---
   useEffect(() => {
     const tramiteEncontrado = MOCK_TRAMITES.find((t) => t.id === id);
     if (tramiteEncontrado) {
@@ -445,76 +442,5 @@ export function EditTramitePage() {
         </div>
       </div>
     </div>
-  );
-}
-
-// --- COMPONENTES AUXILIARES TIPADOS ---
-
-interface FormFieldProps {
-  label: string;
-  value: string;
-  onChange: (val: string) => void;
-  placeholder: string;
-}
-
-function FormField({ label, value, onChange, placeholder }: FormFieldProps) {
-  return (
-    <div className="space-y-1">
-      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block ml-1">
-        {label}
-      </label>
-      <input
-        type="text"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        className="w-full h-10 px-3 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white shadow-sm transition-all hover:border-gray-300"
-      />
-    </div>
-  );
-}
-
-interface SelectFieldProps {
-  label: string;
-  value: string;
-  onChange: (val: string) => void;
-  options: string[];
-}
-
-function SelectField({ label, value, onChange, options }: SelectFieldProps) {
-  return (
-    <div className="space-y-1">
-      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block ml-1">
-        {label}
-      </label>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full h-10 px-3 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white shadow-sm cursor-pointer hover:border-gray-300"
-      >
-        {options.map((opt) => (
-          <option key={opt} value={opt}>
-            {opt}
-          </option>
-        ))}
-      </select>
-    </div>
-  );
-}
-
-interface ActionButtonProps {
-  icon: React.ReactNode;
-  label: string;
-  onClick?: () => void;
-}
-
-function ActionButton({ icon, label, onClick }: ActionButtonProps) {
-  return (
-    <button
-      onClick={onClick}
-      className="flex items-center justify-center gap-2 h-10 px-3 border border-gray-200 rounded-lg text-[10px] font-bold text-gray-600 bg-white hover:bg-gray-50 hover:text-blue-600 transition-all shadow-sm uppercase tracking-tighter active:scale-95"
-    >
-      {icon} {label}
-    </button>
   );
 }

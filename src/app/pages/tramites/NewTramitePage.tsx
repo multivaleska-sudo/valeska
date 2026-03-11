@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router";
 import { handlePdfAutofillAction } from "../../logic/tramites/pdfActions";
 import { open as openExternalLink } from "@tauri-apps/plugin-shell";
@@ -20,12 +20,14 @@ import { generateLegacyForm } from "../../logic/pdf/formGeneratorPdf";
 import { generateClausulaPdf } from "../../logic/pdf/clausulaGeneratorPdf";
 import { generateMedinaPdf } from "../../logic/pdf/medinaGeneratorPdf";
 import { generatePantigosoPdf } from "../../logic/pdf/pantigosoGeneratorPdf";
+import { FormField } from "../../components/shared/FormField";
+import { SelectField } from "../../components/shared/SelectField";
+import { ActionButton } from "../../components/shared/ActionButton";
 
 export function NewTramitePage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
 
-  // --- ESTADO UNIFICADO DEL FORMULARIO ---
   const [formData, setFormData] = useState({
     cliente: "",
     dni: "",
@@ -52,8 +54,6 @@ export function NewTramitePage() {
   const handleChange = (field: string, value: string | boolean) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
-
-  // --- LÓGICA DE ENLACES EXTERNOS (Navegador del Sistema) ---
   const handleOpenLink = async (url: string) => {
     try {
       await openExternalLink(url);
@@ -62,7 +62,6 @@ export function NewTramitePage() {
     }
   };
 
-  // --- LÓGICA DE AUTOCOMPLETADO PDF ---
   const onAutofill = async () => {
     if (loading) return;
     setLoading(true);
@@ -405,69 +404,5 @@ export function NewTramitePage() {
         </div>
       </div>
     </div>
-  );
-}
-
-// --- COMPONENTES AUXILIARES ---
-interface FormFieldProps {
-  label: string;
-  value: string;
-  onChange: (val: string) => void;
-  placeholder: string;
-}
-function FormField({ label, value, onChange, placeholder }: FormFieldProps) {
-  return (
-    <div className="space-y-1">
-      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block ml-1">
-        {label}
-      </label>
-      <input
-        type="text"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        className="w-full h-10 px-3 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white shadow-sm transition-all"
-      />
-    </div>
-  );
-}
-
-function SelectField({ label, value, onChange, options }: any) {
-  return (
-    <div className="space-y-1">
-      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block ml-1">
-        {label}
-      </label>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full h-10 px-3 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white shadow-sm cursor-pointer"
-      >
-        {options.map((opt: string) => (
-          <option key={opt} value={opt}>
-            {opt}
-          </option>
-        ))}
-      </select>
-    </div>
-  );
-}
-
-function ActionButton({
-  icon,
-  label,
-  onClick,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  onClick?: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className="flex items-center justify-center gap-2 h-10 px-3 border border-gray-200 rounded-lg text-[10px] font-bold text-gray-600 bg-white hover:bg-gray-50 hover:text-blue-600 transition-all shadow-sm uppercase tracking-tighter"
-    >
-      {icon} {label}
-    </button>
   );
 }
