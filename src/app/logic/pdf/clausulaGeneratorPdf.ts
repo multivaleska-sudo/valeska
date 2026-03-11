@@ -2,15 +2,10 @@ import { jsPDF } from "jspdf";
 import { ask } from "@tauri-apps/plugin-dialog";
 import clausulaConfig from "../../config/clausulaConfig.json";
 
-/**
- * Motor de Generación de Cláusula de Medio de Pago v1.2
- * v1.2: FIX CRÍTICO - Ahora usa el maxWidth específico de legal_body_p1
- * para evitar que el texto toque los bordes de la página.
- */
 export const generateClausulaPdf = async (formData: any) => {
   try {
     const confirmed = await ask(
-      "¿Deseas emitir la Cláusula de Medio de Pago con los datos actuales?",
+      "¿Deseas emitir la Cláusula de Medio de Pago?",
       {
         title: "Confirmación de Documento",
         kind: "info",
@@ -96,16 +91,11 @@ export const generateClausulaPdf = async (formData: any) => {
       doc.text(config.label, config.x, config.y);
       doc.text(String(value), config.x + 45, config.y);
     });
-
-    // --- 🟢 BLOQUE LEGAL CORREGIDO 🟢 ---
-    // Usamos las propiedades exactas del JSON (x, y, maxWidth, align)
     const legal = content.legal_body_p1;
     doc.setFontSize(legal.size);
 
-    // Al usar maxWidth directamente en el método .text con align: justify,
-    // jsPDF calcula los saltos de línea correctamente dentro de ese límite.
     doc.text(legal.text, legal.x, legal.y, {
-      maxWidth: legal.maxWidth, // 160mm desde x:25 termina en 185mm (sobran 25mm de margen derecho)
+      maxWidth: legal.maxWidth,
       align: legal.align as "justify",
       lineHeightFactor: 1.5,
     });

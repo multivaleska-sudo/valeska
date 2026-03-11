@@ -1,31 +1,8 @@
 import { jsPDF } from "jspdf";
 import { ask } from "@tauri-apps/plugin-dialog";
 import pantigosoConfig from "../../config/pantigosoConfig.json";
+import { getBase64ImageFromUrl } from "../../lib/imageConverter";
 
-/**
- * Función Helper para convertir imagen local a Base64.
- */
-const getBase64ImageFromUrl = async (url: string): Promise<string> => {
-  try {
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`No se pudo cargar la imagen en: ${url}`);
-    const blob = await res.blob();
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result as string);
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
-    });
-  } catch (error) {
-    console.error("Error cargando logo AAP:", error);
-    return "";
-  }
-};
-
-/**
- * Motor de Generación P. PANTIGOSO v1.2
- * v1.2: Ajuste de "Cliente" en negrita y fila de Placa N° en P2.
- */
 export const generatePantigosoPdf = async (formData: any) => {
   try {
     const confirmed = await ask("¿Deseas emitir la Carta Poder P. PANTIGOSO?", {
@@ -51,7 +28,6 @@ export const generatePantigosoPdf = async (formData: any) => {
       page_2_aap,
     } = pantigosoConfig as any;
 
-    // Carga de única imagen requerida (Logo AAP)
     const imgAap = await getBase64ImageFromUrl(images.logo_aap.path);
 
     const now = new Date();
@@ -71,7 +47,6 @@ export const generatePantigosoPdf = async (formData: any) => {
     ];
     const fechaActual = `${settings.default_city}, ${now.getDate()} ${meses[now.getMonth()]} ${now.getFullYear()}`;
 
-    // --- FUNCIONES INTERNAS ---
     const drawApoderadosTable = (startY: number) => {
       doc.setFont("helvetica", "bold");
       doc.setFontSize(9);
@@ -198,13 +173,12 @@ export const generatePantigosoPdf = async (formData: any) => {
       align: "center",
     });
 
-    // Dibujo de Destinatario P2 con Negrita en Cliente
     let currentY = page_2_aap.addressee.y;
     page_2_aap.addressee.lines.forEach((line: string) => {
       doc.text(line, page_2_aap.addressee.x, currentY);
       currentY += 5;
     });
-    doc.setFont("helvetica", "bolditalic"); // Cambiamos a Negrita para "Cliente"
+    doc.setFont("helvetica", "bolditalic");
     doc.text(page_2_aap.addressee.bold_line, page_2_aap.addressee.x, currentY);
     currentY += 10;
 
@@ -216,7 +190,6 @@ export const generatePantigosoPdf = async (formData: any) => {
       lineHeightFactor: 1.4,
     });
 
-    // Tabla Vehículo AAP (Con fila de Placa N° integrada)
     const vt2 = page_2_aap.vehicle_table;
     doc.rect(20, vt2.y, 85, vt2.h);
     doc.rect(105, vt2.y, 85, vt2.h);
@@ -226,7 +199,6 @@ export const generatePantigosoPdf = async (formData: any) => {
     doc.text(formData.vin || "", 25, vt2.y + 15);
     doc.text(formData.motor || "", 110, vt2.y + 15);
 
-    // 🟢 FILA PLACA N° (Saldrá si o sí según tu imagen)
     doc.rect(20, vt2.y + vt2.h, 170, 8);
     doc.setFont("helvetica", "normal");
     doc.text(`Placa N°:`, 25, vt2.y + vt2.h + 5);

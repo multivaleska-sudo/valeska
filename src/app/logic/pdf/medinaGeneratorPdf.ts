@@ -1,36 +1,9 @@
 import { jsPDF } from "jspdf";
 import { ask } from "@tauri-apps/plugin-dialog";
 import medinaConfig from "../../config/medinaConfig.json";
+import { getBase64ImageFromUrl } from "../../lib/imageConverter";
 
-/**
- * Función Helper Mejorada para convertir imagen local a Base64.
- * Valida si la respuesta es correcta para evitar PDFs corruptos.
- */
-const getBase64ImageFromUrl = async (url: string): Promise<string> => {
-  try {
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`No se pudo encontrar la imagen en: ${url}`);
-    const blob = await res.blob();
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result as string);
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
-    });
-  } catch (error) {
-    console.error("Error cargando imagen:", error);
-    return "";
-  }
-};
-
-/**
- * Motor de Generación P. MEDINA v2.2
- * v2.2: FIX DE ESPACIADO - Se han ajustado las coordenadas para evitar solapamiento
- * entre la tabla del vehículo y el texto legal en la Página 1.
- */
 export const generateMedinaPdf = async (formData: any) => {
-  console.log("Iniciando generación de Medina PDF con datos:", formData);
-
   try {
     const confirmed = await ask("¿Deseas emitir la Carta Poder P. MEDINA?", {
       title: "Confirmación de Emisión",
@@ -56,7 +29,6 @@ export const generateMedinaPdf = async (formData: any) => {
       page_2_aap,
     } = medinaConfig as any;
 
-    // Carga de imágenes con validación (Ruta corregida en JSON: /src/app/image/...)
     const imgNotaria = await getBase64ImageFromUrl(images.logo_notaria_p1.path);
     const imgAap = await getBase64ImageFromUrl(images.logo_aap.path);
 
@@ -77,7 +49,6 @@ export const generateMedinaPdf = async (formData: any) => {
     ];
     const fechaActual = `${settings.default_city}, ${now.getDate()} ${meses[now.getMonth()]} ${now.getFullYear()}`;
 
-    // --- FUNCIONES INTERNAS DE DIBUJO ---
     const drawApoderadosTable = (startY: number) => {
       doc.setFont("helvetica", "bold");
       doc.setFontSize(9);
@@ -159,7 +130,6 @@ export const generateMedinaPdf = async (formData: any) => {
       { maxWidth: 170 },
     );
 
-    // Tabla Vehículo SUNARP (y: 100, h: 18)
     const vt1 = page_1_sunarp.vehicle_table;
     doc.rect(20, vt1.y, 85, vt1.h);
     doc.rect(105, vt1.y, 85, vt1.h);
@@ -178,7 +148,6 @@ export const generateMedinaPdf = async (formData: any) => {
       vt1.y + 14,
     );
 
-    // Fila Placa (y: 118, h: 8) -> Termina en 126
     doc.rect(20, vt1.y + vt1.h, 170, 8);
     doc.text(
       `N° PLACA:  ${formData.placa || "................"}`,
@@ -186,7 +155,6 @@ export const generateMedinaPdf = async (formData: any) => {
       vt1.y + vt1.h + 5,
     );
 
-    // Facultades (y: 135) -> Espacio de 9mm libre desde el final de la tabla
     doc.setFontSize(page_1_sunarp.faculties_text.size);
     doc.text(
       page_1_sunarp.faculties_text.text,
@@ -198,11 +166,8 @@ export const generateMedinaPdf = async (formData: any) => {
         lineHeightFactor: 1.3,
       },
     );
-
-    // Tabla Apoderados (y: 188)
     drawApoderadosTable(page_1_sunarp.apoderados_table.y);
 
-    // Bloques finales bajados para evitar amontonamiento
     doc.setFontSize(8.5);
     doc.text(page_1_sunarp.legal_footer_text, 20, 215, {
       maxWidth: 170,
@@ -210,7 +175,6 @@ export const generateMedinaPdf = async (formData: any) => {
     });
     doc.text(page_1_sunarp.closing, 20, 230);
 
-    // Firma P1 (y: 255)
     drawSignatureBlock(page_1_sunarp.signature_y);
 
     // ================= PÁGINA 2: AAP =================
