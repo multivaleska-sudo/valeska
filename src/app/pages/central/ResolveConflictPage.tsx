@@ -1,4 +1,4 @@
-import { ArrowLeft, AlertTriangle, Lock } from "lucide-react";
+import { ArrowLeft, Lock } from "lucide-react";
 import { useNavigate, useParams } from "react-router";
 
 export function ResolveConflictPage() {
@@ -48,11 +48,15 @@ export function ResolveConflictPage() {
             <div className="grid grid-cols-2 gap-3">
               <button className="p-3 border-2 border-[#2563EB] bg-[#EFF6FF] rounded-md text-left">
                 <div className="text-xs text-[#6B7280] mb-1">Valor Local</div>
-                <div className="text-sm font-medium text-[#111827] font-mono">ABC-123</div>
+                <div className="text-sm font-medium text-[#111827] font-mono">
+                  ABC-123
+                </div>
               </button>
               <button className="p-3 border border-[#E5E7EB] rounded-md text-left hover:border-[#2563EB]">
                 <div className="text-xs text-[#6B7280] mb-1">Valor Remoto</div>
-                <div className="text-sm font-medium text-[#111827] font-mono">ABC-124</div>
+                <div className="text-sm font-medium text-[#111827] font-mono">
+                  ABC-124
+                </div>
               </button>
             </div>
           </div>
