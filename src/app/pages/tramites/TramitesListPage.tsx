@@ -14,7 +14,6 @@ import {
 } from "lucide-react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 
-// --- DATOS MOCK EXTENDIDOS PARA PRUEBAS ---
 const MOCK_TRAMITES = [
   {
     id: "1",
@@ -61,14 +60,12 @@ const MOCK_TRAMITES = [
 export function TramitesListPage() {
   const navigate = useNavigate();
 
-  // ESTADOS DE FILTRADO
   const [search, setSearch] = useState("");
   const [filterSituacion, setFilterSituacion] = useState("");
   const [filterTipo, setFilterTipo] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
 
-  // LÓGICA DE FILTRADO REACTIVO
   const filteredTramites = useMemo(() => {
     return MOCK_TRAMITES.filter((t) => {
       const matchesSearch =
@@ -80,7 +77,6 @@ export function TramitesListPage() {
         filterSituacion === "" || t.situacion === filterSituacion;
       const matchesTipo = filterTipo === "" || t.tipo === filterTipo;
 
-      // Filtrado por fecha (Y-m-d)
       const matchesDate =
         (!fromDate || t.fecha >= fromDate) && (!toDate || t.fecha <= toDate);
 

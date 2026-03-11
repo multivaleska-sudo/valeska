@@ -1,10 +1,8 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router";
 import { open as openExternalLink } from "@tauri-apps/plugin-shell";
 import {
   ArrowLeft,
-  Copy,
-  Check,
   User,
   Car,
   Edit,
@@ -14,15 +12,21 @@ import {
   Printer,
   FileCheck,
   ExternalLink,
+  Building2,
+  Hash,
+  Fingerprint,
+  Calendar,
+  Check,
+  FileCode,
 } from "lucide-react";
-
-// --- IMPORTACIÓN DE MOTORES PDF ---
+import { CopiableField } from "../../components/shared/CopiableField";
+import { ActionButton } from "../../components/shared/ActionButton";
+import { TramiteData } from "../../types/tramites/tramite.types";
 import { generateLegacyForm } from "../../logic/pdf/formGeneratorPdf";
 import { generateClausulaPdf } from "../../logic/pdf/clausulaGeneratorPdf";
 import { generateMedinaPdf } from "../../logic/pdf/medinaGeneratorPdf";
 import { generatePantigosoPdf } from "../../logic/pdf/pantigosoGeneratorPdf";
 
-// --- MOCK DE DATOS (Simulando base de datos) ---
 const MOCK_TRAMITES = [
   {
     id: "1",
@@ -52,20 +56,18 @@ const MOCK_TRAMITES = [
 export function TramiteDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [formData, setFormData] = useState<TramiteData | null>(null);
 
-  // --- ESTADO PARA LOS MOTORES DE PDF ---
-  const [formData, setFormData] = useState<any>(null);
-
-  // --- CARGA DE DATOS ---
   useEffect(() => {
     const tramite = MOCK_TRAMITES.find((t) => t.id === id);
     if (tramite) {
       setFormData({
         ...tramite,
-        dni: tramite.documento, // Mapeo de nombre de campo
+        dni: tramite.documento,
         tipo_tramite: tramite.tipo,
         n_titulo: tramite.codigo,
-      });
+        carroceria: tramite.carroceria || "MOTOCICLETA",
+      } as TramiteData);
     }
   }, [id]);
 
@@ -80,8 +82,8 @@ export function TramiteDetailPage() {
 
   if (!formData)
     return (
-      <div className="p-20 text-center text-gray-500 font-bold">
-        Cargando expediente...
+      <div className="p-20 text-center text-gray-500 font-black uppercase tracking-widest animate-pulse">
+        Consultando Expediente...
       </div>
     );
 
@@ -92,153 +94,199 @@ export function TramiteDetailPage() {
         <div className="flex items-center gap-4">
           <button
             onClick={() => navigate("/tramites")}
-            className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-500"
+            className="p-2 hover:bg-gray-100 rounded-full transition-all text-gray-500"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div>
-            <h2 className="text-xl font-bold text-gray-900 tracking-tight">
-              Expediente {formData.codigo}
+            <h2 className="text-xl font-black text-gray-900 tracking-tighter uppercase leading-none">
+              Expediente {formData.n_titulo}
             </h2>
-            <p className="text-xs text-blue-600 font-semibold uppercase tracking-widest">
-              Vista de Consulta / Solo Lectura
+            <p className="text-[10px] text-blue-600 font-bold uppercase tracking-widest mt-1">
+              Visualización de Seguridad / Solo Lectura
             </p>
           </div>
         </div>
         <button
           onClick={() => navigate(`/tramites/${id}/edit`)}
-          className="bg-white border border-gray-200 text-gray-700 px-6 py-2 rounded-lg font-bold flex items-center gap-2 shadow-sm hover:bg-gray-50 active:scale-95 transition-all text-sm"
+          className="bg-amber-50 text-amber-700 border border-amber-200 px-6 py-2.5 rounded-xl font-black flex items-center gap-2 shadow-sm hover:bg-amber-500 hover:text-white active:scale-95 transition-all text-[11px] uppercase tracking-widest"
         >
-          <Edit className="w-4 h-4 text-amber-500" /> Ir a Editar
+          <Edit size={14} /> Modificar Datos
         </button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* COLUMNA IZQUIERDA */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* COLUMNA IZQUIERDA: TRÁMITE Y PROPIETARIO */}
         <div className="space-y-6">
-          <section className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
-            <div className="bg-gray-50 px-4 py-2.5 border-b border-gray-200 flex items-center gap-2 text-blue-600 font-bold text-[10px] uppercase tracking-widest">
-              <User className="w-4 h-4" /> Datos del Trámite y Propietario
+          <section className="bg-white border border-gray-200 rounded-[2rem] overflow-hidden shadow-sm">
+            <div className="bg-blue-50/50 px-5 py-3 border-b border-blue-100 flex items-center gap-2 text-blue-800 font-black text-[10px] uppercase tracking-[0.2em]">
+              <User size={14} /> Información del Titular
             </div>
-            <div className="p-5 space-y-4">
-              <ReadOnlyField
+            <div className="p-6 space-y-5">
+              <CopiableField
                 label="Cliente / Razón Social"
                 value={formData.cliente}
+                readOnly
+                icon={<User size={16} />}
               />
               <div className="grid grid-cols-2 gap-4">
-                <ReadOnlyField label="DNI / RUC" value={formData.documento} />
-                <ReadOnlyField label="Tipo de Trámite" value={formData.tipo} />
+                <CopiableField
+                  label="Identificación (DNI/RUC)"
+                  value={formData.dni}
+                  readOnly
+                  mono
+                  icon={<Fingerprint size={16} />}
+                />
+                <CopiableField
+                  label="Tipo de Proceso"
+                  value={formData.tipo_tramite}
+                  readOnly
+                  icon={<FileText size={16} />}
+                />
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <ReadOnlyField
-                  label="N° Título (SUNARP)"
-                  value={formData.codigo}
+                <CopiableField
+                  label="Código Título (SUNARP)"
+                  value={formData.n_titulo}
+                  readOnly
+                  mono
+                  icon={<Hash size={16} />}
                 />
-                <ReadOnlyField
-                  label="N° Formato Inmatriculación"
-                  value={formData.n_formato}
+                <CopiableField
+                  label="Situación del Trámite"
+                  value={formData.situacion}
+                  readOnly
+                  icon={<div className="w-2 h-2 rounded-full bg-blue-500" />}
                 />
               </div>
-              <ReadOnlyField
-                label="Situación Actual"
-                value={formData.situacion}
-                isStatus
-              />
             </div>
           </section>
 
-          <section className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
-            <div className="bg-gray-50 px-4 py-2.5 border-b border-gray-200 flex items-center gap-2 text-blue-600 font-bold text-[10px] uppercase tracking-widest">
-              <CheckSquare className="w-4 h-4" /> Checklist de Entregas
+          <section className="bg-white border border-gray-200 rounded-[2rem] overflow-hidden shadow-sm">
+            <div className="bg-gray-50 px-5 py-3 border-b border-gray-200 flex items-center gap-2 text-gray-500 font-black text-[10px] uppercase tracking-[0.2em]">
+              <CheckSquare size={14} /> Estado de Entrega
             </div>
-            <div className="p-5 space-y-4">
-              <div className="flex items-center gap-8">
-                <div className="flex items-center gap-2">
+            <div className="p-6 space-y-6">
+              <div className="flex items-center gap-10">
+                <div className="flex items-center gap-3">
                   <div
-                    className={`w-4 h-4 rounded border flex items-center justify-center ${formData.check_recibo ? "bg-green-500 border-green-600 text-white" : "bg-gray-100 border-gray-300"}`}
+                    className={`w-6 h-6 rounded-lg flex items-center justify-center transition-colors ${formData.check_recibo ? "bg-green-600 text-white shadow-lg shadow-green-100" : "bg-gray-100 text-gray-300"}`}
                   >
-                    {formData.check_recibo && <Check className="w-3 h-3" />}
+                    <Check size={14} strokeWidth={4} />
                   </div>
-                  <span className="text-sm text-gray-700">
+                  <span
+                    className={`text-xs font-black uppercase tracking-tight ${formData.check_recibo ? "text-gray-800" : "text-gray-400"}`}
+                  >
                     Recibo de Tarjeta
                   </span>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-3">
                   <div
-                    className={`w-4 h-4 rounded border flex items-center justify-center ${formData.check_dni ? "bg-green-500 border-green-600 text-white" : "bg-gray-100 border-gray-300"}`}
+                    className={`w-6 h-6 rounded-lg flex items-center justify-center transition-colors ${formData.check_dni ? "bg-green-600 text-white shadow-lg shadow-green-100" : "bg-gray-100 text-gray-300"}`}
                   >
-                    {formData.check_dni && <Check className="w-3 h-3" />}
+                    <Check size={14} strokeWidth={4} />
                   </div>
-                  <span className="text-sm text-gray-700">
+                  <span
+                    className={`text-xs font-black uppercase tracking-tight ${formData.check_dni ? "text-gray-800" : "text-gray-400"}`}
+                  >
                     DNI para Tarjeta
                   </span>
                 </div>
               </div>
               <div className="w-1/2">
-                <ReadOnlyField
-                  label="Fecha de Entrega"
-                  value={formData.fecha_entrega || "No definida"}
+                <CopiableField
+                  label="Fecha Programada"
+                  value={formData.fecha_entrega || "PENDIENTE"}
+                  readOnly
+                  icon={<Calendar size={16} />}
                 />
               </div>
             </div>
           </section>
 
-          <section className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
-            <div className="bg-gray-50 px-4 py-2.5 border-b border-gray-200 flex items-center gap-2 text-blue-600 font-bold text-[10px] uppercase tracking-widest">
-              <FileText className="w-4 h-4" /> Observaciones Internas
+          <section className="bg-white border border-gray-200 rounded-[2rem] overflow-hidden shadow-sm">
+            <div className="bg-gray-50 px-5 py-3 border-b border-gray-200 flex items-center gap-2 text-gray-400 font-black text-[10px] uppercase tracking-[0.2em]">
+              <FileText size={14} /> Glosa de Observaciones
             </div>
-            <div className="p-5 bg-gray-50/30 rounded-b-xl italic text-sm text-gray-600 min-h-[80px]">
-              {formData.observaciones || "Sin observaciones registradas."}
+            <div className="p-6 min-h-[100px] bg-gray-50/30">
+              <p className="text-sm font-medium text-gray-600 italic leading-relaxed">
+                {formData.observaciones ||
+                  "No se han registrado notas adicionales para este expediente."}
+              </p>
             </div>
           </section>
         </div>
 
-        {/* COLUMNA DERECHA */}
+        {/* COLUMNA DERECHA: VEHÍCULO Y ACCIONES */}
         <div className="space-y-6">
-          <section className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
-            <div className="bg-gray-50 px-4 py-2.5 border-b border-gray-200 flex items-center gap-2 text-blue-600 font-bold text-[10px] uppercase tracking-widest">
-              <Car className="w-4 h-4" /> Datos del Vehículo
+          <section className="bg-white border border-gray-200 rounded-[2rem] overflow-hidden shadow-sm">
+            <div className="bg-emerald-50/50 px-5 py-3 border-b border-emerald-100 flex items-center gap-2 text-emerald-800 font-black text-[10px] uppercase tracking-[0.2em]">
+              <Car size={14} /> Ficha Técnica del Vehículo
             </div>
-            <div className="p-5 space-y-4">
-              <ReadOnlyField label="DUA / D.A.M" value={formData.dua} mono />
+            <div className="p-6 space-y-5">
+              <CopiableField
+                label="D.U.A. / D.A.M."
+                value={formData.dua}
+                readOnly
+                mono
+                icon={<FileCode size={16} />}
+              />
               <div className="grid grid-cols-2 gap-4">
-                <ReadOnlyField label="VIN / Serie" value={formData.vin} mono />
-                <ReadOnlyField label="N° Motor" value={formData.motor} mono />
+                <CopiableField
+                  label="VIN / Serie"
+                  value={formData.vin}
+                  readOnly
+                  mono
+                />
+                <CopiableField
+                  label="Número de Motor"
+                  value={formData.motor}
+                  readOnly
+                  mono
+                />
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <ReadOnlyField label="Placa" value={formData.placa} mono />
-                <ReadOnlyField label="Marca" value={formData.marca} />
+                <CopiableField
+                  label="Placa Asignada"
+                  value={formData.placa}
+                  readOnly
+                  mono
+                />
+                <CopiableField
+                  label="Marca / Fabricante"
+                  value={formData.marca}
+                  readOnly
+                />
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <ReadOnlyField label="Modelo" value={formData.modelo} />
-                <ReadOnlyField label="Año" value={formData.anio} />
+                <CopiableField
+                  label="Modelo"
+                  value={formData.modelo}
+                  readOnly
+                />
+                <CopiableField
+                  label="Año Fab."
+                  value={formData.anio}
+                  readOnly
+                />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <ReadOnlyField label="Color" value={formData.color} />
-                <ReadOnlyField label="Carrocería" value={formData.carroceria} />
-              </div>
+              <CopiableField
+                label="Empresa Gestora"
+                value={formData.empresa}
+                readOnly
+                icon={<Building2 size={16} />}
+              />
             </div>
           </section>
 
-          <section className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
-            <div className="bg-gray-50 px-4 py-2.5 border-b border-gray-200 flex items-center gap-2 text-blue-600 font-bold text-[10px] uppercase tracking-widest">
-              <Globe className="w-4 h-4" /> Empresa que Gestiona
+          <section className="bg-white border border-gray-200 rounded-[2rem] p-8 shadow-sm">
+            <div className="flex items-center gap-2 text-indigo-800 font-black text-[10px] uppercase tracking-[0.2em] mb-6">
+              <Globe size={16} /> Enlaces de Verificación Externa
             </div>
-            <div className="p-5">
-              <ReadOnlyField label="Empresa" value={formData.empresa} />
-            </div>
-          </section>
-
-          {/* BOTONERA DE ACCIÓN Y EMISIÓN */}
-
-          <section className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
-            <div className="bg-gray-50 px-4 py-2.5 border-b border-gray-200 flex items-center gap-2 text-blue-600 font-bold text-[10px] uppercase tracking-widest">
-              <ExternalLink className="w-4 h-4" /> Enlaces de Consulta
-            </div>
-            <div className="p-5 grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-4">
               <ActionButton
-                icon={<Globe className="w-3.5 h-3.5" />}
-                label="Abrir SUNARP"
+                icon={<Globe size={14} />}
+                label="Títulos SUNARP"
                 onClick={() =>
                   handleOpenLink(
                     "https://enlinea.sunarp.gob.pe/sunarpweb/pages/acceso/frmTitulos.faces",
@@ -246,35 +294,37 @@ export function TramiteDetailPage() {
                 }
               />
               <ActionButton
-                icon={<Globe className="w-3.5 h-3.5" />}
-                label="Web AAP Placas"
+                icon={<ExternalLink size={14} />}
+                label="Placas AAP"
                 onClick={() => handleOpenLink("https://placas.pe/#/home")}
               />
             </div>
           </section>
 
-          <section className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
-            <div className="bg-gray-50 px-4 py-2.5 border-b border-gray-200 flex items-center gap-2 text-blue-600 font-bold text-[10px] uppercase tracking-widest">
-              <Printer className="w-4 h-4" /> Documentos e Impresión
+          <section className="bg-white border border-gray-200 rounded-[2rem] p-8 shadow-sm border-r-8 border-r-blue-600">
+            <div className="flex items-center gap-2 text-blue-800 font-black text-[10px] uppercase tracking-[0.2em] mb-6">
+              <Printer size={16} /> Emisión de Documentos
             </div>
-            <div className="p-5 grid grid-cols-2 gap-3 bg-blue-50/20">
+            <div className="grid grid-cols-2 gap-4">
               <ActionButton
-                icon={<Printer className="w-3.5 h-3.5" />}
-                label="Formulario"
+                icon={<Printer size={14} />}
+                label="Formulario A"
+                variant="blue"
                 onClick={() => generateLegacyForm()}
               />
               <ActionButton
-                icon={<FileCheck className="w-3.5 h-3.5" />}
-                label="Cláusula Cancelación"
+                icon={<FileCheck size={14} />}
+                label="Cláusula"
+                variant="blue"
                 onClick={() => generateClausulaPdf(formData)}
               />
               <ActionButton
-                icon={<FileText className="w-3.5 h-3.5" />}
+                icon={<FileText size={14} />}
                 label="P. Medina"
                 onClick={() => generateMedinaPdf(formData)}
               />
               <ActionButton
-                icon={<FileText className="w-3.5 h-3.5" />}
+                icon={<FileText size={14} />}
                 label="P. Pantigoso"
                 onClick={() => generatePantigosoPdf(formData)}
               />
@@ -283,73 +333,5 @@ export function TramiteDetailPage() {
         </div>
       </div>
     </div>
-  );
-}
-
-// --- COMPONENTES AUXILIARES ---
-
-function ReadOnlyField({
-  label,
-  value,
-  mono,
-  isStatus,
-}: {
-  label: string;
-  value: string;
-  mono?: boolean;
-  isStatus?: boolean;
-}) {
-  const [copied, setCopied] = useState(false);
-
-  const copy = () => {
-    if (!value) return;
-    navigator.clipboard.writeText(value);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  return (
-    <div className="space-y-1">
-      <label className="text-[10px] font-bold text-gray-400 uppercase ml-1 tracking-tight">
-        {label}
-      </label>
-      <div className="flex items-center h-10 px-3 bg-gray-50/50 border border-gray-100 rounded-lg group relative transition-all hover:border-blue-200">
-        <span
-          className={`text-sm font-bold text-gray-700 flex-1 truncate ${mono ? "font-mono" : ""} ${isStatus ? "text-blue-600" : ""}`}
-        >
-          {value || "---"}
-        </span>
-        <button
-          onClick={copy}
-          title="Copiar al portapapeles"
-          className="p-1.5 hover:bg-blue-100 text-blue-600 rounded-md transition-all opacity-0 group-hover:opacity-100 active:scale-90"
-        >
-          {copied ? (
-            <Check className="w-3.5 h-3.5 text-green-600" />
-          ) : (
-            <Copy className="w-3.5 h-3.5" />
-          )}
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function ActionButton({
-  icon,
-  label,
-  onClick,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  onClick?: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className="flex items-center justify-center gap-2 h-10 px-3 border border-gray-200 rounded-lg text-[10px] font-bold text-gray-600 bg-white hover:bg-gray-50 hover:text-blue-600 transition-all shadow-sm uppercase tracking-tighter active:scale-95 overflow-hidden"
-    >
-      {icon} <span className="truncate">{label}</span>
-    </button>
   );
 }
