@@ -1,159 +1,165 @@
-import { useParams, useNavigate } from "react-router";
-import { ArrowLeft, Plus, Search, FileText, Eye, Download, Trash2 } from "lucide-react";
-import { useState } from "react";
-import { GenerateDocumentModal } from "../../components/documents/GenerateDocumentModal";
+import React from "react";
+import {
+  ArrowLeft,
+  Upload,
+  Search,
+  FileText,
+  Settings,
+  Printer,
+  Trash2,
+  FileOutput,
+} from "lucide-react";
 import { DocumentPreviewPanel } from "../../components/documents/DocumentPreviewPanel";
 import { StatusPill } from "../../components/StatusPill";
-import { SyncChip } from "../../components/SyncChip";
-import { ConflictChip } from "../../components/ConflictChip";
+import { useDocumentCenterLogic } from "../../logic/documents/useDocumentCenterLogic";
 
 export function DocumentCenterPage() {
-  const { id } = useParams();
-  const navigate = useNavigate();
-  const [showGenerateModal, setShowGenerateModal] = useState(false);
-  const [selectedDoc, setSelectedDoc] = useState<any>(null);
-
-  const documents = [
-    {
-      id: "1",
-      nombre: "SUNARP_A_v1.pdf",
-      tipo: "SUNARP A",
-      fecha: "2024-03-01 14:30",
-      estado: "Generado",
-      hash: "a7f8e9d2c1b3...",
-      ruta: "/docs/tramites/T-2024-0345/sunarp_a_v1.pdf",
-    },
-    {
-      id: "2",
-      nombre: "SUNARP_B_v1.pdf",
-      tipo: "SUNARP B",
-      fecha: "2024-03-01 14:35",
-      estado: "Generado",
-      hash: "b2e4f6a8c9d1...",
-      ruta: "/docs/tramites/T-2024-0345/sunarp_b_v1.pdf",
-    },
-    {
-      id: "3",
-      nombre: "Recibo_strict.pdf",
-      tipo: "R estricto",
-      fecha: "2024-03-01 15:00",
-      estado: "Generado",
-      hash: "c3d5e7f9a1b2...",
-      ruta: "/docs/tramites/T-2024-0345/recibo_strict.pdf",
-    },
-  ];
+  const {
+    id,
+    navigate,
+    templates,
+    selectedTemplate,
+    setSelectedTemplate,
+    handleGenerateAndPrint,
+  } = useDocumentCenterLogic();
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-4">
-        <button
-          onClick={() => navigate(id ? `/tramites/${id}` : "/documentos")}
-          className="p-2 hover:bg-white rounded-md transition-colors"
-        >
-          <ArrowLeft className="w-5 h-5 text-[#6B7280]" />
-        </button>
-        <div className="flex-1">
-          <h1 className="text-2xl font-semibold text-[#111827]">
-            Documentos {id && `— Trámite ${id}`}
-          </h1>
-          <p className="text-sm text-[#6B7280] mt-1">
-            Gestión y generación de documentos
-          </p>
+    <div className="min-h-screen bg-slate-50 p-6 font-sans">
+      <div className="max-w-[1400px] mx-auto space-y-6">
+        {/* Cabecera */}
+        <div className="flex items-center gap-4 bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+          <button
+            onClick={() => navigate(id ? `/tramites/${id}` : "/tramites")}
+            className="p-2 hover:bg-slate-100 rounded-lg transition-colors text-slate-500"
+          >
+            <ArrowLeft size={20} />
+          </button>
+          <div className="flex-1">
+            <h1 className="text-2xl font-black text-gray-800 flex items-center gap-3">
+              Gestor de Plantillas
+              {id && (
+                <span className="bg-indigo-100 text-indigo-700 text-sm py-1 px-3 rounded-full font-bold">
+                  Procesando Trámite #{id}
+                </span>
+              )}
+            </h1>
+            <p className="text-sm text-gray-500 mt-1">
+              {id
+                ? `Selecciona la plantilla para generar el documento del trámite actual.`
+                : `Administración central de PDFs en blanco y mapeo de coordenadas.`}
+            </p>
+          </div>
+          {id && (
+            <div className="flex items-center gap-2">
+              <StatusPill status="Listo para imprimir" />
+            </div>
+          )}
         </div>
-        {id && (
-          <div className="flex items-center gap-2">
-            <StatusPill status="En proceso" />
-            <SyncChip synced={true} />
-          </div>
-        )}
-      </div>
 
-      {/* Actions Bar */}
-      <div className="bg-white rounded-lg border border-[#E5E7EB] p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex-1 relative max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[#6B7280]" />
-            <input
-              type="text"
-              placeholder="Buscar documentos..."
-              className="w-full pl-10 pr-4 py-2 border border-[#E5E7EB] rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
-            />
-          </div>
-          <div className="flex gap-2">
-            <button className="px-4 py-2 bg-white border border-[#E5E7EB] text-[#111827] rounded-md hover:bg-gray-50 transition-colors text-sm">
-              Adjuntar
-            </button>
-            <button
-              onClick={() => setShowGenerateModal(true)}
-              className="px-4 py-2 bg-[#2563EB] text-white rounded-md hover:bg-[#1D4ED8] transition-colors flex items-center gap-2 text-sm"
-            >
-              <Plus className="w-4 h-4" />
-              Generar documento
-            </button>
+        {/* Barra de Acciones */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex-1 relative min-w-[250px] max-w-md">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Buscar plantilla..."
+                className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all"
+              />
+            </div>
+
+            <div className="flex gap-3">
+              {id ? (
+                <button
+                  onClick={handleGenerateAndPrint}
+                  disabled={!selectedTemplate}
+                  className="px-5 py-2.5 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-all flex items-center gap-2 shadow-sm disabled:opacity-50"
+                >
+                  <Printer size={18} /> Generar Documento Final
+                </button>
+              ) : (
+                <button className="px-5 py-2.5 bg-slate-800 text-white rounded-xl font-bold hover:bg-slate-900 transition-all flex items-center gap-2 shadow-sm">
+                  <Upload size={18} /> Subir PDF en Blanco
+                </button>
+              )}
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Two Column Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Document List */}
-        <div className="bg-white rounded-lg border border-[#E5E7EB] overflow-hidden">
-          <div className="p-4 border-b border-[#E5E7EB]">
-            <h2 className="font-semibold text-[#111827]">Lista de Documentos</h2>
-          </div>
-          <div className="divide-y divide-[#E5E7EB]">
-            {documents.map((doc) => (
-              <div
-                key={doc.id}
-                className={`p-4 hover:bg-[#F9FAFB] cursor-pointer transition-colors ${
-                  selectedDoc?.id === doc.id ? "bg-[#EFF6FF]" : ""
-                }`}
-                onClick={() => setSelectedDoc(doc)}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-start gap-3 flex-1">
-                    <FileText className="w-5 h-5 text-[#2563EB] shrink-0 mt-0.5" />
+        {/* Layout de Dos Columnas */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* Lista de Plantillas (Columna Izquierda) */}
+          <div className="lg:col-span-5 bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden flex flex-col">
+            <div className="p-4 border-b border-gray-100 bg-gray-50/50">
+              <h2 className="font-bold text-gray-800 uppercase tracking-wider text-sm flex items-center gap-2">
+                <FileText size={16} className="text-blue-600" /> Plantillas
+                Disponibles
+              </h2>
+            </div>
+
+            <div className="divide-y divide-gray-100 overflow-y-auto flex-1">
+              {templates.map((tpl) => (
+                <div
+                  key={tpl.id}
+                  onClick={() => setSelectedTemplate(tpl)}
+                  className={`p-4 cursor-pointer transition-all hover:bg-blue-50/50 border-l-4 ${
+                    selectedTemplate?.id === tpl.id
+                      ? "bg-blue-50/80 border-l-blue-600"
+                      : "border-l-transparent"
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <div
+                      className={`p-2 rounded-lg ${selectedTemplate?.id === tpl.id ? "bg-blue-100 text-blue-600" : "bg-gray-100 text-gray-500"}`}
+                    >
+                      <FileOutput size={20} />
+                    </div>
                     <div className="flex-1 min-w-0">
-                      <h3 className="text-sm font-medium text-[#111827] truncate">
-                        {doc.nombre}
+                      <h3
+                        className={`text-sm font-bold truncate ${selectedTemplate?.id === tpl.id ? "text-blue-900" : "text-gray-800"}`}
+                      >
+                        {tpl.nombre}
                       </h3>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className="text-xs px-2 py-0.5 bg-[#EFF6FF] text-[#2563EB] rounded">
-                          {doc.tipo}
+                      <div className="flex items-center gap-2 mt-1.5">
+                        <span className="text-[10px] font-bold px-2 py-0.5 bg-gray-100 text-gray-600 rounded-md uppercase">
+                          {tpl.tipo}
                         </span>
-                        <span className="text-xs text-[#6B7280]">{doc.fecha}</span>
+                        <span className="text-[10px] text-gray-500 font-medium">
+                          Actualizado: {tpl.ultima_edicion}
+                        </span>
                       </div>
                     </div>
                   </div>
-                  <div className="flex gap-1">
-                    <button className="p-1 hover:bg-gray-100 rounded">
-                      <Eye className="w-4 h-4 text-[#6B7280]" />
-                    </button>
-                    <button className="p-1 hover:bg-gray-100 rounded">
-                      <Download className="w-4 h-4 text-[#6B7280]" />
-                    </button>
-                    <button className="p-1 hover:bg-red-50 rounded">
-                      <Trash2 className="w-4 h-4 text-[#DC2626]" />
-                    </button>
-                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Panel de Vista Previa / Editor de Coordenadas (Columna Derecha) */}
+          <div className="lg:col-span-7">
+            <DocumentPreviewPanel document={selectedTemplate} />
+
+            {!id && selectedTemplate && (
+              <div className="mt-4 bg-white border border-gray-100 rounded-2xl shadow-sm p-4 flex justify-between items-center">
+                <div className="text-sm font-medium text-gray-600">
+                  <span className="font-bold text-gray-900">
+                    {selectedTemplate.variables_mapeadas}
+                  </span>{" "}
+                  variables mapeadas en este PDF.
+                </div>
+                <div className="flex gap-2">
+                  <button className="px-4 py-2 text-sm font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg flex items-center gap-2 transition-colors border border-blue-100">
+                    <Settings size={16} /> Configurar Coordenadas (X,Y)
+                  </button>
+                  <button className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors border border-transparent hover:border-red-100">
+                    <Trash2 size={18} />
+                  </button>
                 </div>
               </div>
-            ))}
+            )}
           </div>
         </div>
-
-        {/* Preview Panel */}
-        <DocumentPreviewPanel document={selectedDoc} />
       </div>
-
-      {/* Generate Document Modal */}
-      {showGenerateModal && (
-        <GenerateDocumentModal
-          tramiteId={id || ""}
-          onClose={() => setShowGenerateModal(false)}
-        />
-      )}
     </div>
   );
 }
