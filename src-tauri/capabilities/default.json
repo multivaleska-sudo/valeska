@@ -2,7 +2,7 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "Permisos maestros para el Sistema Valeska",
-  "windows": ["*"],
+  "windows": ["main"],
   "permissions": [
     "core:default",
     "core:path:default",
@@ -12,6 +12,10 @@
     "dialog:allow-open",
     "log:default",
     "sql:default",
+    "sql:allow-load",
+    "sql:allow-execute",
+    "sql:allow-select",
+    "sql:allow-close",
     "shell:allow-open"
   ]
 }
