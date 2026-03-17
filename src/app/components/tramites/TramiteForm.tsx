@@ -80,9 +80,21 @@ export function TramiteForm({ mode, initialData }: TramiteFormProps) {
     }
   };
 
+  const handlePrintDocument = (documentType: string) => {
+    if (mode === "create" && !formData.id) {
+      alert(
+        "Por favor, guarde el trámite primero ('Grabar Registro') antes de generar o imprimir documentos.",
+      );
+      return;
+    }
+
+    navigate(
+      `/tramites/${formData.id || "draft"}/documents?type=${encodeURIComponent(documentType)}`,
+    );
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 p-6 font-sans text-gray-800">
-      {/* RENDERIZAMOS EL MODAL SI showWebcam ES TRUE */}
       {showWebcam && (
         <WebcamScannerModal
           onClose={() => setShowWebcam(false)}
@@ -93,7 +105,6 @@ export function TramiteForm({ mode, initialData }: TramiteFormProps) {
         />
       )}
       <div className="max-w-[1400px] mx-auto space-y-6">
-        {/* Notificación Flotante de Escaneo Exitoso */}
         {scanSuccess && (
           <div className="fixed top-6 left-1/2 -translate-x-1/2 bg-green-600 text-white px-6 py-3 rounded-full shadow-lg font-bold flex items-center gap-2 z-50 animate-bounce">
             <ScanBarcode size={20} /> ¡Placa Escaneada y Auto-completada!
@@ -528,18 +539,33 @@ export function TramiteForm({ mode, initialData }: TramiteFormProps) {
                     onChange={handleChange}
                     readOnly={isViewOnly}
                   />
-                  <div className="space-y-2 mt-2">
-                    <button className="w-full py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm font-semibold text-gray-700 hover:bg-gray-100 hover:border-gray-300 transition-all flex items-center justify-center gap-2">
-                      <FileText size={16} className="text-blue-500" /> Imprimir
-                      Cláusula Cancelación
+
+                  <div className="grid grid-cols-1 gap-2 mt-2">
+                    <button
+                      onClick={() => handlePrintDocument("Formulario")}
+                      className="w-full py-2.5 bg-red-50 border border-red-200 rounded-lg text-sm font-bold text-red-700 hover:bg-red-100 transition-all flex items-center justify-center gap-2 shadow-sm"
+                    >
+                      <FileText size={16} /> Imprimir Formulario
                     </button>
-                    <button className="w-full py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm font-semibold text-gray-700 hover:bg-gray-100 hover:border-gray-300 transition-all flex items-center justify-center gap-2">
-                      <FileText size={16} className="text-green-600" /> Imprimir
-                      P. MEDINA
+                    <button
+                      onClick={() =>
+                        handlePrintDocument("Cláusula Cancelación")
+                      }
+                      className="w-full py-2.5 bg-blue-50 border border-blue-200 rounded-lg text-sm font-bold text-blue-700 hover:bg-blue-100 transition-all flex items-center justify-center gap-2 shadow-sm"
+                    >
+                      <FileText size={16} /> Imprimir Cláusula Cancelación
                     </button>
-                    <button className="w-full py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm font-semibold text-gray-700 hover:bg-gray-100 hover:border-gray-300 transition-all flex items-center justify-center gap-2">
-                      <FileText size={16} className="text-purple-600" />{" "}
-                      Imprimir P. PANTIGOSO
+                    <button
+                      onClick={() => handlePrintDocument("P. Medina")}
+                      className="w-full py-2.5 bg-green-50 border border-green-200 rounded-lg text-sm font-bold text-green-700 hover:bg-green-100 transition-all flex items-center justify-center gap-2 shadow-sm"
+                    >
+                      <FileText size={16} /> Imprimir P. MEDINA
+                    </button>
+                    <button
+                      onClick={() => handlePrintDocument("P. Pantigoso")}
+                      className="w-full py-2.5 bg-purple-50 border border-purple-200 rounded-lg text-sm font-bold text-purple-700 hover:bg-purple-100 transition-all flex items-center justify-center gap-2 shadow-sm"
+                    >
+                      <FileText size={16} /> Imprimir P. PANTIGOSO
                     </button>
                   </div>
                 </div>
