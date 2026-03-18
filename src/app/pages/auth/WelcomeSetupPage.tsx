@@ -1,186 +1,157 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router";
-import { Laptop, User, Building2, ArrowRight } from "lucide-react";
+import { open } from "@tauri-apps/plugin-dialog";
+import {
+  Laptop,
+  CheckCircle,
+  AlertCircle,
+  Loader2,
+  UploadCloud,
+  FileKey,
+} from "lucide-react";
+import { useAuthLogic } from "../../logic/auth/useAuthLogic";
 
 export function WelcomeSetupPage() {
   const navigate = useNavigate();
-  const [step, setStep] = useState(1);
-  const [formData, setFormData] = useState({
-    adminName: "",
-    adminEmail: "",
-    adminPassword: "",
-    sucursal: "",
-    deviceName: "",
-  });
+  const { processProvisioningFile, error: authError } = useAuthLogic();
 
-  const handleNext = () => {
-    if (step < 3) {
-      setStep(step + 1);
-    } else {
-      // Complete setup
-      navigate("/auth/login");
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
+
+  const handleSelectFile = async () => {
+    try {
+      const selectedPath = await open({
+        multiple: false,
+        filters: [{ name: "Configuración Valeska", extensions: ["valeska"] }],
+      });
+
+      if (selectedPath && typeof selectedPath === "string") {
+        const fileName =
+          selectedPath.split("\\").pop()?.split("/").pop() ||
+          "Archivo seleccionado";
+        setSelectedFileName(fileName);
+
+        setIsProcessing(true);
+
+        const isOk = await processProvisioningFile(selectedPath);
+
+        setIsProcessing(false);
+
+        if (isOk) {
+          setSuccess(true);
+          setTimeout(() => navigate("/auth/login"), 3000);
+        } else {
+          setSelectedFileName(null);
+        }
+      }
+    } catch (err) {
+      console.error("Error al abrir diálogo:", err);
     }
-  };
-
-  const updateField = (field: string, value: string) => {
-    setFormData({ ...formData, [field]: value });
   };
 
   return (
     <div className="min-h-screen bg-[#F6F7FB] flex items-center justify-center p-4">
-      <div className="w-full max-w-2xl">
-        <div className="bg-white rounded-lg shadow-lg p-8">
-          <div className="text-center mb-8">
-            <div className="w-16 h-16 bg-[#2563EB] rounded-full flex items-center justify-center mx-auto mb-4">
-              <Laptop className="w-8 h-8 text-white" />
+      <div className="w-full max-w-xl">
+        <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
+          <div className="bg-slate-900 p-8 text-center relative overflow-hidden">
+            <div className="absolute top-[-50%] left-[-10%] w-[50%] h-[200%] bg-blue-600/20 rotate-12 blur-2xl pointer-events-none"></div>
+            <div className="relative z-10">
+              <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-blue-500/30">
+                <Laptop className="w-8 h-8 text-white" />
+              </div>
+              <h1 className="text-2xl font-black text-white">
+                Sistema Valeska V2
+              </h1>
+              <p className="text-blue-200 mt-2 font-medium">
+                Inicialización Segura de Sucursal
+              </p>
             </div>
-            <h1 className="text-2xl font-semibold text-[#111827]">
-              Configuración Inicial
-            </h1>
-            <p className="text-sm text-[#6B7280] mt-2">
-              Sistema Valeska - Bienvenida y Setup
-            </p>
           </div>
 
-          {/* Progress Steps */}
-          <div className="flex items-center justify-center mb-8">
-            {[1, 2, 3].map((num) => (
-              <div key={num} className="flex items-center">
-                <div
-                  className={`w-10 h-10 rounded-full flex items-center justify-center font-medium ${
-                    step >= num
-                      ? "bg-[#2563EB] text-white"
-                      : "bg-gray-200 text-[#6B7280]"
-                  }`}
-                >
-                  {num}
+          <div className="p-8">
+            {authError && (
+              <div className="mb-6 p-4 bg-red-50 border border-red-100 text-red-700 text-sm font-bold rounded-xl flex items-start gap-3">
+                <AlertCircle size={20} className="shrink-0 mt-0.5" />
+                <p>{authError}</p>
+              </div>
+            )}
+
+            {success ? (
+              <div className="text-center py-8 animate-in zoom-in duration-300">
+                <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <CheckCircle className="w-10 h-10 text-green-600" />
                 </div>
-                {num < 3 && (
-                  <div
-                    className={`w-16 h-1 ${
-                      step > num ? "bg-[#2563EB]" : "bg-gray-200"
-                    }`}
-                  />
-                )}
-              </div>
-            ))}
-          </div>
-
-          {/* Step 1: Admin User */}
-          {step === 1 && (
-            <div className="space-y-4">
-              <h2 className="text-lg font-semibold text-[#111827] mb-4">
-                Crear Admin de Dispositivo
-              </h2>
-              <div>
-                <label className="block text-sm font-medium text-[#111827] mb-2">
-                  Nombre completo
-                </label>
-                <input
-                  type="text"
-                  value={formData.adminName}
-                  onChange={(e) => updateField("adminName", e.target.value)}
-                  className="w-full px-4 py-2 border border-[#E5E7EB] rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
-                  placeholder="Juan Pérez"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-[#111827] mb-2">
-                  Email
-                </label>
-                <input
-                  type="email"
-                  value={formData.adminEmail}
-                  onChange={(e) => updateField("adminEmail", e.target.value)}
-                  className="w-full px-4 py-2 border border-[#E5E7EB] rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
-                  placeholder="admin@valeska.com"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-[#111827] mb-2">
-                  Contraseña
-                </label>
-                <input
-                  type="password"
-                  value={formData.adminPassword}
-                  onChange={(e) => updateField("adminPassword", e.target.value)}
-                  className="w-full px-4 py-2 border border-[#E5E7EB] rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
-                  placeholder="••••••••"
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Step 2: Sucursal */}
-          {step === 2 && (
-            <div className="space-y-4">
-              <h2 className="text-lg font-semibold text-[#111827] mb-4">
-                Configurar Sucursal
-              </h2>
-              <div>
-                <label className="block text-sm font-medium text-[#111827] mb-2">
-                  Nombre de la sucursal
-                </label>
-                <input
-                  type="text"
-                  value={formData.sucursal}
-                  onChange={(e) => updateField("sucursal", e.target.value)}
-                  className="w-full px-4 py-2 border border-[#E5E7EB] rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
-                  placeholder="Sucursal Principal"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-[#111827] mb-2">
-                  Nombre del dispositivo
-                </label>
-                <input
-                  type="text"
-                  value={formData.deviceName}
-                  onChange={(e) => updateField("deviceName", e.target.value)}
-                  className="w-full px-4 py-2 border border-[#E5E7EB] rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
-                  placeholder="PC-OFICINA-01"
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Step 3: Confirmation */}
-          {step === 3 && (
-            <div className="space-y-4">
-              <h2 className="text-lg font-semibold text-[#111827] mb-4">
-                Confirmación
-              </h2>
-              <div className="bg-[#EFF6FF] border border-[#BFDBFE] rounded-md p-4">
-                <p className="text-sm text-[#1E40AF] mb-2">
-                  <strong>Device ID:</strong> DEV-{Math.random().toString(36).substr(2, 9).toUpperCase()}
+                <h2 className="text-xl font-bold text-gray-800 mb-2">
+                  ¡Configuración Exitosa!
+                </h2>
+                <p className="text-gray-500 font-medium">
+                  La base de datos ha sido anclada a este dispositivo.
                 </p>
-                <p className="text-sm text-[#1E40AF]">
-                  <strong>Security Key:</strong> {Math.random().toString(36).substr(2, 16).toUpperCase()}
+                <p className="text-sm text-blue-600 font-bold mt-4 animate-pulse">
+                  Redirigiendo al inicio de sesión...
                 </p>
               </div>
-              <div className="bg-[#FEF3C7] border border-[#FDE047] rounded-md p-4">
-                <p className="text-sm text-[#92400E]">
-                  Guarda estos datos en un lugar seguro. Los necesitarás para recuperar el dispositivo.
-                </p>
-              </div>
-            </div>
-          )}
+            ) : (
+              <>
+                <div className="text-center mb-6">
+                  <h3 className="text-lg font-bold text-gray-800">
+                    Archivo de Provisión
+                  </h3>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Haga clic abajo para seleccionar el archivo{" "}
+                    <span className="font-bold text-gray-700 bg-gray-100 px-2 py-0.5 rounded">
+                      .valeska
+                    </span>{" "}
+                    proporcionado por la Central.
+                  </p>
+                </div>
 
-          <div className="mt-8 flex justify-between">
-            <button
-              onClick={() => step > 1 && setStep(step - 1)}
-              className="px-6 py-2 text-[#6B7280] hover:text-[#111827] transition-colors disabled:opacity-50"
-              disabled={step === 1}
-            >
-              Anterior
-            </button>
-            <button
-              onClick={handleNext}
-              className="px-6 py-2 bg-[#2563EB] text-white rounded-md hover:bg-[#1D4ED8] transition-colors flex items-center gap-2"
-            >
-              {step === 3 ? "Finalizar" : "Siguiente"}
-              <ArrowRight className="w-4 h-4" />
-            </button>
+                <div
+                  onClick={() => !isProcessing && handleSelectFile()}
+                  className={`border-2 border-dashed rounded-2xl p-10 text-center transition-all cursor-pointer bg-gray-50 hover:bg-gray-100 hover:border-blue-400 border-gray-300
+                    ${isProcessing ? "pointer-events-none opacity-80" : ""}
+                  `}
+                >
+                  {isProcessing ? (
+                    <div className="flex flex-col items-center justify-center space-y-4">
+                      <Loader2 className="w-12 h-12 text-blue-600 animate-spin" />
+                      <div className="space-y-1">
+                        <p className="font-bold text-blue-900">
+                          Desencriptando: {selectedFileName}
+                        </p>
+                        <p className="text-xs text-blue-600/80">
+                          Configurando base de datos local...
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center space-y-4">
+                      <div className="p-4 rounded-full bg-white text-blue-600 shadow-sm">
+                        <UploadCloud size={32} />
+                      </div>
+                      <div>
+                        <p className="font-bold text-gray-700 text-lg">
+                          Seleccionar Archivo
+                        </p>
+                        <p className="text-sm text-gray-500 mt-1">
+                          Explorar carpetas locales
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="mt-8 flex items-center gap-3 bg-blue-50/50 p-4 rounded-xl border border-blue-100">
+                  <FileKey size={24} className="text-blue-600 shrink-0" />
+                  <p className="text-xs text-blue-800 font-medium leading-relaxed">
+                    Esta acción configurará los catálogos y enlazará su Tarjeta
+                    de Red (MAC) al sistema. Solo se realiza una vez por
+                    computadora.
+                  </p>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>
