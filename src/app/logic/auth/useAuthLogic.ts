@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router";
 import { invoke } from "@tauri-apps/api/core";
 import Database from "@tauri-apps/plugin-sql";
@@ -9,7 +9,6 @@ import * as schema from "../../db/schema";
 
 const getDb = async () => {
     const sqlite = await Database.load("sqlite:valeska.db");
-
     return drizzle(async (sql, params, method) => {
         try {
             if (method === "run") {
@@ -20,7 +19,7 @@ const getDb = async () => {
                 return { rows: result };
             }
         } catch (e) {
-            console.error("Error ejecutando SQL:", e, sql, params);
+            console.error("Error SQL:", e);
             throw e;
         }
     }, { schema });
@@ -34,26 +33,49 @@ export function useAuthLogic() {
 
     const checkInitialSetup = async () => {
         try {
-            const db = await getDb();
-            const allUsers = await db.select().from(schema.usuarios);
+            const sqlite = await Database.load("sqlite:valeska.db");
+            const allUsers: any[] = await sqlite.select("SELECT id FROM usuarios LIMIT 1");
 
             if (allUsers.length === 0) {
                 setIsFirstRun(true);
-                if (window.location.pathname !== "/auth/welcome") {
-                    navigate("/auth/welcome");
-                }
-            } else {
-                setIsFirstRun(false);
-                const session = localStorage.getItem("valeska_session_user");
-
-                if (!session) {
-                    if (window.location.pathname !== "/auth/login") {
-                        navigate("/auth/login");
-                    }
-                }
+                if (window.location.pathname !== "/auth/welcome") navigate("/auth/welcome");
+                return;
             }
+
+            setIsFirstRun(false);
+
+            const sessionString = localStorage.getItem("valeska_session_user");
+
+            if (!sessionString) {
+                if (window.location.pathname !== "/auth/login" && window.location.pathname !== "/auth/forgot-password") {
+                    navigate("/auth/login");
+                }
+                return;
+            }
+
+            const sessionData = JSON.parse(sessionString);
+
+            const userCheck: any[] = await sqlite.select(
+                "SELECT esta_activo FROM usuarios WHERE id = $1",
+                [sessionData.id]
+            );
+
+            const dbUser = userCheck[0];
+
+            if (!dbUser || dbUser.esta_activo === 0 || dbUser.esta_activo === false || dbUser.esta_activo === '0') {
+                localStorage.removeItem("valeska_session_user");
+                alert("🔒 Tu sesión ha expirado o tu cuenta fue bloqueada por el Administrador Central.");
+                navigate("/auth/login");
+                return;
+            }
+
+            if (window.location.pathname === "/auth/login" || window.location.pathname === "/auth/welcome") {
+                navigate("/");
+            }
+
         } catch (err) {
-            setError("Error de conexión con la base de datos.");
+            console.error("Error validando BD:", err);
+            setError("Error de conexión con la base de datos local.");
         } finally {
             setIsLoading(false);
         }
@@ -71,14 +93,13 @@ export function useAuthLogic() {
                 .where(eq(schema.dispositivos.provisionId, provisionData.provision_id));
 
             if (usedProvision.length > 0) {
-                throw new Error("Este archivo de configuración ya fue utilizado y no puede reciclarse.");
+                throw new Error("Este archivo de configuración ya fue utilizado.");
             }
 
             let realMacAddress = "MAC-DESCONOCIDA";
             try {
                 realMacAddress = await invoke("get_device_mac");
             } catch (e) {
-                console.warn("No se pudo leer MAC, usando respaldo temporal.");
                 realMacAddress = `MAC-FALLBACK-${Date.now()}`;
             }
 
@@ -106,7 +127,6 @@ export function useAuthLogic() {
             });
 
             const userId = crypto.randomUUID();
-
             let finalHash = provisionData.admin.password_temporal_hash;
             if (!finalHash && provisionData.admin.password_temporal) {
                 const salt = bcrypt.genSaltSync(10);
@@ -126,10 +146,9 @@ export function useAuthLogic() {
             });
 
             return true;
-
         } catch (err: any) {
             console.error("Error en provisión:", err);
-            setError(err.message || "El archivo está corrupto, alterado o la llave de seguridad no coincide.");
+            setError(err.message || "El archivo está corrupto o alterado.");
             return false;
         }
     };
@@ -180,10 +199,35 @@ export function useAuthLogic() {
         }
     };
 
+    const updatePasswordLocal = async (username: string, newPasswordPlain: string) => {
+        try {
+            const sqlite = await Database.load("sqlite:valeska.db");
+            const salt = bcrypt.genSaltSync(10);
+            const newHash = bcrypt.hashSync(newPasswordPlain, salt);
+
+            await sqlite.execute(
+                "UPDATE usuarios SET password_hash = $1, updated_at = $2 WHERE username = $3",
+                [newHash, new Date().toISOString(), username]
+            );
+
+            return true;
+        } catch (err) {
+            console.error("Error actualizando contraseña:", err);
+            return false;
+        }
+    };
+
+    const logout = () => {
+        localStorage.removeItem("valeska_session_user");
+        navigate("/auth/login");
+    };
+
     return {
         checkInitialSetup,
         processProvisioningFile,
         login,
+        updatePasswordLocal,
+        logout,
         isLoading,
         isFirstRun,
         error

@@ -2,7 +2,7 @@ import { createBrowserRouter } from "react-router";
 import { AppShell } from "./components/AppShell";
 import { LoginPage } from "./pages/auth/LoginPage";
 import { WelcomeSetupPage } from "./pages/auth/WelcomeSetupPage";
-import { ActivateAdminPage } from "./pages/auth/ActivateAdminPage";
+import { ForgotPasswordPage } from "./pages/auth/ForgotPasswordPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { TramitesListPage } from "./pages/tramites/TramitesListPage";
 import { TramiteDetailPage } from "./pages/tramites/TramiteDetailPage";
@@ -34,8 +34,8 @@ export const router = createBrowserRouter([
     element: <LoginPage />,
   },
   {
-    path: "/auth/activate-admin",
-    element: <ActivateAdminPage />,
+    path: "/auth/forgot-password",
+    element: <ForgotPasswordPage />,
   },
   {
     path: "/",
