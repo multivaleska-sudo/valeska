@@ -8,8 +8,8 @@ CREATE TABLE `catalogo_situaciones` (
 	`deleted_at` integer,
 	`sync_status` text DEFAULT 'LOCAL_INSERT' NOT NULL
 );
---> statement-breakpoint
-CREATE UNIQUE INDEX `catalogo_situaciones_nombre_unique` ON `catalogo_situaciones` (`nombre`);--> statement-breakpoint
+
+CREATE UNIQUE INDEX `catalogo_situaciones_nombre_unique` ON `catalogo_situaciones` (`nombre`);
 CREATE TABLE `catalogo_tipos_tramite` (
 	`id` text PRIMARY KEY NOT NULL,
 	`nombre` text NOT NULL,
@@ -19,8 +19,8 @@ CREATE TABLE `catalogo_tipos_tramite` (
 	`deleted_at` integer,
 	`sync_status` text DEFAULT 'LOCAL_INSERT' NOT NULL
 );
---> statement-breakpoint
-CREATE UNIQUE INDEX `catalogo_tipos_tramite_nombre_unique` ON `catalogo_tipos_tramite` (`nombre`);--> statement-breakpoint
+
+CREATE UNIQUE INDEX `catalogo_tipos_tramite_nombre_unique` ON `catalogo_tipos_tramite` (`nombre`);
 CREATE TABLE `clientes` (
 	`id` text PRIMARY KEY NOT NULL,
 	`tipo_documento` text NOT NULL,
@@ -34,8 +34,8 @@ CREATE TABLE `clientes` (
 	`deleted_at` integer,
 	`sync_status` text DEFAULT 'LOCAL_INSERT' NOT NULL
 );
---> statement-breakpoint
-CREATE UNIQUE INDEX `clientes_numero_documento_unique` ON `clientes` (`numero_documento`);--> statement-breakpoint
+
+CREATE UNIQUE INDEX `clientes_numero_documento_unique` ON `clientes` (`numero_documento`);
 CREATE TABLE `dispositivos` (
 	`id` text PRIMARY KEY NOT NULL,
 	`mac_address` text NOT NULL,
@@ -46,8 +46,8 @@ CREATE TABLE `dispositivos` (
 	`deleted_at` integer,
 	`sync_status` text DEFAULT 'LOCAL_INSERT' NOT NULL
 );
---> statement-breakpoint
-CREATE UNIQUE INDEX `dispositivos_mac_address_unique` ON `dispositivos` (`mac_address`);--> statement-breakpoint
+
+CREATE UNIQUE INDEX `dispositivos_mac_address_unique` ON `dispositivos` (`mac_address`);
 CREATE TABLE `empresas_gestoras` (
 	`id` text PRIMARY KEY NOT NULL,
 	`ruc` text NOT NULL,
@@ -57,8 +57,8 @@ CREATE TABLE `empresas_gestoras` (
 	`deleted_at` integer,
 	`sync_status` text DEFAULT 'LOCAL_INSERT' NOT NULL
 );
---> statement-breakpoint
-CREATE UNIQUE INDEX `empresas_gestoras_ruc_unique` ON `empresas_gestoras` (`ruc`);--> statement-breakpoint
+
+CREATE UNIQUE INDEX `empresas_gestoras_ruc_unique` ON `empresas_gestoras` (`ruc`);
 CREATE TABLE `tramite_detalles` (
 	`id` text PRIMARY KEY NOT NULL,
 	`tramite_id` text NOT NULL,
@@ -82,8 +82,8 @@ CREATE TABLE `tramite_detalles` (
 	FOREIGN KEY (`tramite_id`) REFERENCES `tramites`(`id`) ON UPDATE no action ON DELETE no action,
 	FOREIGN KEY (`empresa_gestora_id`) REFERENCES `empresas_gestoras`(`id`) ON UPDATE no action ON DELETE no action
 );
---> statement-breakpoint
-CREATE UNIQUE INDEX `tramite_detalles_tramite_id_unique` ON `tramite_detalles` (`tramite_id`);--> statement-breakpoint
+
+CREATE UNIQUE INDEX `tramite_detalles_tramite_id_unique` ON `tramite_detalles` (`tramite_id`);
 CREATE TABLE `tramites` (
 	`id` text PRIMARY KEY NOT NULL,
 	`codigo_verificacion` text NOT NULL,
@@ -112,8 +112,8 @@ CREATE TABLE `tramites` (
 	FOREIGN KEY (`situacion_id`) REFERENCES `catalogo_situaciones`(`id`) ON UPDATE no action ON DELETE no action,
 	FOREIGN KEY (`usuario_creador_id`) REFERENCES `usuarios`(`id`) ON UPDATE no action ON DELETE no action
 );
---> statement-breakpoint
-CREATE UNIQUE INDEX `tramites_codigo_verificacion_unique` ON `tramites` (`codigo_verificacion`);--> statement-breakpoint
+
+CREATE UNIQUE INDEX `tramites_codigo_verificacion_unique` ON `tramites` (`codigo_verificacion`);
 CREATE TABLE `usuarios` (
 	`id` text PRIMARY KEY NOT NULL,
 	`username` text NOT NULL,
@@ -128,8 +128,8 @@ CREATE TABLE `usuarios` (
 	`sync_status` text DEFAULT 'LOCAL_INSERT' NOT NULL,
 	FOREIGN KEY (`dispositivo_id`) REFERENCES `dispositivos`(`id`) ON UPDATE no action ON DELETE no action
 );
---> statement-breakpoint
-CREATE UNIQUE INDEX `usuarios_username_unique` ON `usuarios` (`username`);--> statement-breakpoint
+
+CREATE UNIQUE INDEX `usuarios_username_unique` ON `usuarios` (`username`);
 CREATE TABLE `vehiculos` (
 	`id` text PRIMARY KEY NOT NULL,
 	`chasis_vin` text NOT NULL,
@@ -146,5 +146,5 @@ CREATE TABLE `vehiculos` (
 	`deleted_at` integer,
 	`sync_status` text DEFAULT 'LOCAL_INSERT' NOT NULL
 );
---> statement-breakpoint
+
 CREATE UNIQUE INDEX `vehiculos_chasis_vin_unique` ON `vehiculos` (`chasis_vin`);
