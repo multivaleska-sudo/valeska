@@ -103,6 +103,15 @@ export function LoginPage() {
             </button>
           </form>
 
+          <div className="mt-4 text-center">
+            <Link
+              to="/auth/forgot-password"
+              className="text-sm text-[#2563EB] hover:underline font-medium"
+            >
+              ¿Olvidaste tu contraseña?
+            </Link>
+          </div>
+
           <div className="mt-8 text-center pt-6 border-t border-gray-100">
             <Link
               to="/auth/welcome"
