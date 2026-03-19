@@ -22,7 +22,7 @@ export function useForgotPasswordLogic() {
         setError(null);
 
         try {
-            const res = await fetch(`${API_URL}/forgot-password`, {
+            const res = await fetch(`${API_URL}/auth/forgot-password`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ email }),
@@ -45,7 +45,7 @@ export function useForgotPasswordLogic() {
         setError(null);
 
         try {
-            const res = await fetch(`${API_URL}/verify-code`, {
+            const res = await fetch(`${API_URL}/auth/verify-code`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ email, code }),
