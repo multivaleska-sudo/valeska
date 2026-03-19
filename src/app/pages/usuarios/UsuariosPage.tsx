@@ -17,6 +17,7 @@ export function UsuariosPage() {
     saveUser,
     transferAdmin,
     resetToTemporaryPassword,
+    exportProvisioningFile,
   } = useUsuariosLogic();
 
   const [showModal, setShowModal] = useState(false);
@@ -119,6 +120,7 @@ export function UsuariosPage() {
               setShowModal(true);
             }}
             onResetPassword={() => resetToTemporaryPassword(user.id)}
+            onExport={() => exportProvisioningFile(user.id)}
           />
         ))}
       </div>
