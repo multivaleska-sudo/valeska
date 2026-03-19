@@ -1,18 +1,19 @@
 import { useState } from "react";
 import { X, ShieldCheck, UserCircle, Mail, Key } from "lucide-react";
-import { User, UserRole } from "../../types/usuarios/user.types";
 
 interface UserFormProps {
-  user: User | null;
+  user: any | null;
   onClose: () => void;
   onSave: (u: any) => void;
 }
 
 export function UserForm({ user, onClose, onSave }: UserFormProps) {
   const [localData, setLocalData] = useState({
-    name: user?.name || "",
-    email: user?.email || "",
-    role: user?.role || ("USER" as UserRole),
+    id: user?.id || "",
+    name: user?.nombre_completo || "",
+    email: user?.username || "",
+    role: user?.rol || "OPERADOR",
+    password: "",
   });
 
   return (
@@ -61,7 +62,7 @@ export function UserForm({ user, onClose, onSave }: UserFormProps) {
 
           <div className="space-y-2">
             <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] ml-2">
-              Email
+              Email / Usuario
             </label>
             <div className="relative">
               <Mail
@@ -89,19 +90,16 @@ export function UserForm({ user, onClose, onSave }: UserFormProps) {
                 className="w-full h-14 px-6 bg-gray-100/50 border-2 border-gray-100 rounded-3xl font-black text-blue-900 outline-none focus:ring-4 focus:ring-blue-100 cursor-pointer"
                 value={localData.role}
                 onChange={(e) =>
-                  setLocalData({
-                    ...localData,
-                    role: e.target.value as UserRole,
-                  })
+                  setLocalData({ ...localData, role: e.target.value })
                 }
               >
-                <option value="USER">📋 Tramitador</option>
-                <option value="ADMIN">👑 Administrador</option>
+                <option value="OPERADOR">📋 Tramitador</option>
+                <option value="ADMIN_CENTRAL">👑 Administrador</option>
               </select>
             </div>
             <div className="space-y-2">
               <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] ml-2">
-                Password
+                Password {user && "(Opcional)"}
               </label>
               <div className="relative">
                 <Key
@@ -110,9 +108,12 @@ export function UserForm({ user, onClose, onSave }: UserFormProps) {
                 />
                 <input
                   type="password"
-                  name="pass"
                   className="w-full pl-14 pr-6 h-14 bg-gray-50 border-2 border-gray-100 rounded-3xl font-bold outline-none focus:ring-4 focus:ring-blue-100 transition-all shadow-inner"
-                  placeholder="••••••"
+                  placeholder={user ? "Dejar en blanco" : "••••••"}
+                  value={localData.password}
+                  onChange={(e) =>
+                    setLocalData({ ...localData, password: e.target.value })
+                  }
                 />
               </div>
             </div>
@@ -126,10 +127,10 @@ export function UserForm({ user, onClose, onSave }: UserFormProps) {
               Descartar
             </button>
             <button
-              onClick={() => onSave({ ...localData, id: user?.id })}
+              onClick={() => onSave(localData)}
               className="flex-2 bg-[#2563EB] text-white px-10 py-4 rounded-3xl font-black uppercase text-[11px] tracking-[0.2em] shadow-xl shadow-blue-100 hover:bg-[#1D4ED8] active:scale-95 transition-all"
             >
-              {user ? "Guardar" : "Registrar"}
+              {user ? "Guardar Cambios" : "Registrar"}
             </button>
           </div>
         </div>
