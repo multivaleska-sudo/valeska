@@ -3,6 +3,7 @@ import { Topbar } from "./Topbar";
 import { Sidebar } from "./Sidebar";
 import { useState, useEffect } from "react";
 import { useAuthLogic } from "../logic/auth/useAuthLogic";
+import { useSyncLogic } from "../logic/sync/useSyncLogic";
 import { Loader2 } from "lucide-react";
 
 export function AppShell() {
@@ -10,9 +11,27 @@ export function AppShell() {
 
   const { checkInitialSetup, isLoading } = useAuthLogic();
 
+  const { triggerSync } = useSyncLogic();
+
   useEffect(() => {
     checkInitialSetup();
-  }, []);
+    const runBackgroundSync = () => {
+      const autoSync = localStorage.getItem("valeska_autosync") !== "false";
+      if (autoSync) {
+        console.log("Iniciando sincronización en segundo plano...");
+        triggerSync();
+      }
+    };
+
+    const initialTimeout = setTimeout(runBackgroundSync, 5000);
+
+    const syncInterval = setInterval(runBackgroundSync, 300000);
+
+    return () => {
+      clearTimeout(initialTimeout);
+      clearInterval(syncInterval);
+    };
+  }, [triggerSync]);
 
   if (isLoading) {
     return (
