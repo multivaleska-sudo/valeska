@@ -7,6 +7,7 @@ import {
   Mail,
   ShieldCheck,
   KeyRound,
+  DownloadCloud,
 } from "lucide-react";
 import { User } from "../../types/usuarios/user.types";
 
@@ -16,6 +17,7 @@ interface UserCardProps {
   onDelete: () => void;
   onEdit: () => void;
   onResetPassword: () => void;
+  onExport: () => void;
 }
 
 export function UserCard({
@@ -24,6 +26,7 @@ export function UserCard({
   onDelete,
   onEdit,
   onResetPassword,
+  onExport,
 }: UserCardProps) {
   const isActive = user.esta_activo === 1 || user.esta_activo === true;
   const isAdmin = user.rol === "ADMIN_CENTRAL";
@@ -63,6 +66,14 @@ export function UserCard({
         </div>
 
         <div className="flex gap-1.5 bg-white/80 backdrop-blur-sm p-1 rounded-2xl shadow-sm border border-gray-50">
+          <button
+            onClick={onExport}
+            title="Exportar Licencia Fìsica (.valeska)"
+            className="p-2.5 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all"
+          >
+            <DownloadCloud size={18} />
+          </button>
+
           <button
             onClick={onEdit}
             title="Editar Usuario"
