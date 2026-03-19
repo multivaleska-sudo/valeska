@@ -1,103 +1,177 @@
-import { RefreshCw, Cloud, AlertTriangle, CheckCircle2, Clock } from "lucide-react";
+import {
+  RefreshCw,
+  Cloud,
+  AlertTriangle,
+  CheckCircle2,
+  Clock,
+  CloudOff,
+  Loader2,
+} from "lucide-react";
+import { useSyncLogic } from "../logic/sync/useSyncLogic";
 
 export function SyncPage() {
+  const { isSyncing, lastSyncTime, syncError, syncStats, triggerSync } =
+    useSyncLogic();
+
+  const totalPushed =
+    syncStats.sucursales + syncStats.dispositivos + syncStats.usuarios;
+
   return (
-    <div className="space-y-6">
+    <div className="p-8 space-y-6 bg-[#F6F7FB] min-h-screen font-sans animate-in fade-in duration-500">
       <div>
-        <h1 className="text-2xl font-semibold text-[#111827]">Sincronización</h1>
+        <h1 className="text-2xl font-semibold text-[#111827]">
+          Sincronización
+        </h1>
         <p className="text-sm text-[#6B7280] mt-1">
-          Estado de sincronización y gestión de conflictos
+          Estado de sincronización con la Nube Central y gestión de conflictos
         </p>
       </div>
 
-      {/* Sync Status */}
-      <div className="bg-white rounded-lg border border-[#E5E7EB] p-6">
+      {/* Alerta de Error Real (Si el servidor NestJS está caído) */}
+      {syncError && (
+        <div className="bg-red-50 border border-red-200 p-4 rounded-lg flex items-start gap-4 shadow-sm animate-in slide-in-from-top-2">
+          <CloudOff className="text-red-600 shrink-0 mt-0.5" size={24} />
+          <div>
+            <h3 className="text-sm font-black text-red-800 uppercase tracking-widest">
+              Error de Conexión
+            </h3>
+            <p className="text-xs text-red-600 font-bold mt-1">{syncError}</p>
+          </div>
+        </div>
+      )}
+
+      <div className="bg-white rounded-lg border border-[#E5E7EB] p-6 shadow-sm">
         <div className="flex items-center justify-between mb-6">
           <div>
             <h2 className="text-lg font-semibold text-[#111827]">
               Estado General
             </h2>
-            <p className="text-sm text-[#6B7280] mt-1">
-              Última sincronización: hace 5 minutos
+            <p className="text-sm text-[#6B7280] mt-1 font-medium">
+              Última sincronización exitosa:{" "}
+              <span className="font-bold text-gray-800">
+                {lastSyncTime || "Nunca"}
+              </span>
             </p>
           </div>
-          <button className="px-4 py-2 bg-[#2563EB] text-white rounded-md hover:bg-[#1D4ED8] transition-colors flex items-center gap-2">
-            <RefreshCw className="w-4 h-4" />
-            Re-sync total
+          <button
+            onClick={triggerSync}
+            disabled={isSyncing}
+            className={`px-5 py-2.5 rounded-md transition-colors flex items-center gap-2 font-bold shadow-sm
+              ${
+                isSyncing
+                  ? "bg-blue-400 text-white cursor-not-allowed"
+                  : "bg-[#2563EB] text-white hover:bg-[#1D4ED8] active:scale-95"
+              }`}
+          >
+            {isSyncing ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <RefreshCw className="w-4 h-4" />
+            )}
+            {isSyncing ? "Sincronizando..." : "Re-sync total"}
           </button>
         </div>
 
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* ÚLTIMO PUSH (Conectado a datos reales) */}
           <div className="bg-[#EFF6FF] border border-[#BFDBFE] rounded-lg p-4">
             <div className="flex items-center gap-3">
               <Cloud className="w-8 h-8 text-[#2563EB]" />
               <div>
-                <div className="text-xs text-[#1E40AF]">Último Push</div>
-                <div className="text-sm font-medium text-[#1E3A8A]">
-                  14:35 - 3 registros
+                <div className="text-xs font-bold text-[#1E40AF] uppercase tracking-wider">
+                  Último Push (Subida)
+                </div>
+                <div className="text-sm font-black text-[#1E3A8A] mt-0.5">
+                  {lastSyncTime
+                    ? `${totalPushed} registros enviados`
+                    : "Sin datos"}
                 </div>
               </div>
             </div>
           </div>
-          <div className="bg-[#DCFCE7] border border-[#86EFAC] rounded-lg p-4">
+
+          {/* ÚLTIMO PULL (Placeholder visual para el futuro) */}
+          <div className="bg-[#DCFCE7] border border-[#86EFAC] rounded-lg p-4 opacity-80">
             <div className="flex items-center gap-3">
               <Cloud className="w-8 h-8 text-[#16A34A]" />
               <div>
-                <div className="text-xs text-[#15803D]">Último Pull</div>
-                <div className="text-sm font-medium text-[#166534]">
-                  14:30 - 1 registro
+                <div className="text-xs font-bold text-[#15803D] uppercase tracking-wider">
+                  Último Pull (Bajada)
+                </div>
+                <div className="text-sm font-black text-[#166534] mt-0.5">
+                  -- Próximamente --
                 </div>
               </div>
             </div>
           </div>
+
+          {/* CONFLICTOS (Placeholder visual) */}
           <div className="bg-[#FEE2E2] border border-[#FCA5A5] rounded-lg p-4">
             <div className="flex items-center gap-3">
-              <AlertTriangle className="w-8 h-8 text-[#DC2626]" />
+              <AlertTriangle
+                className={`w-8 h-8 ${syncError ? "text-[#DC2626] animate-pulse" : "text-[#FCA5A5]"}`}
+              />
               <div>
-                <div className="text-xs text-[#991B1B]">Conflictos</div>
-                <div className="text-sm font-medium text-[#7F1D1D]">1 pendiente</div>
+                <div className="text-xs font-bold text-[#991B1B] uppercase tracking-wider">
+                  Conflictos
+                </div>
+                <div
+                  className={`text-sm font-black mt-0.5 ${syncError ? "text-[#7F1D1D]" : "text-[#FCA5A5]"}`}
+                >
+                  {syncError ? "1 Error Crítico" : "0 pendientes"}
+                </div>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Sync Queue */}
-      <div className="bg-white rounded-lg border border-[#E5E7EB]">
-        <div className="p-6 border-b border-[#E5E7EB]">
-          <h2 className="text-lg font-semibold text-[#111827]">Cola de Sincronización</h2>
+      <div className="bg-white rounded-lg border border-[#E5E7EB] shadow-sm overflow-hidden">
+        <div className="p-6 border-b border-[#E5E7EB] bg-gray-50/50">
+          <h2 className="text-lg font-semibold text-[#111827]">
+            Cola de Sincronización Reciente
+          </h2>
         </div>
         <div className="divide-y divide-[#E5E7EB]">
-          <div className="p-4 flex items-center justify-between">
+          {lastSyncTime && (
+            <div className="p-4 flex items-center justify-between hover:bg-gray-50 transition-colors">
+              <div className="flex items-center gap-3">
+                <CheckCircle2 className="w-5 h-5 text-[#16A34A]" />
+                <div>
+                  <h3 className="text-sm font-bold text-[#111827]">
+                    Sincronización en Bloque (Push)
+                  </h3>
+                  <p className="text-xs font-medium text-[#6B7280] mt-1">
+                    Catálogos, Dispositivos y Usuarios actualizados.
+                  </p>
+                </div>
+              </div>
+              <div className="flex flex-col items-end gap-1">
+                <span className="text-[10px] font-black px-2 py-1 bg-[#DCFCE7] text-[#16A34A] rounded uppercase tracking-wider border border-green-200">
+                  Completado
+                </span>
+                <span className="text-[10px] text-gray-400 font-bold">
+                  {lastSyncTime.split(",")[1]}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Item 2: Simulación de un Trámite pendiente */}
+          <div className="p-4 flex items-center justify-between hover:bg-gray-50 transition-colors">
             <div className="flex items-center gap-3">
               <Clock className="w-5 h-5 text-[#F59E0B]" />
               <div>
-                <h3 className="text-sm font-medium text-[#111827]">
-                  T-2024-0350 - Modificación
+                <h3 className="text-sm font-bold text-[#111827]">
+                  T-2024-0350 - Modificación de Trámite
                 </h3>
-                <p className="text-xs text-[#6B7280] mt-1">
-                  Pendiente de enviar
+                <p className="text-xs font-medium text-[#6B7280] mt-1">
+                  En cola (Esperando próximo ciclo de 5 min)
                 </p>
               </div>
             </div>
-            <span className="text-xs px-2 py-1 bg-[#FEF3C7] text-[#F59E0B] rounded">
+            <span className="text-[10px] font-black px-2 py-1 bg-[#FEF3C7] text-[#F59E0B] rounded uppercase tracking-wider border border-amber-200">
               Pendiente
-            </span>
-          </div>
-          <div className="p-4 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <CheckCircle2 className="w-5 h-5 text-[#16A34A]" />
-              <div>
-                <h3 className="text-sm font-medium text-[#111827]">
-                  T-2024-0345 - Actualización
-                </h3>
-                <p className="text-xs text-[#6B7280] mt-1">
-                  Sincronizado correctamente
-                </p>
-              </div>
-            </div>
-            <span className="text-xs px-2 py-1 bg-[#DCFCE7] text-[#16A34A] rounded">
-              Completado
             </span>
           </div>
         </div>
