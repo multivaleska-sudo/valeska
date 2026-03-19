@@ -1,105 +1,74 @@
 import { useState } from "react";
-import { UserPlus, ShieldCheck, ShieldAlert } from "lucide-react";
-import { User, UserRole } from "../../types/usuarios/user.types";
-import { UserCard } from "../../components/shared/UserCard";
+import { UserPlus, ShieldCheck, ShieldAlert, Loader2 } from "lucide-react";
+import {
+  useUsuariosLogic,
+  UserDB,
+} from "../../logic/usuarios/useUsuariosLogic";
 import { UserForm } from "./UserForm";
 import { TransferConfirmModal } from "./TransferConfirmModal";
-
-const INITIAL_USERS: User[] = [
-  {
-    id: 1,
-    name: "Admin Principal (Tú)",
-    email: "admin@valeska.com",
-    role: "ADMIN",
-    status: "active",
-    lastLogin: "En línea ahora",
-  },
-  {
-    id: 2,
-    name: "Juan Tramitador",
-    email: "juan.t@valeska.com",
-    role: "USER",
-    status: "active",
-    lastLogin: "Hoy, 08:30 AM",
-  },
-  {
-    id: 3,
-    name: "Maria Archivos",
-    email: "m.archivos@valeska.com",
-    role: "USER",
-    status: "blocked",
-    lastLogin: "Ayer",
-  },
-];
+import { UserCard } from "../../components/shared/UserCard";
 
 export function UsuariosPage() {
-  const [users, setUsers] = useState<User[]>(INITIAL_USERS);
+  const {
+    users,
+    isLoading,
+    toggleUserStatus,
+    deleteUser,
+    saveUser,
+    transferAdmin,
+    resetToTemporaryPassword,
+  } = useUsuariosLogic();
+
   const [showModal, setShowModal] = useState(false);
-  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [editingUser, setEditingUser] = useState<UserDB | null>(null);
+
   const [transferData, setTransferData] = useState<{
+    currentAdminId: string;
+    targetAdminId: string;
     targetName: string;
-    onConfirm: () => void;
   } | null>(null);
 
-  const toggleStatus = (id: number) => {
-    setUsers(
-      users.map((u) =>
-        u.id === id
-          ? { ...u, status: u.status === "active" ? "blocked" : "active" }
-          : u,
-      ),
-    );
-  };
+  const handleSaveUser = async (updatedData: any) => {
+    const currentAdmin = users.find((u) => u.rol === "ADMIN_CENTRAL");
 
-  const deleteUser = (id: number) => {
-    if (users.find((u) => u.id === id)?.role === "ADMIN") return;
-    if (window.confirm("¿Seguro que deseas eliminar este usuario?")) {
-      setUsers(users.filter((u) => u.id !== id));
-    }
-  };
-
-  const handleSaveUser = (updatedUser: any) => {
-    const currentAdmin = users.find((u) => u.role === "ADMIN");
     if (
-      updatedUser.role === "ADMIN" &&
+      updatedData.role === "ADMIN_CENTRAL" &&
       currentAdmin &&
-      currentAdmin.id !== updatedUser.id
+      currentAdmin.id !== updatedData.id
     ) {
       setTransferData({
-        targetName: updatedUser.name || "Nuevo Usuario",
-        onConfirm: () => {
-          setUsers((prev) =>
-            prev.map((u) => {
-              if (u.id === currentAdmin.id)
-                return { ...u, role: "USER" as UserRole };
-              if (u.id === updatedUser.id)
-                return { ...u, ...updatedUser } as User;
-              return u;
-            }),
-          );
-          setTransferData(null);
-          setShowModal(false);
-        },
+        currentAdminId: currentAdmin.id,
+        targetAdminId: updatedData.id,
+        targetName: updatedData.name || "Nuevo Usuario",
       });
       return;
     }
-    if (editingUser) {
-      setUsers(
-        users.map((u) =>
-          u.id === editingUser.id ? { ...u, ...updatedUser } : u,
-        ),
-      );
-    } else {
-      const newUser: User = {
-        ...updatedUser,
-        id: Date.now(),
-        status: "active",
-        lastLogin: "Nunca",
-      };
-      setUsers([...users, newUser]);
+
+    const success = await saveUser(updatedData, !!editingUser);
+    if (success) {
+      setShowModal(false);
+      setEditingUser(null);
     }
-    setShowModal(false);
   };
+
+  const executeTransfer = async () => {
+    if (transferData) {
+      await transferAdmin(
+        transferData.currentAdminId,
+        transferData.targetAdminId,
+      );
+      setTransferData(null);
+      setShowModal(false);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="p-8 flex items-center justify-center min-h-[50vh]">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+      </div>
+    );
+  }
 
   return (
     <div className="p-8 space-y-8 animate-in fade-in duration-500 bg-[#F6F7FB] min-h-screen">
@@ -111,7 +80,8 @@ export function UsuariosPage() {
           </p>
           <p className="text-xs text-amber-700 font-bold leading-relaxed max-w-3xl">
             Solo un Administrador por dispositivo. El cambio de mando es
-            inmediato e irreversible.
+            inmediato e irreversible. Las contraseñas temporales generadas deben
+            ser cambiadas por el usuario.
           </p>
         </div>
       </div>
@@ -122,7 +92,8 @@ export function UsuariosPage() {
             <ShieldCheck className="text-[#2563EB] w-8 h-8" /> Seguridad Local
           </h1>
           <p className="text-sm text-[#6B7280] mt-1 font-bold">
-            Gestión de identidades del sistema Valeska.
+            Gestión de identidades del sistema Valeska ({users.length}{" "}
+            registrados).
           </p>
         </div>
         <button
@@ -141,12 +112,13 @@ export function UsuariosPage() {
           <UserCard
             key={user.id}
             user={user}
-            onToggleStatus={toggleStatus}
-            onDelete={deleteUser}
-            onEdit={(u) => {
-              setEditingUser(u);
+            onToggleStatus={() => toggleUserStatus(user.id, user.esta_activo)}
+            onDelete={() => deleteUser(user.id, user.rol)}
+            onEdit={() => {
+              setEditingUser(user);
               setShowModal(true);
             }}
+            onResetPassword={() => resetToTemporaryPassword(user.id)}
           />
         ))}
       </div>
@@ -158,10 +130,11 @@ export function UsuariosPage() {
           onSave={handleSaveUser}
         />
       )}
+
       {transferData && (
         <TransferConfirmModal
           targetName={transferData.targetName}
-          onConfirm={transferData.onConfirm}
+          onConfirm={executeTransfer}
           onCancel={() => setTransferData(null)}
         />
       )}
