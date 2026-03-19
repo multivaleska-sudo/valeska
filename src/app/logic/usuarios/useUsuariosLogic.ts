@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import Database from "@tauri-apps/plugin-sql";
 import * as bcrypt from "bcryptjs";
+import { invoke } from "@tauri-apps/api/core";
+import { save } from "@tauri-apps/plugin-dialog";
 
 export interface UserDB {
     id: string;
@@ -138,6 +140,72 @@ export function useUsuariosLogic() {
         }
     };
 
+    // =======================================================================
+    // NUEVO: GENERAR ARCHIVO .VALESKA ENCRIPTADO (VIA RUST)
+    // =======================================================================
+    const exportProvisioningFile = async (userId: string) => {
+        try {
+            const sqlite = await Database.load("sqlite:valeska.db");
+
+            // 1. Obtener datos del usuario y sucursal
+            const userResult: any[] = await sqlite.select("SELECT * FROM usuarios WHERE id = $1", [userId]);
+            const user = userResult[0];
+            if (!user) throw new Error("Usuario no encontrado.");
+
+            const dispResult: any[] = await sqlite.select("SELECT sucursal_id FROM dispositivos LIMIT 1");
+            const sucursalId = dispResult[0]?.sucursal_id;
+
+            const sucResult: any[] = await sqlite.select("SELECT * FROM sucursales WHERE id = $1", [sucursalId]);
+            const sucursal = sucResult[0];
+            if (!sucursal) throw new Error("Sucursal no encontrada.");
+
+            // 2. Armar el Payload (El contenido)
+            const payload = {
+                provision_id: crypto.randomUUID(),
+                tipo_licencia: user.rol === "ADMIN_CENTRAL" ? "MASTER" : "OPERADOR",
+                sucursal: {
+                    id: sucursal.id,
+                    nombre: sucursal.nombre,
+                    direccion: sucursal.direccion || ""
+                },
+                admin: {
+                    username: user.username,
+                    nombre: user.nombre_completo,
+                    password_temporal_hash: user.password_hash
+                }
+            };
+
+            const fileContent = JSON.stringify(payload);
+
+            // 3. Abrir la ventana nativa de Windows/Mac para elegir dónde guardarlo
+            const filePath = await save({
+                filters: [{ name: 'Licencia Valeska', extensions: ['valeska'] }],
+                defaultPath: `${user.nombre_completo.replace(/\s+/g, '_')}_Licencia.valeska`
+            });
+
+            // Si el usuario no canceló la ventana de guardar...
+            if (filePath) {
+                // Generamos 12 bytes aleatorios para la encriptación (Nonce) desde el navegador seguro
+                const nonceArray = new Uint8Array(12);
+                window.crypto.getRandomValues(nonceArray);
+                const nonceBytes = Array.from(nonceArray);
+
+                // 4. Se lo pasamos a Rust para que lo encripte con la llave maestra y lo guarde
+                await invoke("generate_provisioning_file", {
+                    payload: fileContent,
+                    filePath: filePath,
+                    nonceBytes: nonceBytes
+                });
+
+                alert("✅ Licencia exportada y encriptada exitosamente.");
+            }
+
+        } catch (error: any) {
+            console.error("Error al exportar:", error);
+            alert(error.message || "Error interno al generar el archivo de provisión.");
+        }
+    };
+
     return {
         users,
         isLoading,
@@ -145,6 +213,7 @@ export function useUsuariosLogic() {
         deleteUser,
         saveUser,
         transferAdmin,
-        resetToTemporaryPassword
+        resetToTemporaryPassword,
+        exportProvisioningFile
     };
 }
