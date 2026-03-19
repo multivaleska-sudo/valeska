@@ -66,6 +66,39 @@ fn import_provisioning_profile(file_path: String) -> Result<String, String> {
     Ok(json_string)
 }
 
+#[tauri::command]
+fn generate_provisioning_file(
+    payload: String,
+    file_path: String,
+    nonce_bytes: Vec<u8>,
+) -> Result<(), String> {
+    if nonce_bytes.len() != 12 {
+        return Err("Error criptográfico: Nonce inválido".to_string());
+    }
+
+    let secret = dotenv!("VALESKA_SECRET");
+    let mut hasher = Sha256::new();
+    hasher.update(secret.as_bytes());
+    let key_bytes = hasher.finalize();
+
+    let key = aes_gcm::Key::<Aes256Gcm>::from_slice(&key_bytes);
+    let cipher = Aes256Gcm::new(key);
+    let nonce = Nonce::from_slice(&nonce_bytes);
+
+    let ciphertext = cipher
+        .encrypt(nonce, payload.as_bytes())
+        .map_err(|_| "Error interno al encriptar los datos.".to_string())?;
+
+    let mut final_file_bytes = Vec::new();
+    final_file_bytes.extend_from_slice(&nonce_bytes);
+    final_file_bytes.extend_from_slice(&ciphertext);
+
+    fs::write(&file_path, final_file_bytes)
+        .map_err(|_| "Error al guardar el archivo físico en el disco.".to_string())?;
+
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let migrations = vec![
@@ -101,7 +134,8 @@ pub fn run() {
             extract_xml_data,
             extract_full_invoice_data,
             get_device_mac,
-            import_provisioning_profile
+            import_provisioning_profile,
+            generate_provisioning_file
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
