@@ -25,12 +25,17 @@ const getDb = async () => {
     }, { schema });
 };
 
+const API_URL = (import.meta as any).env.VITE_API_URL;
+
 export function useAuthLogic() {
     const navigate = useNavigate();
     const [isLoading, setIsLoading] = useState(true);
     const [isFirstRun, setIsFirstRun] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
+    // =======================================================================
+    // 1. EL GUARDIA DE SEGURIDAD (Validación Silenciosa SQLite)
+    // =======================================================================
     const checkInitialSetup = async () => {
         try {
             const sqlite = await Database.load("sqlite:valeska.db");
@@ -54,12 +59,7 @@ export function useAuthLogic() {
             }
 
             const sessionData = JSON.parse(sessionString);
-
-            const userCheck: any[] = await sqlite.select(
-                "SELECT esta_activo FROM usuarios WHERE id = $1",
-                [sessionData.id]
-            );
-
+            const userCheck: any[] = await sqlite.select("SELECT esta_activo FROM usuarios WHERE id = $1", [sessionData.id]);
             const dbUser = userCheck[0];
 
             if (!dbUser || dbUser.esta_activo === 0 || dbUser.esta_activo === false || dbUser.esta_activo === '0') {
@@ -81,6 +81,9 @@ export function useAuthLogic() {
         }
     };
 
+    // =======================================================================
+    // 2. MÉTODO ESTRICTO: PROCESAR ARCHIVO .VALESKA FÍSICO
+    // =======================================================================
     const processProvisioningFile = async (filePath: string) => {
         setError(null);
         try {
@@ -153,6 +156,73 @@ export function useAuthLogic() {
         }
     };
 
+    // =======================================================================
+    // 3. MÉTODO NUBE: DESCARGAR CREDENCIALES DESDE NESTJS
+    // =======================================================================
+    const cloudProvisioning = async (email: string, passwordPlain: string) => {
+        setError(null);
+        try {
+            let realMacAddress = "MAC-DESCONOCIDA";
+            try { realMacAddress = await invoke("get_device_mac"); } catch (e) { realMacAddress = `MAC-FALLBACK-${Date.now()}`; }
+
+            const response = await fetch(`${API_URL}/auth/provision-device`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email, password: passwordPlain, macAddress: realMacAddress })
+            });
+
+            if (!response.ok) {
+                const errData = await response.json().catch(() => ({}));
+                throw new Error(errData.message || "Credenciales inválidas o conexión a la nube fallida.");
+            }
+
+            const data = await response.json();
+
+            const db = await getDb();
+            const now = new Date();
+
+            await db.insert(schema.sucursales).values({
+                id: data.sucursal.id,
+                nombre: data.sucursal.nombre,
+                direccion: data.sucursal.direccion || "",
+                esCentral: data.sucursal.es_central,
+                createdAt: now,
+                updatedAt: now,
+            }).onConflictDoNothing();
+
+            await db.insert(schema.dispositivos).values({
+                id: data.dispositivo.id,
+                macAddress: data.dispositivo.macAddress,
+                nombreEquipo: "NUEVA-PC-NUBE",
+                autorizado: true,
+                sucursalId: data.sucursal.id,
+                createdAt: now,
+                updatedAt: now,
+            }).onConflictDoNothing();
+
+            await db.insert(schema.usuarios).values({
+                id: data.usuario.id,
+                username: data.usuario.username,
+                passwordHash: data.usuario.passwordHash,
+                rol: data.usuario.rol,
+                nombreCompleto: data.usuario.nombreCompleto,
+                dispositivoId: data.dispositivo.id,
+                estaActivo: true,
+                createdAt: now,
+                updatedAt: now,
+            }).onConflictDoNothing();
+
+            return true;
+        } catch (err: any) {
+            console.error("Error en provisión por nube:", err);
+            setError(err.message || "Error interno al configurar el dispositivo desde la nube.");
+            return false;
+        }
+    };
+
+    // =======================================================================
+    // 4. LOGIN NATIVO (SQL PURO)
+    // =======================================================================
     const login = async (username: string, passwordPlain: string) => {
         setError(null);
         try {
@@ -225,6 +295,7 @@ export function useAuthLogic() {
     return {
         checkInitialSetup,
         processProvisioningFile,
+        cloudProvisioning,
         login,
         updatePasswordLocal,
         logout,
