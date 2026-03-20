@@ -42,6 +42,12 @@ export function useUsuariosLogic() {
                 newStatus, new Date().toISOString(), id
             ]);
             await fetchUsers();
+            window.dispatchEvent(new CustomEvent("valeska_request_sync", {
+                detail: {
+                    title: currentStatus ? "Bloqueo de Usuario" : "Desbloqueo de Usuario",
+                    details: `Se cambió el estado de acceso de un empleado.`
+                }
+            }));
         } catch (error) {
             console.error("Error al cambiar estado:", error);
         }
@@ -59,6 +65,7 @@ export function useUsuariosLogic() {
             const sqlite = await Database.load("sqlite:valeska.db");
             await sqlite.execute("DELETE FROM usuarios WHERE id = $1", [id]);
             await fetchUsers();
+            window.dispatchEvent(new Event("valeska_request_sync"));
         } catch (error) {
             console.error("Error al eliminar:", error);
         }
@@ -99,6 +106,12 @@ export function useUsuariosLogic() {
                 );
             }
             await fetchUsers();
+            window.dispatchEvent(new CustomEvent("valeska_request_sync", {
+                detail: {
+                    title: isEditing ? "Actualización de Perfil" : "Registro de Nuevo Usuario",
+                    details: `Se ${isEditing ? 'modificaron los datos' : 'creó la cuenta'} de ${userData.name}.`
+                }
+            }));
             return true;
         } catch (error: any) {
             console.error("Error al guardar usuario:", error);
@@ -110,7 +123,7 @@ export function useUsuariosLogic() {
     const resetToTemporaryPassword = async (id: string) => {
         try {
             const sqlite = await Database.load("sqlite:valeska.db");
-            const tempPassword = "Valeska" + Math.floor(1000 + Math.random() * 9000); // Ej: Valeska4829
+            const tempPassword = "Valeska" + Math.floor(1000 + Math.random() * 9000);
 
             const salt = bcrypt.genSaltSync(10);
             const hash = bcrypt.hashSync(tempPassword, salt);
@@ -118,7 +131,12 @@ export function useUsuariosLogic() {
             await sqlite.execute("UPDATE usuarios SET password_hash = $1, updated_at = $2 WHERE id = $3", [
                 hash, new Date().toISOString(), id
             ]);
-
+            window.dispatchEvent(new CustomEvent("valeska_request_sync", {
+                detail: {
+                    title: "Reseteo de Contraseña",
+                    details: "Se generó una clave temporal."
+                }
+            }));
             alert(`Contraseña reseteada con éxito.\nLa nueva contraseña temporal es: ${tempPassword}\n\nPor favor, entréguesela al usuario.`);
         } catch (error) {
             console.error("Error al resetear contraseña:", error);
@@ -133,6 +151,12 @@ export function useUsuariosLogic() {
             await sqlite.execute("UPDATE usuarios SET rol = 'ADMIN_CENTRAL' WHERE id = $1", [newAdminId]);
 
             await fetchUsers();
+            window.dispatchEvent(new CustomEvent("valeska_request_sync", {
+                detail: {
+                    title: "Transferencia de Mando (Peligro)",
+                    details: "Se ha cedido el rol de Administrador Central."
+                }
+            }));
             return true;
         } catch (error) {
             console.error("Error al transferir mando:", error);
