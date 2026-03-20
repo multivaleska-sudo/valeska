@@ -6,15 +6,31 @@ import {
   Clock,
   CloudOff,
   Loader2,
+  Monitor,
+  User,
+  ArrowDownToLine,
+  ArrowUpFromLine,
 } from "lucide-react";
 import { useSyncLogic } from "../logic/sync/useSyncLogic";
 
 export function SyncPage() {
-  const { isSyncing, lastSyncTime, syncError, syncStats, triggerSync } =
-    useSyncLogic();
+  const {
+    isSyncing,
+    lastSyncTime,
+    syncError,
+    syncStats,
+    syncHistory,
+    triggerSync,
+  } = useSyncLogic();
 
   const totalPushed =
-    syncStats.sucursales + syncStats.dispositivos + syncStats.usuarios;
+    (syncStats?.push?.sucursales || 0) +
+    (syncStats?.push?.dispositivos || 0) +
+    (syncStats?.push?.usuarios || 0);
+  const totalPulled =
+    (syncStats?.pull?.sucursales || 0) +
+    (syncStats?.pull?.dispositivos || 0) +
+    (syncStats?.pull?.usuarios || 0);
 
   return (
     <div className="p-8 space-y-6 bg-[#F6F7FB] min-h-screen font-sans animate-in fade-in duration-500">
@@ -27,7 +43,6 @@ export function SyncPage() {
         </p>
       </div>
 
-      {/* Alerta de Error Real (Si el servidor NestJS está caído) */}
       {syncError && (
         <div className="bg-red-50 border border-red-200 p-4 rounded-lg flex items-start gap-4 shadow-sm animate-in slide-in-from-top-2">
           <CloudOff className="text-red-600 shrink-0 mt-0.5" size={24} />
@@ -54,14 +69,14 @@ export function SyncPage() {
             </p>
           </div>
           <button
-            onClick={triggerSync}
+            onClick={() =>
+              triggerSync({
+                title: "Sincronización Manual Forzada",
+                details: "Solicitada por el usuario.",
+              })
+            }
             disabled={isSyncing}
-            className={`px-5 py-2.5 rounded-md transition-colors flex items-center gap-2 font-bold shadow-sm
-              ${
-                isSyncing
-                  ? "bg-blue-400 text-white cursor-not-allowed"
-                  : "bg-[#2563EB] text-white hover:bg-[#1D4ED8] active:scale-95"
-              }`}
+            className={`px-5 py-2.5 rounded-md transition-colors flex items-center gap-2 font-bold shadow-sm ${isSyncing ? "bg-blue-400 text-white cursor-not-allowed" : "bg-[#2563EB] text-white hover:bg-[#1D4ED8] active:scale-95"}`}
           >
             {isSyncing ? (
               <Loader2 className="w-4 h-4 animate-spin" />
@@ -73,10 +88,9 @@ export function SyncPage() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* ÚLTIMO PUSH (Conectado a datos reales) */}
           <div className="bg-[#EFF6FF] border border-[#BFDBFE] rounded-lg p-4">
             <div className="flex items-center gap-3">
-              <Cloud className="w-8 h-8 text-[#2563EB]" />
+              <ArrowUpFromLine className="w-8 h-8 text-[#2563EB]" />
               <div>
                 <div className="text-xs font-bold text-[#1E40AF] uppercase tracking-wider">
                   Último Push (Subida)
@@ -90,22 +104,22 @@ export function SyncPage() {
             </div>
           </div>
 
-          {/* ÚLTIMO PULL (Placeholder visual para el futuro) */}
-          <div className="bg-[#DCFCE7] border border-[#86EFAC] rounded-lg p-4 opacity-80">
+          <div className="bg-[#DCFCE7] border border-[#86EFAC] rounded-lg p-4">
             <div className="flex items-center gap-3">
-              <Cloud className="w-8 h-8 text-[#16A34A]" />
+              <ArrowDownToLine className="w-8 h-8 text-[#16A34A]" />
               <div>
                 <div className="text-xs font-bold text-[#15803D] uppercase tracking-wider">
                   Último Pull (Bajada)
                 </div>
                 <div className="text-sm font-black text-[#166534] mt-0.5">
-                  -- Próximamente --
+                  {lastSyncTime
+                    ? `${totalPulled} registros actualizados`
+                    : "Sin datos"}
                 </div>
               </div>
             </div>
           </div>
 
-          {/* CONFLICTOS (Placeholder visual) */}
           <div className="bg-[#FEE2E2] border border-[#FCA5A5] rounded-lg p-4">
             <div className="flex items-center gap-3">
               <AlertTriangle
@@ -127,53 +141,71 @@ export function SyncPage() {
       </div>
 
       <div className="bg-white rounded-lg border border-[#E5E7EB] shadow-sm overflow-hidden">
-        <div className="p-6 border-b border-[#E5E7EB] bg-gray-50/50">
+        <div className="p-6 border-b border-[#E5E7EB] bg-gray-50/50 flex justify-between items-center">
           <h2 className="text-lg font-semibold text-[#111827]">
-            Cola de Sincronización Reciente
+            Bitácora de Auditoría (Local)
           </h2>
+          <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">
+            {syncHistory.length} Registros
+          </span>
         </div>
-        <div className="divide-y divide-[#E5E7EB]">
-          {lastSyncTime && (
-            <div className="p-4 flex items-center justify-between hover:bg-gray-50 transition-colors">
-              <div className="flex items-center gap-3">
-                <CheckCircle2 className="w-5 h-5 text-[#16A34A]" />
-                <div>
-                  <h3 className="text-sm font-bold text-[#111827]">
-                    Sincronización en Bloque (Push)
-                  </h3>
-                  <p className="text-xs font-medium text-[#6B7280] mt-1">
-                    Catálogos, Dispositivos y Usuarios actualizados.
-                  </p>
+        <div className="divide-y divide-[#E5E7EB] max-h-[400px] overflow-y-auto">
+          {syncHistory.length === 0 ? (
+            <div className="p-8 text-center text-gray-500 font-medium">
+              No hay registros recientes en este dispositivo.
+            </div>
+          ) : (
+            syncHistory.map((log) => (
+              <div
+                key={log.id}
+                className="p-4 flex items-center justify-between hover:bg-blue-50/50 transition-colors group"
+              >
+                <div className="flex items-start gap-4">
+                  <div className="mt-1">
+                    {log.status === "COMPLETED" ? (
+                      <CheckCircle2 className="w-5 h-5 text-[#16A34A]" />
+                    ) : log.status === "ERROR" ? (
+                      <AlertTriangle className="w-5 h-5 text-red-500" />
+                    ) : (
+                      <Clock className="w-5 h-5 text-[#F59E0B]" />
+                    )}
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-[#111827] flex items-center gap-2">
+                      <span
+                        className={`px-2 py-0.5 rounded text-[10px] font-black tracking-widest uppercase ${log.type === "SYNC" ? "bg-indigo-100 text-indigo-700" : "bg-gray-100 text-gray-700"}`}
+                      >
+                        {log.type}
+                      </span>
+                      {log.title}
+                    </h3>
+                    <p className="text-xs font-medium text-[#6B7280] mt-1.5 flex items-center gap-3">
+                      <span className="flex items-center gap-1 bg-gray-100 px-2 py-0.5 rounded text-gray-600">
+                        <Monitor size={12} /> {log.machine}
+                      </span>
+                      <span className="flex items-center gap-1 bg-gray-100 px-2 py-0.5 rounded text-gray-600">
+                        <User size={12} /> {log.user}
+                      </span>
+                    </p>
+                    <p className="text-xs font-bold text-gray-400 mt-1.5">
+                      Detalle: {log.details}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex flex-col items-end gap-1">
+                  <span
+                    className={`text-[10px] font-black px-2 py-1 rounded uppercase tracking-wider border ${log.status === "COMPLETED" ? "bg-[#DCFCE7] text-[#16A34A] border-green-200" : "bg-red-50 text-red-600 border-red-200"}`}
+                  >
+                    {log.status === "COMPLETED" ? "Exitoso" : "Fallido"}
+                  </span>
+                  <span className="text-[10px] text-gray-400 font-bold">
+                    {log.timestamp.split(",")[0]} a las{" "}
+                    {log.timestamp.split(",")[1]}
+                  </span>
                 </div>
               </div>
-              <div className="flex flex-col items-end gap-1">
-                <span className="text-[10px] font-black px-2 py-1 bg-[#DCFCE7] text-[#16A34A] rounded uppercase tracking-wider border border-green-200">
-                  Completado
-                </span>
-                <span className="text-[10px] text-gray-400 font-bold">
-                  {lastSyncTime.split(",")[1]}
-                </span>
-              </div>
-            </div>
+            ))
           )}
-
-          {/* Item 2: Simulación de un Trámite pendiente */}
-          <div className="p-4 flex items-center justify-between hover:bg-gray-50 transition-colors">
-            <div className="flex items-center gap-3">
-              <Clock className="w-5 h-5 text-[#F59E0B]" />
-              <div>
-                <h3 className="text-sm font-bold text-[#111827]">
-                  T-2024-0350 - Modificación de Trámite
-                </h3>
-                <p className="text-xs font-medium text-[#6B7280] mt-1">
-                  En cola (Esperando próximo ciclo de 5 min)
-                </p>
-              </div>
-            </div>
-            <span className="text-[10px] font-black px-2 py-1 bg-[#FEF3C7] text-[#F59E0B] rounded uppercase tracking-wider border border-amber-200">
-              Pendiente
-            </span>
-          </div>
         </div>
       </div>
     </div>
