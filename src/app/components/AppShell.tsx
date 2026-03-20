@@ -1,7 +1,7 @@
 import { Outlet } from "react-router";
 import { Topbar } from "./Topbar";
 import { Sidebar } from "./Sidebar";
-import { useState, useEffect } from "react";
+import { useState, useEffect, use } from "react";
 import { useAuthLogic } from "../logic/auth/useAuthLogic";
 import { useSyncLogic } from "../logic/sync/useSyncLogic";
 import { Loader2 } from "lucide-react";
@@ -15,11 +15,18 @@ export function AppShell() {
 
   useEffect(() => {
     checkInitialSetup();
-    const runBackgroundSync = () => {
+  }, []);
+
+  useEffect(() => {
+    const runBackgroundSync = (e?: Event | CustomEvent) => {
       const autoSync = localStorage.getItem("valeska_autosync") !== "false";
+      if (e && "detail" in e && e.detail) {
+        triggerSync(e.detail);
+        return;
+      }
+
       if (autoSync) {
-        console.log("Iniciando sincronización en segundo plano...");
-        triggerSync();
+        triggerSync({ title: "Sincronización Automática (Rutina)" });
       }
     };
 
@@ -27,9 +34,12 @@ export function AppShell() {
 
     const syncInterval = setInterval(runBackgroundSync, 300000);
 
+    window.addEventListener("valeska_request_sync", runBackgroundSync);
+
     return () => {
       clearTimeout(initialTimeout);
       clearInterval(syncInterval);
+      window.removeEventListener("valeska_request_sync", runBackgroundSync);
     };
   }, [triggerSync]);
 
