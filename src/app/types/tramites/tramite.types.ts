@@ -28,7 +28,7 @@ export interface TramiteData {
 
 export interface TramiteFormData {
   // DEL TRAMITE
-  id?: number;
+  id?: string;
   tramite_anio: string;
   cliente: string;
   telefono: string;
