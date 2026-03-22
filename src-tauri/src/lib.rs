@@ -114,6 +114,24 @@ pub fn run() {
             sql: include_str!("../../src/app/db/migrations/0001_third_whizzer.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 3,
+            description: "hacer_seed_de_tipos_de_tramites",
+            sql: include_str!("../../src/app/db/migrations/0002_one_punch.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 4,
+            description: "agregar_modulo_plantillas_documentos",
+            sql: include_str!("../../src/app/db/migrations/0003_tsubasa_champion.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 5,
+            description: "agregar_columnas_para_empresas_gestoras",
+            sql: include_str!("../../src/app/db/migrations/0004_pastrana_champion.sql"),
+            kind: MigrationKind::Up,
+        },
     ];
 
     tauri::Builder::default()
