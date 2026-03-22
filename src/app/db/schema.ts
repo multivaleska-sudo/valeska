@@ -177,3 +177,17 @@ export const tramiteDetalles = sqliteTable('tramite_detalles', {
 }, (table) => ({
     tramiteDetalleUniqIdx: uniqueIndex('detalle_tramite_idx').on(table.tramiteId),
 }));
+
+// ============================================================================
+// 6. MOTOR DE PLANTILLAS Y DOCUMENTOS
+// ============================================================================
+export const plantillasDocumentos = sqliteTable('plantillas_documentos', {
+    id: text('id').primaryKey(),
+    nombreDocumento: text('nombre_documento').notNull(),
+    contenidoHtml: text('contenido_html').notNull(),
+    orientacionPapel: text('orientacion_papel').default('PORTRAIT'), // PORTRAIT o LANDSCAPE
+    activo: integer('activo', { mode: 'boolean' }).notNull().default(true),
+    ...syncColumns
+}, (table) => ({
+    nombreDocIdx: uniqueIndex('plantilla_nombre_idx').on(table.nombreDocumento),
+}));
