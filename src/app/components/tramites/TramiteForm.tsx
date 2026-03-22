@@ -2,21 +2,19 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router";
 import { open as openExternalLink } from "@tauri-apps/plugin-shell";
 import {
+  Camera,
   Printer,
   XCircle,
   Save,
   FileText,
   User,
   Car,
-  Settings,
   FileCheck,
   Globe,
-  CheckSquare,
   Edit3,
   FileCode,
   Loader2,
   ScanBarcode,
-  Camera,
 } from "lucide-react";
 import { useTramiteLogic } from "../../logic/tramites/useTramiteLogic";
 import {
@@ -27,6 +25,8 @@ import {
 } from "./ModernFormSections";
 import { TramiteFormData } from "../../types/tramites/tramite.types";
 import { useBarcodeScanner } from "../../logic/tramites/useBarcodeScanner";
+import { CatalogoModal } from "../catalogo/CatalogoModal";
+import { EmpresaModal } from "../empresa/EmpresaModal";
 import { WebcamScannerModal } from "./WebcamScannerModal";
 
 interface TramiteFormProps {
@@ -46,10 +46,18 @@ export function TramiteForm({ mode, initialData }: TramiteFormProps) {
     isSaving,
     autofillFromPdf,
     isFilling,
+    opcionesTipos,
+    opcionesSituacion,
+    plantillas,
+    loadCatalogos,
   } = useTramiteLogic(initialData);
 
   const [scanSuccess, setScanSuccess] = useState(false);
   const [showWebcam, setShowWebcam] = useState(false);
+  const [modalCatalogo, setModalCatalogo] = useState<
+    "tipo_tramite" | "situacion" | null
+  >(null);
+  const [showEmpresaModal, setShowEmpresaModal] = useState(false);
 
   useBarcodeScanner((scannedData) => {
     if (isViewOnly) return;
@@ -57,12 +65,7 @@ export function TramiteForm({ mode, initialData }: TramiteFormProps) {
   });
 
   const procesarCodigoEscaneado = (codigo: string) => {
-    console.log("¡Código escaneado!", codigo);
-    setFormData((prev) => ({
-      ...prev,
-      vehiculo_placa: codigo.toUpperCase(),
-    }));
-
+    setFormData((prev) => ({ ...prev, vehiculo_placa: codigo.toUpperCase() }));
     setScanSuccess(true);
     setTimeout(() => setScanSuccess(false), 3000);
   };
@@ -80,19 +83,6 @@ export function TramiteForm({ mode, initialData }: TramiteFormProps) {
     }
   };
 
-  const handlePrintDocument = (documentType: string) => {
-    if (mode === "create" && !formData.id) {
-      alert(
-        "Por favor, guarde el trámite primero ('Grabar Registro') antes de generar o imprimir documentos.",
-      );
-      return;
-    }
-
-    navigate(
-      `/tramites/${formData.id || "draft"}/documents?type=${encodeURIComponent(documentType)}`,
-    );
-  };
-
   return (
     <div className="min-h-screen bg-slate-50 p-6 font-sans text-gray-800">
       {showWebcam && (
@@ -104,6 +94,37 @@ export function TramiteForm({ mode, initialData }: TramiteFormProps) {
           }}
         />
       )}
+
+      {modalCatalogo && (
+        <CatalogoModal
+          tipo={modalCatalogo}
+          onClose={() => setModalCatalogo(null)}
+          onSuccess={(nuevoNombre) => {
+            setModalCatalogo(null);
+            loadCatalogos();
+            setFormData((prev) => ({
+              ...prev,
+              [modalCatalogo === "tipo_tramite"
+                ? "tipo_tramite"
+                : "estado_tramite"]: nuevoNombre,
+            }));
+          }}
+        />
+      )}
+
+      {showEmpresaModal && (
+        <EmpresaModal
+          onClose={() => setShowEmpresaModal(false)}
+          onSuccess={(empresaStr) => {
+            setShowEmpresaModal(false);
+            setFormData((prev) => ({
+              ...prev,
+              presentante_empresa: empresaStr,
+            }));
+          }}
+        />
+      )}
+
       <div className="max-w-[1400px] mx-auto space-y-6">
         {scanSuccess && (
           <div className="fixed top-6 left-1/2 -translate-x-1/2 bg-green-600 text-white px-6 py-3 rounded-full shadow-lg font-bold flex items-center gap-2 z-50 animate-bounce">
@@ -193,7 +214,6 @@ export function TramiteForm({ mode, initialData }: TramiteFormProps) {
         </div>
 
         <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
-          {/* COLUMNA IZQUIERDA */}
           <div className="xl:col-span-5 space-y-6">
             <SectionCard
               title="Detalles del Trámite"
@@ -244,16 +264,9 @@ export function TramiteForm({ mode, initialData }: TramiteFormProps) {
                   onChange={handleChange}
                   className="col-span-2"
                   disabled={isViewOnly}
-                  options={[
-                    "Primera Inscripción Vehicular",
-                    "Cambio de Características",
-                    "Cambio de Uso",
-                    "Duplicado de Tarjeta",
-                    "Transferencia Notarial",
-                    "Otros",
-                  ]}
+                  options={opcionesTipos}
+                  onAddClick={() => setModalCatalogo("tipo_tramite")}
                 />
-
                 <ModernSelect
                   label="Estado del Trámite"
                   name="estado_tramite"
@@ -261,13 +274,8 @@ export function TramiteForm({ mode, initialData }: TramiteFormProps) {
                   onChange={handleChange}
                   className="col-span-2"
                   disabled={isViewOnly}
-                  options={[
-                    "En calificación",
-                    "Inscrito",
-                    "Observado",
-                    "Concluido",
-                    "Reingresado",
-                  ]}
+                  options={opcionesSituacion}
+                  onAddClick={() => setModalCatalogo("situacion")}
                 />
 
                 <ModernInput
@@ -356,7 +364,6 @@ export function TramiteForm({ mode, initialData }: TramiteFormProps) {
             </SectionCard>
           </div>
 
-          {/* COLUMNA DERECHA */}
           <div className="xl:col-span-7 space-y-6">
             <SectionCard title="Datos del Vehículo" icon={<Car size={18} />}>
               <div className="grid grid-cols-3 gap-4">
@@ -420,11 +427,13 @@ export function TramiteForm({ mode, initialData }: TramiteFormProps) {
             >
               <div className="grid grid-cols-2 gap-4">
                 <ModernSearchInput
-                  label="Empresa (Buscar por RUC/Razón)"
+                  label="Empresa (Buscar por RUC)"
                   name="presentante_empresa"
                   value={formData.presentante_empresa}
                   onChange={handleChange}
                   readOnly={isViewOnly}
+                  placeholder="Ingrese RUC..."
+                  onAddClick={() => setShowEmpresaModal(true)}
                 />
                 <ModernInput
                   label="Presentante"
@@ -433,7 +442,6 @@ export function TramiteForm({ mode, initialData }: TramiteFormProps) {
                   onChange={handleChange}
                   readOnly={isViewOnly}
                 />
-
                 <ModernSelect
                   label="Tipo de Boleta"
                   name="tipo_boleta"
@@ -488,6 +496,7 @@ export function TramiteForm({ mode, initialData }: TramiteFormProps) {
                     value={formData.clausula_monto}
                     onChange={handleChange}
                     readOnly={isViewOnly}
+                    placeholder="Ej. 15,000.00"
                   />
                   <ModernInput
                     label="Forma de Pago"
@@ -527,7 +536,7 @@ export function TramiteForm({ mode, initialData }: TramiteFormProps) {
               </SectionCard>
 
               <SectionCard
-                title="Solo Para Impresión"
+                title="Emisión de Documentos"
                 icon={<Printer size={18} />}
               >
                 <div className="flex flex-col gap-4">
@@ -540,34 +549,34 @@ export function TramiteForm({ mode, initialData }: TramiteFormProps) {
                     readOnly={isViewOnly}
                   />
 
-                  <div className="grid grid-cols-1 gap-2 mt-2">
-                    <button
-                      onClick={() => handlePrintDocument("Formulario")}
-                      className="w-full py-2.5 bg-red-50 border border-red-200 rounded-lg text-sm font-bold text-red-700 hover:bg-red-100 transition-all flex items-center justify-center gap-2 shadow-sm"
-                    >
-                      <FileText size={16} /> Imprimir Formulario
-                    </button>
-                    <button
-                      onClick={() =>
-                        handlePrintDocument("Cláusula Cancelación")
-                      }
-                      className="w-full py-2.5 bg-blue-50 border border-blue-200 rounded-lg text-sm font-bold text-blue-700 hover:bg-blue-100 transition-all flex items-center justify-center gap-2 shadow-sm"
-                    >
-                      <FileText size={16} /> Imprimir Cláusula Cancelación
-                    </button>
-                    <button
-                      onClick={() => handlePrintDocument("P. Medina")}
-                      className="w-full py-2.5 bg-green-50 border border-green-200 rounded-lg text-sm font-bold text-green-700 hover:bg-green-100 transition-all flex items-center justify-center gap-2 shadow-sm"
-                    >
-                      <FileText size={16} /> Imprimir P. MEDINA
-                    </button>
-                    <button
-                      onClick={() => handlePrintDocument("P. Pantigoso")}
-                      className="w-full py-2.5 bg-purple-50 border border-purple-200 rounded-lg text-sm font-bold text-purple-700 hover:bg-purple-100 transition-all flex items-center justify-center gap-2 shadow-sm"
-                    >
-                      <FileText size={16} /> Imprimir P. PANTIGOSO
-                    </button>
+                  <div className="space-y-2 mt-2">
+                    {plantillas.length === 0 ? (
+                      <p className="text-xs text-gray-500 text-center bg-gray-50 py-3 rounded-lg border border-dashed border-gray-200">
+                        No hay plantillas activas en el sistema.
+                      </p>
+                    ) : (
+                      plantillas.map((tpl) => (
+                        <button
+                          key={tpl.id}
+                          onClick={() => {
+                            if (!formData.id) {
+                              alert(
+                                "Debe grabar el registro primero antes de poder imprimir.",
+                              );
+                              return;
+                            }
+                            navigate(
+                              `/tramites/${formData.id}/print/${tpl.id}`,
+                            );
+                          }}
+                          className="w-full py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm font-semibold text-gray-700 hover:bg-white hover:border-blue-300 hover:text-blue-600 transition-all flex items-center justify-center gap-2 shadow-sm"
+                        >
+                          <FileText size={16} /> Imprimir {tpl.nombre_documento}
+                        </button>
+                      ))
+                    )}
                   </div>
+                  {/* ========================================= */}
                 </div>
               </SectionCard>
             </div>
