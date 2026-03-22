@@ -1,30 +1,90 @@
-import { useState, useMemo, useEffect } from 'react';
-import { MOCK_TRAMITES } from '../../mocks/tramites.mock';
+import { useState, useMemo, useEffect, useCallback } from 'react';
+import Database from "@tauri-apps/plugin-sql";
+
+export interface TramiteRow {
+    id: string;
+    n_titulo: string;
+    cliente: string;
+    dni: string;
+    tramite: string;
+    situacion: string;
+    fecha_presentacion: string;
+    empresa_gestiona: string;
+}
 
 export function useTramitesListLogic() {
-    // Estados para los Filtros de Búsqueda
+    const [rawData, setRawData] = useState<TramiteRow[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+
     const [searchCliente, setSearchCliente] = useState("");
     const [searchTitulo, setSearchTitulo] = useState("");
     const [searchDNI, setSearchDNI] = useState("");
     const [filterSituacion, setFilterSituacion] = useState("");
-
-    // Nuevos Estados para Rango de Fechas
     const [fechaInicio, setFechaInicio] = useState("");
     const [fechaFin, setFechaFin] = useState("");
 
-    // Estados para Paginación
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 10;
 
-    // Lógica de Filtrado Dinámico
+    const fetchTramites = useCallback(async () => {
+        setIsLoading(true);
+        try {
+            const sqlite = await Database.load("sqlite:valeska.db");
+
+            const query = `
+                SELECT 
+                    t.id,
+                    t.n_titulo,
+                    c.razon_social_nombres AS cliente,
+                    c.numero_documento AS dni,
+                    ctt.nombre AS tramite,
+                    cs.nombre AS situacion,
+                    t.fecha_presentacion,
+                    eg.razon_social AS empresa_gestiona
+                FROM tramites t
+                JOIN clientes c ON t.cliente_id = c.id
+                JOIN catalogo_tipos_tramite ctt ON t.tipo_tramite_id = ctt.id
+                JOIN catalogo_situaciones cs ON t.situacion_id = cs.id
+                LEFT JOIN tramite_detalles td ON t.id = td.tramite_id
+                LEFT JOIN empresas_gestoras eg ON td.empresa_gestora_id = eg.id
+                WHERE t.deleted_at IS NULL
+                ORDER BY t.created_at DESC
+            `;
+
+            const result: any[] = await sqlite.select(query);
+
+            const formattedData: TramiteRow[] = result.map(row => ({
+                id: row.id,
+                n_titulo: row.n_titulo || "SIN TÍTULO",
+                cliente: row.cliente || "DESCONOCIDO",
+                dni: row.dni || "",
+                tramite: row.tramite || "",
+                situacion: row.situacion || "",
+                fecha_presentacion: row.fecha_presentacion || "",
+                empresa_gestiona: row.empresa_gestiona || "--"
+            }));
+
+            setRawData(formattedData);
+        } catch (error) {
+            console.error("Error al cargar trámites desde SQLite:", error);
+        } finally {
+            setIsLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        fetchTramites();
+        window.addEventListener("valeska_reload_tramites", fetchTramites);
+        return () => window.removeEventListener("valeska_reload_tramites", fetchTramites);
+    }, [fetchTramites]);
+
     const filteredTramites = useMemo(() => {
-        return MOCK_TRAMITES.filter((tramite) => {
+        return rawData.filter((tramite) => {
             const matchCliente = tramite.cliente.toLowerCase().includes(searchCliente.toLowerCase());
             const matchTitulo = tramite.n_titulo.toLowerCase().includes(searchTitulo.toLowerCase());
             const matchDNI = tramite.dni.includes(searchDNI);
             const matchSituacion = filterSituacion ? tramite.situacion === filterSituacion : true;
 
-            // Filtrado por Fechas (Matemático de strings YYYY-MM-DD)
             let matchFecha = true;
             if (fechaInicio) {
                 matchFecha = matchFecha && tramite.fecha_presentacion >= fechaInicio;
@@ -35,16 +95,14 @@ export function useTramitesListLogic() {
 
             return matchCliente && matchTitulo && matchDNI && matchSituacion && matchFecha;
         });
-    }, [searchCliente, searchTitulo, searchDNI, filterSituacion, fechaInicio, fechaFin]);
+    }, [rawData, searchCliente, searchTitulo, searchDNI, filterSituacion, fechaInicio, fechaFin]);
 
-    // Lógica de Paginación Matemática
     const totalPages = Math.ceil(filteredTramites.length / itemsPerPage);
     const paginatedTramites = filteredTramites.slice(
         (currentPage - 1) * itemsPerPage,
         currentPage * itemsPerPage
     );
 
-    // Resetear siempre a la página 1 si el usuario manipula CUALQUIER filtro
     useEffect(() => {
         setCurrentPage(1);
     }, [searchCliente, searchTitulo, searchDNI, filterSituacion, fechaInicio, fechaFin]);
@@ -64,6 +122,7 @@ export function useTramitesListLogic() {
             itemsPerPage,
             totalItems: filteredTramites.length
         },
-        data: paginatedTramites
+        data: paginatedTramites,
+        isLoading
     };
 }
