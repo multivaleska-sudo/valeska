@@ -22,6 +22,8 @@ import {
   ModernInput,
   ModernSelect,
   ModernSearchInput,
+  ModernDynamicRepresentantes,
+  ModernTextarea
 } from "./ModernFormSections";
 import { TramiteFormData } from "../../types/tramites/tramite.types";
 import { useBarcodeScanner } from "../../logic/tramites/useBarcodeScanner";
@@ -50,6 +52,10 @@ export function TramiteForm({ mode, initialData }: TramiteFormProps) {
     opcionesSituacion,
     plantillas,
     loadCatalogos,
+    empresaResultados,
+    showEmpresaDropdown,
+    setShowEmpresaDropdown,
+    seleccionarEmpresa,
   } = useTramiteLogic(initialData);
 
   const [scanSuccess, setScanSuccess] = useState(false);
@@ -57,7 +63,9 @@ export function TramiteForm({ mode, initialData }: TramiteFormProps) {
   const [modalCatalogo, setModalCatalogo] = useState<
     "tipo_tramite" | "situacion" | null
   >(null);
-  const [showEmpresaModal, setShowEmpresaModal] = useState(false);
+
+  // Modificado para pasar el RUC inicial en caso de edición
+  const [empresaModalRuc, setEmpresaModalRuc] = useState<string | null>(null);
 
   useBarcodeScanner((scannedData) => {
     if (isViewOnly) return;
@@ -94,7 +102,6 @@ export function TramiteForm({ mode, initialData }: TramiteFormProps) {
           }}
         />
       )}
-
       {modalCatalogo && (
         <CatalogoModal
           tipo={modalCatalogo}
@@ -112,14 +119,18 @@ export function TramiteForm({ mode, initialData }: TramiteFormProps) {
         />
       )}
 
-      {showEmpresaModal && (
+      {/* MODAL DE EMPRESA (Acepta Edit o Crear) */}
+      {empresaModalRuc !== null && (
         <EmpresaModal
-          onClose={() => setShowEmpresaModal(false)}
-          onSuccess={(empresaStr) => {
-            setShowEmpresaModal(false);
+          initialRuc={empresaModalRuc}
+          onClose={() => setEmpresaModalRuc(null)}
+          onSuccess={(empresaStr, repsStr) => {
+            setEmpresaModalRuc(null);
+            // Autollena ambas cajas al guardar/editar
             setFormData((prev) => ({
               ...prev,
               presentante_empresa: empresaStr,
+              presentante_persona: repsStr,
             }));
           }}
         />
@@ -146,11 +157,6 @@ export function TramiteForm({ mode, initialData }: TramiteFormProps) {
             </h1>
             <p className="text-sm text-gray-500 mt-1 flex items-center gap-2">
               Gestión detallada del expediente vehicular.
-              {!isViewOnly && (
-                <span className="text-indigo-600 font-bold flex items-center gap-1 bg-indigo-50 px-2 py-0.5 rounded">
-                  <ScanBarcode size={14} /> Lector USB Activo
-                </span>
-              )}
             </p>
           </div>
 
@@ -163,14 +169,12 @@ export function TramiteForm({ mode, initialData }: TramiteFormProps) {
                 >
                   <ScanBarcode size={16} /> Simular Pistola USB
                 </button>
-
                 <button
                   onClick={() => setShowWebcam(true)}
                   className="px-4 py-2 bg-teal-50 border border-teal-200 rounded-lg text-sm font-bold text-teal-700 flex items-center gap-2 hover:bg-teal-100 transition-all shadow-sm"
                 >
                   <Camera size={16} /> Usar Webcam
                 </button>
-
                 <button
                   onClick={autofillFromPdf}
                   disabled={isFilling}
@@ -180,19 +184,17 @@ export function TramiteForm({ mode, initialData }: TramiteFormProps) {
                     <Loader2 size={16} className="animate-spin" />
                   ) : (
                     <FileCode size={16} />
-                  )}
+                  )}{" "}
                   Autocompletar PDF
                 </button>
               </>
             )}
-
             <button
               onClick={() => navigate("/tramites")}
               className="px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-semibold text-gray-600 hover:bg-gray-50 flex items-center gap-2"
             >
               <XCircle size={16} /> Cerrar
             </button>
-
             {isViewOnly ? (
               <button
                 onClick={() => navigate(`/tramites/${formData.id}/edit`)}
@@ -219,6 +221,7 @@ export function TramiteForm({ mode, initialData }: TramiteFormProps) {
               title="Detalles del Trámite"
               icon={<FileText size={18} />}
             >
+              {/* Omitido para brevedad (Es exactamente igual) */}
               <div className="grid grid-cols-2 gap-4">
                 <ModernInput
                   label="Año"
@@ -332,15 +335,13 @@ export function TramiteForm({ mode, initialData }: TramiteFormProps) {
                 </div>
 
                 <div className="col-span-2">
-                  <label className="text-xs font-semibold text-gray-600 mb-1.5 block">
-                    Observaciones
-                  </label>
-                  <textarea
+                  <ModernTextarea
+                    label="Observaciones"
                     name="observaciones"
                     value={formData.observaciones}
                     onChange={handleChange}
                     readOnly={isViewOnly}
-                    className={`w-full h-24 border border-gray-200 rounded-lg p-3 text-sm outline-none focus:border-blue-500 resize-none ${isViewOnly ? "bg-gray-50 text-gray-500" : "bg-white"}`}
+                    rows={3}
                   />
                 </div>
               </div>
@@ -358,7 +359,7 @@ export function TramiteForm({ mode, initialData }: TramiteFormProps) {
                   onClick={() => handleOpenLink("https://placas.pe/#/home")}
                   className="py-2.5 bg-blue-50 text-blue-700 font-bold rounded-lg border border-blue-100 hover:bg-blue-100 flex items-center justify-center gap-2"
                 >
-                  <Globe size={16} /> Web AAP (Placas)
+                  <Globe size={16} /> Web AAP
                 </button>
               </div>
             </SectionCard>
@@ -422,26 +423,61 @@ export function TramiteForm({ mode, initialData }: TramiteFormProps) {
             </SectionCard>
 
             <SectionCard
-              title="Datos del Presentante"
+              title="Datos del Presentante y Gestora"
               icon={<User size={18} />}
             >
-              <div className="grid grid-cols-2 gap-4">
-                <ModernSearchInput
-                  label="Empresa (Buscar por RUC)"
-                  name="presentante_empresa"
-                  value={formData.presentante_empresa}
-                  onChange={handleChange}
-                  readOnly={isViewOnly}
-                  placeholder="Ingrese RUC..."
-                  onAddClick={() => setShowEmpresaModal(true)}
-                />
-                <ModernInput
-                  label="Presentante"
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 relative">
+                <div className="col-span-1 md:col-span-2 relative">
+                  <ModernSearchInput
+                    label="Empresa (Buscar por RUC o Razón Social)"
+                    name="presentante_empresa"
+                    value={formData.presentante_empresa}
+                    onChange={(e: any) => {
+                      handleChange(e);
+                      setShowEmpresaDropdown(true);
+                    }}
+                    readOnly={isViewOnly}
+                    placeholder="Ej. 2060... o MULTISERVICIOS..."
+                    onAddClick={() => setEmpresaModalRuc("")}
+                    // NUEVO: Botón de Editar empresa (Solo si hay una seleccionada)
+                    onEditClick={() =>
+                      setEmpresaModalRuc(
+                        formData.presentante_empresa.split(" - ")[0],
+                      )
+                    }
+                  />
+
+                  {showEmpresaDropdown &&
+                    !isViewOnly &&
+                    empresaResultados.length > 0 && (
+                      <div className="absolute top-[calc(100%+4px)] left-0 w-full bg-white border border-blue-200 rounded-xl shadow-2xl z-50 overflow-hidden divide-y divide-gray-100 max-h-60 overflow-y-auto">
+                        {empresaResultados.map((emp, idx) => (
+                          <div
+                            key={idx}
+                            onClick={() => seleccionarEmpresa(emp)}
+                            className="p-3 hover:bg-blue-50 cursor-pointer transition-colors"
+                          >
+                            <div className="text-sm font-black text-gray-800">
+                              {emp.razon_social}
+                            </div>
+                            <div className="text-xs font-mono font-bold text-blue-600 mt-1">
+                              RUC: {emp.ruc}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                </div>
+
+                {/* COMPONENTE DINÁMICO RECIÉN ACTUALIZADO */}
+                <ModernDynamicRepresentantes
+                  label="Representantes Legales (Añade, edita y busca por DNI)"
                   name="presentante_persona"
                   value={formData.presentante_persona}
                   onChange={handleChange}
                   readOnly={isViewOnly}
                 />
+
                 <ModernSelect
                   label="Tipo de Boleta"
                   name="tipo_boleta"
@@ -496,7 +532,7 @@ export function TramiteForm({ mode, initialData }: TramiteFormProps) {
                     value={formData.clausula_monto}
                     onChange={handleChange}
                     readOnly={isViewOnly}
-                    placeholder="Ej. 15,000.00"
+                    placeholder="Ej. 15000.00"
                   />
                   <ModernInput
                     label="Forma de Pago"
@@ -512,7 +548,6 @@ export function TramiteForm({ mode, initialData }: TramiteFormProps) {
                     onChange={handleChange}
                     readOnly={isViewOnly}
                   />
-
                   <div className="mt-4 pt-4 border-t border-gray-100 space-y-4">
                     <h4 className="text-xs font-bold text-gray-500 uppercase">
                       Aclaración
@@ -548,7 +583,6 @@ export function TramiteForm({ mode, initialData }: TramiteFormProps) {
                     onChange={handleChange}
                     readOnly={isViewOnly}
                   />
-
                   <div className="space-y-2 mt-2">
                     {plantillas.length === 0 ? (
                       <p className="text-xs text-gray-500 text-center bg-gray-50 py-3 rounded-lg border border-dashed border-gray-200">
@@ -558,16 +592,19 @@ export function TramiteForm({ mode, initialData }: TramiteFormProps) {
                       plantillas.map((tpl) => (
                         <button
                           key={tpl.id}
-                          onClick={() => {
+                          onClick={async () => {
                             if (!formData.id) {
                               alert(
                                 "Debe grabar el registro primero antes de poder imprimir.",
                               );
                               return;
                             }
-                            navigate(
-                              `/tramites/${formData.id}/print/${tpl.id}`,
-                            );
+                            const guardadoExitoso = await saveTramite();
+                            if (guardadoExitoso) {
+                              navigate(
+                                `/tramites/${formData.id}/print/${tpl.id}`,
+                              );
+                            }
                           }}
                           className="w-full py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm font-semibold text-gray-700 hover:bg-white hover:border-blue-300 hover:text-blue-600 transition-all flex items-center justify-center gap-2 shadow-sm"
                         >
@@ -576,7 +613,6 @@ export function TramiteForm({ mode, initialData }: TramiteFormProps) {
                       ))
                     )}
                   </div>
-                  {/* ========================================= */}
                 </div>
               </SectionCard>
             </div>

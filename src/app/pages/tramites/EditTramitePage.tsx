@@ -21,13 +21,15 @@ export function EditTramitePage() {
             v.marca as vehiculo_marca, v.motor as vehiculo_motor, v.chasis_vin as vehiculo_chasis, v.anio_fabricacion as vehiculo_anio, v.color as vehiculo_color, v.placa as vehiculo_placa, v.modelo as vehiculo_modelo,
             ctt.nombre as tipo_tramite,
             cs.nombre as estado_tramite,
-            td.presentante_persona, td.tipo_boleta, td.numero_boleta, td.fecha_boleta, td.dua, td.num_formato_inmatriculacion, td.clausula_monto, td.clausula_forma_pago, td.clausula_pago_bancarizado, td.aclaracion_dice, td.aclaracion_debe_decir
+            td.presentante_persona, td.tipo_boleta, td.numero_boleta, td.fecha_boleta, td.dua, td.num_formato_inmatriculacion, td.clausula_monto, td.clausula_forma_pago, td.clausula_pago_bancarizado, td.aclaracion_dice, td.aclaracion_debe_decir,
+            eg.ruc as empresa_ruc, eg.razon_social as empresa_razon_social
           FROM tramites t
           JOIN clientes c ON t.cliente_id = c.id
           JOIN vehiculos v ON t.vehiculo_id = v.id
           JOIN catalogo_tipos_tramite ctt ON t.tipo_tramite_id = ctt.id
           JOIN catalogo_situaciones cs ON t.situacion_id = cs.id
           LEFT JOIN tramite_detalles td ON t.id = td.tramite_id
+          LEFT JOIN empresas_gestoras eg ON td.empresa_gestora_id = eg.id
           WHERE t.id = $1
         `;
         const result: any[] = await sqlite.select(query, [id]);
@@ -36,6 +38,13 @@ export function EditTramitePage() {
           const row = result[0];
           row.check_entrega_tarjeta = row.check_entrega_tarjeta === 1;
           row.check_entrega_placa = row.check_entrega_placa === 1;
+
+          if (row.empresa_ruc && row.empresa_razon_social) {
+            row.presentante_empresa = `${row.empresa_ruc} - ${row.empresa_razon_social}`;
+          } else {
+            row.presentante_empresa = "";
+          }
+
           setData(row);
         }
       } catch (e) {

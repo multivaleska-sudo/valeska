@@ -9,8 +9,10 @@ export function useTramiteLogic(initialData?: Partial<TramiteFormData>) {
 
     const [opcionesTipos, setOpcionesTipos] = useState<string[]>([]);
     const [opcionesSituacion, setOpcionesSituacion] = useState<string[]>([]);
-
     const [plantillas, setPlantillas] = useState<{ id: string, nombre_documento: string }[]>([]);
+
+    const [empresaResultados, setEmpresaResultados] = useState<any[]>([]);
+    const [showEmpresaDropdown, setShowEmpresaDropdown] = useState(false);
 
     const [formData, setFormData] = useState<TramiteFormData>(() => {
         const today = new Date().toISOString().split('T')[0];
@@ -32,10 +34,25 @@ export function useTramiteLogic(initialData?: Partial<TramiteFormData>) {
         } as TramiteFormData;
     });
 
+    // =========================================================================
+    // ✨ AUTOFORMATEADOR INTELIGENTE DE APODERADOS
+    // =========================================================================
+    const formatearRepresentantes = (texto: string) => {
+        if (!texto) return "";
+        // Detecta números de 8-9 dígitos y auto-inyecta "IDENTIFICADO CON DNI/CE N°"
+        // Evita duplicar si el usuario ya escribió "identificado con..."
+        return texto.replace(
+            /(?:\s*,\s*|\s+)?(?:identificados?\s+con\s+(?:d\.?n\.?i\.?|c\.?e\.?)\s*(?:n[°º]?)?\s*)?(\d{8,9})/gi,
+            (match, numero) => {
+                const tipoDoc = numero.length === 9 ? "C.E." : "D.N.I.";
+                return `, IDENTIFICADO CON ${tipoDoc} N° ${numero}`;
+            }
+        ).trim().toUpperCase();
+    };
+
     const loadCatalogos = useCallback(async () => {
         try {
             const sqlite = await Database.load("sqlite:valeska.db");
-
             const resTipos: any[] = await sqlite.select("SELECT nombre FROM catalogo_tipos_tramite WHERE activo = 1 ORDER BY nombre ASC");
             const resSits: any[] = await sqlite.select("SELECT nombre FROM catalogo_situaciones WHERE activo = 1 ORDER BY nombre ASC");
             const resTpl: any[] = await sqlite.select("SELECT id, nombre_documento FROM plantillas_documentos WHERE activo = 1 AND deleted_at IS NULL ORDER BY nombre_documento ASC");
@@ -64,6 +81,52 @@ export function useTramiteLogic(initialData?: Partial<TramiteFormData>) {
 
     useEffect(() => { loadCatalogos(); }, [loadCatalogos]);
 
+    useEffect(() => {
+        const buscarEmpresa = async () => {
+            const val = formData.presentante_empresa;
+
+            if (!val || val.trim().length < 2) {
+                setEmpresaResultados([]);
+                setShowEmpresaDropdown(false);
+                return;
+            }
+
+            if (/^\d{11}\s*-/.test(val)) {
+                setEmpresaResultados([]);
+                setShowEmpresaDropdown(false);
+                return;
+            }
+
+            try {
+                const sqlite = await Database.load("sqlite:valeska.db");
+                const searchTerm = `%${val.toUpperCase().trim()}%`;
+
+                const res: any[] = await sqlite.select(
+                    "SELECT ruc, razon_social, representantes FROM empresas_gestoras WHERE ruc LIKE $1 OR razon_social LIKE $2 LIMIT 6",
+                    [searchTerm, searchTerm]
+                );
+
+                setEmpresaResultados(res);
+                setShowEmpresaDropdown(res.length > 0);
+            } catch (error) {
+                console.error("Error buscando empresas:", error);
+            }
+        };
+
+        const debounceTimer = setTimeout(buscarEmpresa, 250);
+        return () => clearTimeout(debounceTimer);
+    }, [formData.presentante_empresa]);
+
+    const seleccionarEmpresa = (emp: any) => {
+        setFormData(prev => ({
+            ...prev,
+            presentante_empresa: `${emp.ruc} - ${emp.razon_social}`,
+            presentante_persona: formatearRepresentantes(emp.representantes || "")
+        }));
+        setEmpresaResultados([]);
+        setShowEmpresaDropdown(false);
+    };
+
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value, type } = e.target;
         const isSelect = e.target.tagName === 'SELECT';
@@ -85,7 +148,12 @@ export function useTramiteLogic(initialData?: Partial<TramiteFormData>) {
     const autofillFromPdf = async () => {
         setIsFilling(true);
         const pdfData = await handlePdfAutofillAction();
-        if (pdfData) setFormData(prev => ({ ...prev, ...pdfData }));
+        if (pdfData) {
+            if (pdfData.presentante_empresa) {
+                pdfData.presentante_empresa = formatearRepresentantes(pdfData.presentante_empresa);
+            }
+            setFormData(prev => ({ ...prev, ...pdfData }));
+        }
         setIsFilling(false);
     };
 
@@ -108,6 +176,33 @@ export function useTramiteLogic(initialData?: Partial<TramiteFormData>) {
             const dispRes: any[] = await sqlite.select("SELECT sucursal_id FROM dispositivos LIMIT 1");
             const sucursalId = dispRes.length > 0 ? dispRes[0].sucursal_id : null;
 
+            // =========================================================================
+            // 🛠️ GUARDADO SEGURO DE APODERADOS Y EMPRESA GESTORA
+            // =========================================================================
+            const presentanteFormateado = formatearRepresentantes(formData.presentante_persona);
+
+            let empresaGestoraId = null;
+            if (formData.presentante_empresa) {
+                const match = formData.presentante_empresa.match(/^(\d{11})/);
+                if (match) {
+                    const ruc = match[1];
+                    const empRes: any[] = await sqlite.select("SELECT id FROM empresas_gestoras WHERE ruc = $1", [ruc]);
+                    if (empRes.length > 0) {
+                        empresaGestoraId = empRes[0].id;
+
+                        // La empresa "Aprende" a sus nuevos apoderados
+                        if (presentanteFormateado.length > 0) {
+                            await sqlite.execute(
+                                "UPDATE empresas_gestoras SET representantes = $1, updated_at = $2 WHERE id = $3",
+                                [presentanteFormateado, now, empresaGestoraId]
+                            );
+                        }
+                    }
+                }
+            }
+
+            let tramiteFinalId = formData.id;
+
             if (formData.id) {
                 const tramRes: any[] = await sqlite.select("SELECT cliente_id, vehiculo_id FROM tramites WHERE id = $1", [formData.id]);
                 const { cliente_id, vehiculo_id } = tramRes[0];
@@ -118,12 +213,13 @@ export function useTramiteLogic(initialData?: Partial<TramiteFormData>) {
                     [formData.vehiculo_chasis, formData.vehiculo_placa, formData.vehiculo_motor, formData.vehiculo_marca, formData.vehiculo_modelo, formData.vehiculo_color, formData.vehiculo_anio, now, vehiculo_id]);
                 await sqlite.execute(`UPDATE tramites SET n_titulo = $1, fecha_presentacion = $2, observaciones_generales = $3, entrego_tarjeta = $4, fecha_entrega_tarjeta = $5, entrego_placa = $6, fecha_entrega_placa = $7, tipo_tramite_id = $8, situacion_id = $9, updated_at = $10 WHERE id = $11`,
                     [formData.n_titulo, formData.fecha_presentacion, formData.observaciones, formData.check_entrega_tarjeta ? 1 : 0, formData.fecha_entrega_tarjeta, formData.check_entrega_placa ? 1 : 0, formData.fecha_entrega_placa, tipoTramiteId, situacionId, now, formData.id]);
-                await sqlite.execute(`UPDATE tramite_detalles SET presentante_persona = $1, tipo_boleta = $2, numero_boleta = $3, fecha_boleta = $4, dua = $5, num_formato_inmatriculacion = $6, clausula_monto = $7, clausula_forma_pago = $8, clausula_pago_bancarizado = $9, aclaracion_dice = $10, aclaracion_debe_decir = $11, updated_at = $12 WHERE tramite_id = $13`,
-                    [formData.presentante_persona, formData.tipo_boleta, formData.numero_boleta, formData.fecha_boleta, formData.dua, formData.num_formato_inmatriculacion, parseFloat(formData.clausula_monto) || 0, formData.clausula_forma_pago, formData.clausula_pago_bancarizado, formData.aclaracion_dice, formData.aclaracion_debe_decir, now, formData.id]);
+
+                await sqlite.execute(`UPDATE tramite_detalles SET empresa_gestora_id = $1, presentante_persona = $2, tipo_boleta = $3, numero_boleta = $4, fecha_boleta = $5, dua = $6, num_formato_inmatriculacion = $7, clausula_monto = $8, clausula_forma_pago = $9, clausula_pago_bancarizado = $10, aclaracion_dice = $11, aclaracion_debe_decir = $12, updated_at = $13 WHERE tramite_id = $14`,
+                    [empresaGestoraId, presentanteFormateado, formData.tipo_boleta, formData.numero_boleta, formData.fecha_boleta, formData.dua, formData.num_formato_inmatriculacion, parseFloat(formData.clausula_monto) || 0, formData.clausula_forma_pago, formData.clausula_pago_bancarizado, formData.aclaracion_dice, formData.aclaracion_debe_decir, now, formData.id]);
             } else {
                 const clienteId = crypto.randomUUID();
                 const vehiculoId = crypto.randomUUID();
-                const tramiteId = crypto.randomUUID();
+                tramiteFinalId = crypto.randomUUID();
                 const tramiteDetalleId = crypto.randomUUID();
 
                 await sqlite.execute(`INSERT INTO clientes (id, tipo_documento, numero_documento, razon_social_nombres, telefono, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
@@ -131,13 +227,17 @@ export function useTramiteLogic(initialData?: Partial<TramiteFormData>) {
                 await sqlite.execute(`INSERT INTO vehiculos (id, chasis_vin, placa, motor, marca, modelo, color, anio_fabricacion, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
                     [vehiculoId, formData.vehiculo_chasis, formData.vehiculo_placa, formData.vehiculo_motor, formData.vehiculo_marca, formData.vehiculo_modelo, formData.vehiculo_color, formData.vehiculo_anio, now, now]);
                 await sqlite.execute(`INSERT INTO tramites (id, codigo_verificacion, tramite_anio, cliente_id, vehiculo_id, tipo_tramite_id, situacion_id, usuario_creador_id, sucursal_id, n_titulo, fecha_presentacion, observaciones_generales, entrego_tarjeta, fecha_entrega_tarjeta, entrego_placa, fecha_entrega_placa, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)`,
-                    [tramiteId, formData.codigo_verificacion, formData.tramite_anio, clienteId, vehiculoId, tipoTramiteId, situacionId, session.id, sucursalId, formData.n_titulo, formData.fecha_presentacion, formData.observaciones, formData.check_entrega_tarjeta ? 1 : 0, formData.fecha_entrega_tarjeta, formData.check_entrega_placa ? 1 : 0, formData.fecha_entrega_placa, now, now]);
-                await sqlite.execute(`INSERT INTO tramite_detalles (id, tramite_id, presentante_persona, tipo_boleta, numero_boleta, fecha_boleta, dua, num_formato_inmatriculacion, clausula_monto, clausula_forma_pago, clausula_pago_bancarizado, aclaracion_dice, aclaracion_debe_decir, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
-                    [tramiteDetalleId, tramiteId, formData.presentante_persona, formData.tipo_boleta, formData.numero_boleta, formData.fecha_boleta, formData.dua, formData.num_formato_inmatriculacion, parseFloat(formData.clausula_monto) || 0, formData.clausula_forma_pago, formData.clausula_pago_bancarizado, formData.aclaracion_dice, formData.aclaracion_debe_decir, now, now]);
+                    [tramiteFinalId, formData.codigo_verificacion, formData.tramite_anio, clienteId, vehiculoId, tipoTramiteId, situacionId, session.id, sucursalId, formData.n_titulo, formData.fecha_presentacion, formData.observaciones, formData.check_entrega_tarjeta ? 1 : 0, formData.fecha_entrega_tarjeta, formData.check_entrega_placa ? 1 : 0, formData.fecha_entrega_placa, now, now]);
 
-                // Si es creación, asignamos el ID recién creado al estado para que la impresión funcione sin recargar
-                setFormData(prev => ({ ...prev, id: tramiteId }));
+                await sqlite.execute(`INSERT INTO tramite_detalles (id, tramite_id, empresa_gestora_id, presentante_persona, tipo_boleta, numero_boleta, fecha_boleta, dua, num_formato_inmatriculacion, clausula_monto, clausula_forma_pago, clausula_pago_bancarizado, aclaracion_dice, aclaracion_debe_decir, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`,
+                    [tramiteDetalleId, tramiteFinalId, empresaGestoraId, presentanteFormateado, formData.tipo_boleta, formData.numero_boleta, formData.fecha_boleta, formData.dua, formData.num_formato_inmatriculacion, parseFloat(formData.clausula_monto) || 0, formData.clausula_forma_pago, formData.clausula_pago_bancarizado, formData.aclaracion_dice, formData.aclaracion_debe_decir, now, now]);
             }
+
+            setFormData(prev => ({
+                ...prev,
+                id: tramiteFinalId,
+                presentante_persona: presentanteFormateado
+            }));
 
             window.dispatchEvent(new Event("valeska_reload_tramites"));
             window.dispatchEvent(new CustomEvent("valeska_request_sync", {
@@ -157,6 +257,7 @@ export function useTramiteLogic(initialData?: Partial<TramiteFormData>) {
     return {
         formData, setFormData, handleChange, handleAutoCheck, saveTramite,
         isSaving, autofillFromPdf, isFilling,
-        opcionesTipos, opcionesSituacion, plantillas, loadCatalogos
+        opcionesTipos, opcionesSituacion, plantillas, loadCatalogos,
+        empresaResultados, showEmpresaDropdown, setShowEmpresaDropdown, seleccionarEmpresa
     };
 }

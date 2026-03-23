@@ -112,6 +112,8 @@ export const empresasGestoras = sqliteTable('empresas_gestoras', {
     id: text('id').primaryKey(),
     ruc: text('ruc').notNull(),
     razonSocial: text('razon_social').notNull(),
+    direccion: text('direccion'),
+    representantes: text('representantes'),
     ...syncColumns
 }, (table) => ({
     rucIdx: uniqueIndex('empresa_ruc_idx').on(table.ruc),
