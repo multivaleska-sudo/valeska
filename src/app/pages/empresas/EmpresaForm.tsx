@@ -22,7 +22,8 @@ const MOCK_EMPRESAS = [
     id: "1",
     razon_social: "MOTOS DANY E.I.R.L.",
     ruc: "20490878298",
-    representante: "DANY ARANZABAL",
+    nombres_rep: "DANY",
+    apellidos_rep: "ARANZABAL",
     dni_rep: "04963540",
     partida: "11004552",
     direccion: "JR. TACTA 335",
@@ -40,7 +41,8 @@ export function EmpresaForm() {
     ruc: "",
     razon_social: "",
     direccion: "",
-    representante: "",
+    nombres_rep: "",
+    apellidos_rep: "",
     dni_rep: "",
     partida: "",
     rol: "Concesionario",
@@ -54,7 +56,7 @@ export function EmpresaForm() {
   }, [id]);
 
   const handleChange = (field: string, value: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
+    setFormData((prev) => ({ ...prev, [field]: value.toUpperCase() }));
   };
 
   const onAutofillXML = async () => {
@@ -82,7 +84,7 @@ export function EmpresaForm() {
 RAZÓN SOCIAL: ${formData.razon_social}
 RUC: ${formData.ruc}
 DIRECCIÓN: ${formData.direccion}
-REPRESENTANTE: ${formData.representante} (DNI: ${formData.dni_rep})
+REPRESENTANTE: ${formData.nombres_rep} ${formData.apellidos_rep} (DNI: ${formData.dni_rep})
 PARTIDA: ${formData.partida}
 ROL: ${formData.rol}
     `.trim();
@@ -141,7 +143,7 @@ ROL: ${formData.rol}
             <CopiableField
               label="RUC / DNI de la Entidad"
               value={formData.ruc}
-              onChange={(v) => handleChange("ruc", v)}
+              onChange={(v) => handleChange("ruc", v.replace(/\D/g, ""))}
               placeholder="Ej: 2060..."
               icon={<Fingerprint className="w-4 h-4" />}
               mono
@@ -169,18 +171,29 @@ ROL: ${formData.rol}
             <UserCheck className="w-4 h-4" /> Representación y Sistema
           </div>
           <div className="p-6 space-y-5">
-            <CopiableField
-              label="Representante Legal"
-              value={formData.representante}
-              onChange={(v) => handleChange("representante", v)}
-              placeholder="Nombres del apoderado"
-              icon={<UserCheck className="w-4 h-4" />}
-            />
+            {/* SEPARACIÓN: NOMBRES Y APELLIDOS */}
+            <div className="grid grid-cols-2 gap-4">
+              <CopiableField
+                label="Nombres del Apoderado"
+                value={formData.nombres_rep}
+                onChange={(v) => handleChange("nombres_rep", v)}
+                placeholder="Nombres"
+                icon={<UserCheck className="w-3.5 h-3.5" />}
+              />
+              <CopiableField
+                label="Apellidos del Apoderado"
+                value={formData.apellidos_rep}
+                onChange={(v) => handleChange("apellidos_rep", v)}
+                placeholder="Apellidos"
+                icon={<UserCheck className="w-3.5 h-3.5" />}
+              />
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <CopiableField
                 label="DNI Apoderado"
                 value={formData.dni_rep}
-                onChange={(v) => handleChange("dni_rep", v)}
+                onChange={(v) => handleChange("dni_rep", v.replace(/\D/g, ""))}
                 placeholder="DNI"
                 icon={<Hash className="w-3.5 h-3.5" />}
                 mono
@@ -194,6 +207,7 @@ ROL: ${formData.rol}
                 mono
               />
             </div>
+
             <div className="space-y-1">
               <label className="text-[10px] font-black text-gray-400 uppercase ml-1 tracking-tight">
                 Rol en el Sistema
