@@ -11,8 +11,7 @@ import { EditTramitePage } from "./pages/tramites/EditTramitePage";
 import { EmpresaListPage } from "./pages/empresas/EmpresaListPage";
 import { EmpresaForm } from "./pages/empresas/EmpresaForm";
 import { SituacionesPage } from "./pages/SituacionesPage";
-import { XMLImportPage } from "./pages/xml/XMLImportPage";
-import { XMLReviewPage } from "./pages/xml/XMLReviewPage";
+import { XmlEditorPage } from "./pages/xml/XMLEditorPage";
 import { RecibosListPage } from "./pages/recibos/RecibosListPage";
 import { ReciboDetailPage } from "./pages/recibos/ReciboDetailPage";
 import { SyncPage } from "./pages/SyncPage";
@@ -53,8 +52,7 @@ export const router = createBrowserRouter([
       { path: "empresas/form", element: <EmpresaForm /> },
       { path: "empresas/form/:id", element: <EmpresaForm /> },
       { path: "situaciones", element: <SituacionesPage /> },
-      { path: "xml", element: <XMLImportPage /> },
-      { path: "xml/:id", element: <XMLReviewPage /> },
+      { path: "xml", element: <XmlEditorPage /> },
       { path: "documentos", element: <DocumentCenterPage /> },
       { path: "recibos", element: <RecibosListPage /> },
       { path: "recibos/:id", element: <ReciboDetailPage /> },
