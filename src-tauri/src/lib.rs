@@ -135,6 +135,7 @@ pub fn run() {
     ];
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_fs::init())
         .plugin(
             SqlBuilder::default()
                 .add_migrations("sqlite:valeska.db", migrations)
