@@ -1,208 +1,429 @@
 import React, { useState, useMemo } from "react";
-import { useNavigate } from "react-router";
 import {
   Search,
   Plus,
-  MoreVertical,
-  Eye,
-  Edit3,
+  Save,
   Trash2,
   Building2,
   UserCheck,
-  MapPin,
   X,
-  Inbox,
+  FileText,
+  ClipboardCopy,
 } from "lucide-react";
-import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-
-const MOCK_EMPRESAS = [
-  {
-    id: "1",
-    razon_social: "MOTOS DANY E.I.R.L.",
-    ruc: "20490878298",
-    representante: "DANY ARANZABAL",
-    rol: "Concesionario",
-    direccion: "JR. TACTA 335 Distrito y Provincia de Tambopata",
-    partida: "11004552",
-  },
-  {
-    id: "2",
-    razon_social: "MAZA CORPORACION IMPORTADORA E.I.R.L.",
-    ruc: "20601234567",
-    representante: "HUGO ALLENDE HUILLCA",
-    rol: "Proveedor",
-    direccion: "AV. LEÓN VELARDE N° 520",
-    partida: "11124578",
-  },
-  {
-    id: "3",
-    razon_social: "JUAN PEREZ GARCIA",
-    ruc: "45789632",
-    representante: "EL MISMO",
-    rol: "Cliente Final",
-    direccion: "JR. PUNO N° 744 - MADRE DE DIOS",
-    partida: "---",
-  },
-];
+import { useDirectorioLogic } from "../../logic/empresas/useDirectorioLogic";
 
 export function EmpresaListPage() {
-  const navigate = useNavigate();
+  const {
+    empresas,
+    presentantes,
+    isLoading,
+    formPresentante,
+    setFormPresentante,
+    initialPresentante,
+    savePresentante,
+    formEmpresa,
+    setFormEmpresa,
+    initialEmpresa,
+    saveEmpresa,
+    deleteRecord,
+  } = useDirectorioLogic();
+
+  const [activeTab, setActiveTab] = useState<"presentantes" | "empresas">(
+    "presentantes",
+  );
   const [search, setSearch] = useState("");
 
+  const filteredPresentantes = useMemo(() => {
+    return presentantes.filter((p) => {
+      const term = search.toLowerCase();
+      const nombreCompleto =
+        `${p.primer_apellido} ${p.segundo_apellido || ""} ${p.nombres}`.toLowerCase();
+      return nombreCompleto.includes(term) || p.dni.includes(term);
+    });
+  }, [presentantes, search]);
+
   const filteredEmpresas = useMemo(() => {
-    return MOCK_EMPRESAS.filter((e) => {
+    return empresas.filter((e) => {
       const term = search.toLowerCase();
       return (
-        e.razon_social.toLowerCase().includes(term) ||
-        e.ruc.includes(term) ||
-        e.representante.toLowerCase().includes(term)
+        e.razon_social.toLowerCase().includes(term) || e.ruc.includes(term)
       );
     });
-  }, [search]);
+  }, [empresas, search]);
+
+  const copyPresentante = () => {
+    const txt =
+      `PRESENTANTE:\nPARTIDA: ${formPresentante.partida_registral || "-"}\nOFICINA: ${formPresentante.oficina_registral || "-"}\nDOMICILIO: ${formPresentante.domicilio || "-"}\nDNI: ${formPresentante.dni}\nAPELLIDOS Y NOMBRES: ${formPresentante.primer_apellido} ${formPresentante.segundo_apellido || ""} ${formPresentante.nombres}`.trim();
+    navigator.clipboard.writeText(txt);
+  };
+
+  const copyEmpresa = () => {
+    const txt =
+      `EMPRESA:\nRUC: ${formEmpresa.ruc}\nRAZÓN SOCIAL: ${formEmpresa.razon_social}\nDIRECCIÓN: ${formEmpresa.direccion || "-"}`.trim();
+    navigator.clipboard.writeText(txt);
+  };
 
   return (
-    <div className="p-6 space-y-6 animate-in fade-in duration-500">
-      {/* HEADER: BOTÓN DE REGISTRO ENCIMA DE LA LISTA */}
-      <div className="flex justify-between items-end">
+    <div className="p-6 h-screen bg-slate-50 font-sans flex flex-col overflow-hidden animate-in fade-in duration-300">
+      <div className="flex justify-between items-end mb-4 shrink-0">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 tracking-tight flex items-center gap-2">
-            <Building2 className="text-blue-600 w-7 h-7" /> Directorio de
-            Empresas
+          <h1 className="text-2xl font-black text-gray-800 tracking-tight flex items-center gap-3 uppercase">
+            <Building2 className="text-blue-600 w-7 h-7" /> Directorio Central
           </h1>
+          <p className="text-sm text-gray-500 font-bold mt-1">
+            Gestión de Trabajadores (Presentantes) y Entidades
+          </p>
         </div>
-        <button
-          onClick={() => navigate("/empresas/form")}
-          className="bg-blue-600 text-white px-5 py-2.5 rounded-lg flex items-center gap-2 font-bold hover:bg-blue-700 shadow-md active:scale-95 transition-all text-sm"
-        >
-          <Plus className="w-5 h-5" /> Nueva Empresa
-        </button>
-      </div>
 
-      {/* BUSCADOR ÚNICO GLOBAL */}
-      <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-          <input
-            className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all bg-gray-50/30 font-medium"
-            placeholder="Buscar por Razón Social, RUC, DNI o Representante Legal..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-          {search && (
-            <button
-              onClick={() => setSearch("")}
-              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-gray-200 rounded-full text-gray-400"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          )}
+        <div className="flex bg-gray-200/80 p-1 rounded-xl shadow-inner border border-gray-200">
+          <button
+            onClick={() => {
+              setActiveTab("presentantes");
+              setSearch("");
+            }}
+            className={`px-6 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-all ${activeTab === "presentantes" ? "bg-white text-blue-700 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
+          >
+            <UserCheck size={18} /> Trabajadores / Presentantes
+          </button>
+          <button
+            onClick={() => {
+              setActiveTab("empresas");
+              setSearch("");
+            }}
+            className={`px-6 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-all ${activeTab === "empresas" ? "bg-white text-blue-700 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
+          >
+            <Building2 size={18} /> Empresas Gestoras
+          </button>
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm overflow-x-auto">
-        {filteredEmpresas.length > 0 ? (
-          <table className="w-full text-left text-sm min-w-[1000px]">
-            <thead className="bg-gray-50 border-b border-gray-200 text-gray-500 font-bold text-[10px] uppercase tracking-widest">
-              <tr>
-                <th className="px-5 py-4">Razón Social / Nombre</th>
-                <th className="px-5 py-4">RUC / DNI</th>
-                <th className="px-5 py-4">Representante Legal</th>
-                <th className="px-5 py-4">Rol</th>
-                <th className="px-5 py-4">Dirección Fiscal</th>
-                <th className="px-5 py-4">Partida</th>
-                <th className="px-5 py-4 text-right">Acciones</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {filteredEmpresas.map((emp) => (
-                <tr
-                  key={emp.id}
-                  className="hover:bg-blue-50/40 cursor-pointer transition-colors group"
-                  onDoubleClick={() => navigate(`/empresas/form/${emp.id}`)}
+      <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-0">
+        <div className="lg:col-span-7 flex flex-col bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="p-4 border-b border-gray-100 bg-gray-50 flex items-center gap-3 shrink-0">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold uppercase text-gray-700"
+                placeholder={`BUSCAR ${activeTab === "presentantes" ? "PRESENTANTE (NOMBRE O DNI)" : "EMPRESA (RUC O RAZÓN)"}...`}
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+              {search && (
+                <button
+                  onClick={() => setSearch("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                 >
-                  <td className="px-5 py-4">
-                    <div className="font-bold text-gray-900 leading-tight">
-                      {emp.razon_social}
-                    </div>
-                  </td>
-                  <td className="px-5 py-4 font-mono text-blue-600 font-semibold text-xs">
-                    {emp.ruc}
-                  </td>
-                  <td className="px-5 py-4">
-                    <div className="flex items-center gap-2 text-gray-700 font-medium">
-                      <UserCheck className="w-3.5 h-3.5 text-gray-400" />
-                      {emp.representante}
-                    </div>
-                  </td>
-                  <td className="px-5 py-4">
-                    <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase bg-gray-100 text-gray-600 border border-gray-200">
-                      {emp.rol}
-                    </span>
-                  </td>
-                  <td className="px-5 py-4">
-                    <div className="flex items-start gap-2 text-gray-500 text-xs max-w-[200px] leading-snug">
-                      <MapPin className="w-3 h-3 mt-0.5 shrink-0" />
-                      <span className="truncate hover:text-clip hover:whitespace-normal transition-all">
-                        {emp.direccion}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-5 py-4 font-mono text-gray-400 text-xs">
-                    {emp.partida}
-                  </td>
-                  <td className="px-5 py-4 text-right">
-                    <DropdownMenu.Root>
-                      <DropdownMenu.Trigger className="p-2 hover:bg-gray-100 rounded-lg outline-none transition-colors">
-                        <MoreVertical className="w-4 h-4 text-gray-400 group-hover:text-gray-600" />
-                      </DropdownMenu.Trigger>
-                      <DropdownMenu.Portal>
-                        <DropdownMenu.Content className="bg-white p-1.5 rounded-xl shadow-2xl border border-gray-100 min-w-[170px] z-50 animate-in fade-in zoom-in duration-150">
-                          <DropdownMenu.Item
-                            onClick={() => navigate(`/empresas/form/${emp.id}`)}
-                            className="flex items-center gap-3 px-3 py-2 text-sm hover:bg-gray-50 outline-none cursor-pointer rounded-lg text-gray-700 font-medium"
-                          >
-                            <Eye className="w-4 h-4 text-blue-500" /> Ver Ficha
-                            (Detalle)
-                          </DropdownMenu.Item>
-                          <DropdownMenu.Item
-                            onClick={() => navigate(`/empresas/form/${emp.id}`)}
-                            className="flex items-center gap-3 px-3 py-2 text-sm hover:bg-gray-50 outline-none cursor-pointer rounded-lg text-gray-700 font-medium"
-                          >
-                            <Edit3 className="w-4 h-4 text-amber-500" /> Editar
-                            Registro
-                          </DropdownMenu.Item>
-                          <DropdownMenu.Separator className="h-px bg-gray-100 my-1.5" />
-                          <DropdownMenu.Item className="flex items-center gap-3 px-3 py-2 text-sm text-red-600 hover:bg-red-50 outline-none cursor-pointer font-bold rounded-lg">
-                            <Trash2 className="w-4 h-4" /> Eliminar
-                          </DropdownMenu.Item>
-                        </DropdownMenu.Content>
-                      </DropdownMenu.Portal>
-                    </DropdownMenu.Root>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        ) : (
-          <div className="py-20 flex flex-col items-center justify-center text-gray-400 space-y-3">
-            <Inbox className="w-12 h-12 stroke-[1.5px]" />
-            <div className="text-center">
-              <p className="text-sm font-bold text-gray-500">
-                No se encontraron empresas
-              </p>
-              <p className="text-xs">
-                Intenta con otro término o registra una nueva
-              </p>
+                  <X size={14} />
+                </button>
+              )}
             </div>
+            <button
+              onClick={() =>
+                activeTab === "presentantes"
+                  ? setFormPresentante(initialPresentante)
+                  : setFormEmpresa(initialEmpresa)
+              }
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 font-bold hover:bg-blue-700 transition-all text-sm shrink-0 shadow-md shadow-blue-200"
+            >
+              <Plus size={16} /> NUEVO
+            </button>
           </div>
-        )}
-      </div>
 
-      {/* CONTADOR DE RESULTADOS */}
-      <div className="flex justify-end pr-2">
-        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-          Total registros: {filteredEmpresas.length}
-        </span>
+          <div className="flex-1 overflow-auto custom-scrollbar">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-slate-800 text-slate-200 font-bold text-[10px] uppercase tracking-widest sticky top-0 z-10 shadow-sm">
+                {activeTab === "presentantes" ? (
+                  <tr>
+                    <th className="px-4 py-3 text-center w-12">NRO</th>
+                    <th className="px-4 py-3">NOMBRE COMPLETO</th>
+                    <th className="px-4 py-3">L.E. / D.N.I.</th>
+                  </tr>
+                ) : (
+                  <tr>
+                    <th className="px-4 py-3 text-center w-12">NRO</th>
+                    <th className="px-4 py-3">RAZÓN SOCIAL / NOMBRE</th>
+                    <th className="px-4 py-3">RUC</th>
+                  </tr>
+                )}
+              </thead>
+              <tbody className="divide-y divide-gray-100 text-xs font-bold text-gray-700 uppercase">
+                {activeTab === "presentantes"
+                  ? filteredPresentantes.map((p, idx) => (
+                      <tr
+                        key={p.id}
+                        onClick={() => setFormPresentante(p)}
+                        className={`cursor-pointer transition-colors ${formPresentante.id === p.id ? "bg-blue-50 border-l-4 border-blue-600" : "hover:bg-gray-50 border-l-4 border-transparent"}`}
+                      >
+                        <td className="px-4 py-3 text-center text-gray-400">
+                          {idx + 1}
+                        </td>
+                        <td className="px-4 py-3">
+                          {p.primer_apellido} {p.segundo_apellido} {p.nombres}
+                        </td>
+                        <td className="px-4 py-3 font-mono text-blue-600">
+                          {p.dni}
+                        </td>
+                      </tr>
+                    ))
+                  : filteredEmpresas.map((e, idx) => (
+                      <tr
+                        key={e.id}
+                        onClick={() => setFormEmpresa(e)}
+                        className={`cursor-pointer transition-colors ${formEmpresa.id === e.id ? "bg-blue-50 border-l-4 border-blue-600" : "hover:bg-gray-50 border-l-4 border-transparent"}`}
+                      >
+                        <td className="px-4 py-3 text-center text-gray-400">
+                          {idx + 1}
+                        </td>
+                        <td className="px-4 py-3">{e.razon_social}</td>
+                        <td className="px-4 py-3 font-mono text-blue-600">
+                          {e.ruc}
+                        </td>
+                      </tr>
+                    ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="bg-gray-50 p-2 border-t border-gray-100 text-right text-[10px] font-black text-gray-400 uppercase tracking-widest shrink-0">
+            REGISTROS:{" "}
+            {activeTab === "presentantes"
+              ? filteredPresentantes.length
+              : filteredEmpresas.length}
+          </div>
+        </div>
+
+        <div className="lg:col-span-5 bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden flex flex-col">
+          <div className="bg-blue-600 px-5 py-4 flex justify-between items-center shrink-0">
+            <h2 className="text-white font-black text-sm uppercase flex items-center gap-2">
+              <FileText size={18} className="text-blue-200" />
+              {activeTab === "presentantes"
+                ? "INGRESO DE PRESENTANTE"
+                : "INGRESO DE EMPRESA"}
+            </h2>
+            <button
+              onClick={
+                activeTab === "presentantes" ? copyPresentante : copyEmpresa
+              }
+              className="text-blue-100 hover:text-white transition-colors"
+              title="Copiar datos al portapapeles"
+            >
+              <ClipboardCopy size={18} />
+            </button>
+          </div>
+
+          <div className="p-6 flex-1 overflow-y-auto custom-scrollbar bg-[#f8fafc]">
+            {activeTab === "presentantes" ? (
+              <div className="space-y-4">
+                <div className="flex flex-col">
+                  <label className="text-[10px] font-black text-gray-500 uppercase tracking-wider mb-1">
+                    PARTIDA REGISTRAL
+                  </label>
+                  <input
+                    type="text"
+                    className="w-full border-2 border-gray-200 rounded-lg h-10 px-3 text-sm font-bold text-gray-800 uppercase outline-none focus:border-blue-500"
+                    value={formPresentante.partida_registral}
+                    onChange={(e) =>
+                      setFormPresentante({
+                        ...formPresentante,
+                        partida_registral: e.target.value.toUpperCase(),
+                      })
+                    }
+                  />
+                </div>
+                <div className="flex flex-col">
+                  <label className="text-[10px] font-black text-gray-500 uppercase tracking-wider mb-1">
+                    OFICINA REGISTRAL
+                  </label>
+                  <input
+                    type="text"
+                    className="w-full border-2 border-gray-200 rounded-lg h-10 px-3 text-sm font-bold text-gray-800 uppercase outline-none focus:border-blue-500"
+                    value={formPresentante.oficina_registral}
+                    onChange={(e) =>
+                      setFormPresentante({
+                        ...formPresentante,
+                        oficina_registral: e.target.value.toUpperCase(),
+                      })
+                    }
+                  />
+                </div>
+                <div className="flex flex-col">
+                  <label className="text-[10px] font-black text-gray-500 uppercase tracking-wider mb-1">
+                    DOMICILIO
+                  </label>
+                  <input
+                    type="text"
+                    className="w-full border-2 border-gray-200 rounded-lg h-10 px-3 text-sm font-bold text-gray-800 uppercase outline-none focus:border-blue-500"
+                    value={formPresentante.domicilio}
+                    onChange={(e) =>
+                      setFormPresentante({
+                        ...formPresentante,
+                        domicilio: e.target.value.toUpperCase(),
+                      })
+                    }
+                  />
+                </div>
+                <div className="flex flex-col">
+                  <label className="text-[10px] font-black text-blue-600 uppercase tracking-wider mb-1">
+                    D.N.I. (*)
+                  </label>
+                  <input
+                    type="text"
+                    maxLength={8}
+                    className="w-full border-2 border-blue-200 bg-blue-50 rounded-lg h-10 px-3 text-sm font-black text-blue-900 uppercase outline-none focus:border-blue-600 font-mono"
+                    value={formPresentante.dni}
+                    onChange={(e) =>
+                      setFormPresentante({
+                        ...formPresentante,
+                        dni: e.target.value.replace(/\D/g, ""),
+                      })
+                    }
+                  />
+                </div>
+                <div className="flex flex-col">
+                  <label className="text-[10px] font-black text-blue-600 uppercase tracking-wider mb-1">
+                    PRIMER APELLIDO (*)
+                  </label>
+                  <input
+                    type="text"
+                    className="w-full border-2 border-blue-200 bg-blue-50 rounded-lg h-10 px-3 text-sm font-black text-blue-900 uppercase outline-none focus:border-blue-600"
+                    value={formPresentante.primer_apellido}
+                    onChange={(e) =>
+                      setFormPresentante({
+                        ...formPresentante,
+                        primer_apellido: e.target.value.toUpperCase(),
+                      })
+                    }
+                  />
+                </div>
+                <div className="flex flex-col">
+                  <label className="text-[10px] font-black text-gray-500 uppercase tracking-wider mb-1">
+                    SEGUNDO APELLIDO
+                  </label>
+                  <input
+                    type="text"
+                    className="w-full border-2 border-gray-200 rounded-lg h-10 px-3 text-sm font-bold text-gray-800 uppercase outline-none focus:border-blue-500"
+                    value={formPresentante.segundo_apellido}
+                    onChange={(e) =>
+                      setFormPresentante({
+                        ...formPresentante,
+                        segundo_apellido: e.target.value.toUpperCase(),
+                      })
+                    }
+                  />
+                </div>
+                <div className="flex flex-col">
+                  <label className="text-[10px] font-black text-blue-600 uppercase tracking-wider mb-1">
+                    NOMBRES (*)
+                  </label>
+                  <input
+                    type="text"
+                    className="w-full border-2 border-blue-200 bg-blue-50 rounded-lg h-10 px-3 text-sm font-black text-blue-900 uppercase outline-none focus:border-blue-600"
+                    value={formPresentante.nombres}
+                    onChange={(e) =>
+                      setFormPresentante({
+                        ...formPresentante,
+                        nombres: e.target.value.toUpperCase(),
+                      })
+                    }
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="flex flex-col">
+                  <label className="text-[10px] font-black text-blue-600 uppercase tracking-wider mb-1">
+                    R.U.C. (*)
+                  </label>
+                  <input
+                    type="text"
+                    maxLength={11}
+                    className="w-full border-2 border-blue-200 bg-blue-50 rounded-lg h-10 px-3 text-sm font-black text-blue-900 uppercase outline-none focus:border-blue-600 font-mono"
+                    value={formEmpresa.ruc}
+                    onChange={(e) =>
+                      setFormEmpresa({
+                        ...formEmpresa,
+                        ruc: e.target.value.replace(/\D/g, ""),
+                      })
+                    }
+                  />
+                </div>
+                <div className="flex flex-col">
+                  <label className="text-[10px] font-black text-blue-600 uppercase tracking-wider mb-1">
+                    RAZÓN SOCIAL (*)
+                  </label>
+                  <input
+                    type="text"
+                    className="w-full border-2 border-blue-200 bg-blue-50 rounded-lg h-10 px-3 text-sm font-black text-blue-900 uppercase outline-none focus:border-blue-600"
+                    value={formEmpresa.razon_social}
+                    onChange={(e) =>
+                      setFormEmpresa({
+                        ...formEmpresa,
+                        razon_social: e.target.value.toUpperCase(),
+                      })
+                    }
+                  />
+                </div>
+                <div className="flex flex-col">
+                  <label className="text-[10px] font-black text-gray-500 uppercase tracking-wider mb-1">
+                    DIRECCIÓN FISCAL
+                  </label>
+                  <textarea
+                    rows={3}
+                    className="w-full border-2 border-gray-200 rounded-lg p-3 text-sm font-bold text-gray-800 uppercase outline-none focus:border-blue-500 resize-none"
+                    value={formEmpresa.direccion}
+                    onChange={(e) =>
+                      setFormEmpresa({
+                        ...formEmpresa,
+                        direccion: e.target.value.toUpperCase(),
+                      })
+                    }
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="p-4 bg-white border-t border-gray-200 flex justify-center gap-4 shrink-0">
+            {activeTab === "presentantes" && formPresentante.id && (
+              <button
+                onClick={() => deleteRecord("presentantes", formPresentante.id)}
+                className="bg-red-50 text-red-600 border border-red-200 px-6 py-2.5 rounded-lg font-black text-xs uppercase tracking-widest hover:bg-red-100 transition-colors shadow-sm flex items-center gap-2"
+              >
+                <Trash2 size={16} /> Eliminar
+              </button>
+            )}
+            {activeTab === "empresas" && formEmpresa.id && (
+              <button
+                onClick={() =>
+                  deleteRecord("empresas_gestoras", formEmpresa.id)
+                }
+                className="bg-red-50 text-red-600 border border-red-200 px-6 py-2.5 rounded-lg font-black text-xs uppercase tracking-widest hover:bg-red-100 transition-colors shadow-sm flex items-center gap-2"
+              >
+                <Trash2 size={16} /> Eliminar
+              </button>
+            )}
+
+            <button
+              onClick={() =>
+                activeTab === "presentantes" ? savePresentante() : saveEmpresa()
+              }
+              className="bg-[#2E7D32] hover:bg-[#166534] text-white px-8 py-2.5 rounded-lg font-black text-xs uppercase tracking-widest transition-colors shadow-md flex items-center gap-2"
+            >
+              <Save size={16} /> GRABAR{" "}
+              {activeTab === "presentantes" ? "PRESENTANTE" : "EMPRESA"}
+            </button>
+
+            <button
+              onClick={() =>
+                activeTab === "presentantes"
+                  ? setFormPresentante(initialPresentante)
+                  : setFormEmpresa(initialEmpresa)
+              }
+              className="bg-gray-100 border border-gray-300 text-gray-600 hover:bg-gray-200 px-6 py-2.5 rounded-lg font-black text-xs uppercase tracking-widest transition-colors shadow-sm flex items-center gap-2"
+            >
+              <X size={16} /> CANCELAR
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
