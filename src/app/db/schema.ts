@@ -110,14 +110,28 @@ export const vehiculos = sqliteTable('vehiculos', {
 
 export const empresasGestoras = sqliteTable('empresas_gestoras', {
     id: text('id').primaryKey(),
-    ruc: text('ruc').notNull(),
+    ruc: text('ruc'),
     razonSocial: text('razon_social').notNull(),
     direccion: text('direccion'),
-    representantes: text('representantes'),
     ...syncColumns
 }, (table) => ({
     rucIdx: uniqueIndex('empresa_ruc_idx').on(table.ruc),
 }));
+
+export const presentantes = sqliteTable('presentantes', {
+    id: text('id').primaryKey(),
+    partidaRegistral: text('partida_registral'),
+    oficinaRegistral: text('oficina_registral'),
+    domicilio: text('domicilio'),
+    dni: text('dni').notNull(),
+    primerApellido: text('primer_apellido').notNull(),
+    segundoApellido: text('segundo_apellido'),
+    nombres: text('nombres').notNull(),
+    ...syncColumns
+}, (table) => ({
+    dniIdx: uniqueIndex('presentante_dni_idx').on(table.dni),
+}));
+
 
 // ============================================================================
 // 5. TRÁMITES (NÚCLEO Y DETALLES)
@@ -160,8 +174,8 @@ export const tramiteDetalles = sqliteTable('tramite_detalles', {
     tramiteId: text('tramite_id').references(() => tramites.id).notNull(),
 
     empresaGestoraId: text('empresa_gestora_id').references(() => empresasGestoras.id),
-    presentantePersona: text('presentante_persona'),
-    esRepresentante: integer('es_representante', { mode: 'boolean' }).default(false),
+
+    presentanteId: text('presentante_id').references(() => presentantes.id),
 
     tipoBoleta: text('tipo_boleta'),
     numeroBoleta: text('numero_boleta'),

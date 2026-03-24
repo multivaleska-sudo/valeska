@@ -132,6 +132,12 @@ pub fn run() {
             sql: include_str!("../../src/app/db/migrations/0004_pastrana_champion.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 6,
+            description: "modificar_presentantes_para_tramites_registrales",
+            sql: include_str!("../../src/app/db/migrations/0005_lush_gorgon.sql"),
+            kind: MigrationKind::Up,
+        },
     ];
 
     tauri::Builder::default()
