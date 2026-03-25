@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Search, Plus, X, Edit3 } from "lucide-react";
+import { Search, Plus, Edit3 } from "lucide-react";
 import Database from "@tauri-apps/plugin-sql";
 
 export const SectionCard = ({
@@ -182,44 +182,26 @@ export const ModernSearchInput = ({
   </div>
 );
 
-// ==============================================================================
-// LÓGICA DE PARSEO Y FORMATEO (EXPORTADA PARA USARSE EN EL MODAL DE EMPRESA)
-// ==============================================================================
-export const parseRepresentantes = (val: string) => {
-  if (!val) return [{ dni: "", nombre: "" }];
-  const parts = val.split(/\s+Y\s+/i);
-  const results = parts.map((part) => {
-    const match = part.match(
-      /^(.*?)(?:,?\s*IDENTIFICAD[OA]S?\s+CON\s+(?:D\.?N\.?I\.?|C\.?E\.?)\s*(?:N[°º]?)?\s*)(\d{8,9})$/i,
-    );
-    if (match) return { nombre: match[1].trim(), dni: match[2] };
-    return { nombre: part.trim(), dni: "" };
-  });
-  return results.length > 0 ? results : [{ dni: "", nombre: "" }];
+export const parseRepresentante = (val: string) => {
+  if (!val) return { dni: "", nombre: "" };
+  const match = val.match(
+    /^(.*?)(?:,?\s*IDENTIFICAD[OA]S?\s+CON\s+(?:D\.?N\.?I\.?|C\.?E\.?)\s*(?:N[°º]?)?\s*)(\d{8,9})$/i,
+  );
+  if (match) return { nombre: match[1].trim(), dni: match[2] };
+  return { nombre: val.trim(), dni: "" };
 };
 
-export const stringifyRepresentantes = (
-  arr: { dni: string; nombre: string }[],
-) => {
-  const valid = arr.filter((r) => r.dni.trim() || r.nombre.trim());
-  if (valid.length === 0) return "";
-  return valid
-    .map((r) => {
-      let cleanName = r.nombre
-        .replace(/,?\s*IDENTIFICAD[OA]S?\s+CON.*/gi, "")
-        .trim()
-        .toUpperCase();
-      if (!r.dni) return cleanName;
-      if (!cleanName) return r.dni;
-      const tipo = r.dni.length === 9 ? "C.E." : "D.N.I.";
-      return `${cleanName}, IDENTIFICADO CON ${tipo} N° ${r.dni.trim()}`;
-    })
-    .join(" Y ");
+export const stringifyRepresentante = (dni: string, nombre: string) => {
+  let cleanName = nombre
+    .replace(/,?\s*IDENTIFICAD[OA]S?\s+CON.*/gi, "")
+    .trim()
+    .toUpperCase();
+  if (!dni) return cleanName;
+  if (!cleanName) return dni;
+  const tipo = dni.length === 9 ? "C.E." : "D.N.I.";
+  return `${cleanName}, IDENTIFICADO CON ${tipo} N° ${dni.trim()}`;
 };
 
-// ==============================================================================
-// ✨ NUEVO: COMPONENTE DINÁMICO DE REPRESENTANTES (DNI | NOMBRE SEPARADOS)
-// ==============================================================================
 export const ModernDynamicRepresentantes = ({
   label,
   name,
@@ -227,130 +209,82 @@ export const ModernDynamicRepresentantes = ({
   onChange,
   readOnly = false,
 }: any) => {
-  const [reps, setReps] = useState<{ dni: string; nombre: string }[]>([
-    { dni: "", nombre: "" },
-  ]);
+  const [rep, setRep] = useState<{ dni: string; nombre: string }>({
+    dni: "",
+    nombre: "",
+  });
 
   useEffect(() => {
-    const parsed = parseRepresentantes(value);
-    if (JSON.stringify(parsed) !== JSON.stringify(reps)) {
-      setReps(parsed);
+    const parsed = parseRepresentante(value);
+    if (parsed.dni !== rep.dni || parsed.nombre !== rep.nombre) {
+      setRep(parsed);
     }
   }, [value]);
 
-  const updateRep = async (
-    index: number,
-    field: "dni" | "nombre",
-    val: string,
-  ) => {
-    const newReps = [...reps];
-    newReps[index][field] = val;
-    setReps(newReps);
+  const updateRep = async (field: "dni" | "nombre", val: string) => {
+    const newRep = { ...rep, [field]: val };
+    setRep(newRep);
+
     onChange({
-      target: { name, value: stringifyRepresentantes(newReps), type: "text" },
+      target: {
+        name,
+        value: stringifyRepresentante(newRep.dni, newRep.nombre),
+        type: "text",
+      },
     });
 
-    // Autocomplete de DNI (Busca en empresas y trámites)
     if (field === "dni" && (val.length === 8 || val.length === 9)) {
       try {
         const sqlite = await Database.load("sqlite:valeska.db");
-        let foundStr = "";
-        const resEmp: any[] = await sqlite.select(
-          `SELECT representantes FROM empresas_gestoras WHERE representantes LIKE '%${val}%' LIMIT 1`,
+        const res: any[] = await sqlite.select(
+          `SELECT primer_apellido, segundo_apellido, nombres FROM presentantes WHERE dni = $1 LIMIT 1`,
+          [val],
         );
-        if (resEmp.length > 0 && resEmp[0].representantes)
-          foundStr = resEmp[0].representantes;
-        else {
-          const resTram: any[] = await sqlite.select(
-            `SELECT presentante_persona FROM tramite_detalles WHERE presentante_persona LIKE '%${val}%' LIMIT 1`,
-          );
-          if (resTram.length > 0 && resTram[0].presentante_persona)
-            foundStr = resTram[0].presentante_persona;
+
+        if (res.length > 0) {
+          const fullName = `${res[0].primer_apellido} ${res[0].segundo_apellido} ${res[0].nombres}`.trim();
+          setRep({ dni: val, nombre: fullName });
+
+          onChange({
+            target: {
+              name,
+              value: stringifyRepresentante(val, fullName),
+              type: "text",
+            },
+          });
         }
-        if (foundStr) {
-          const foundReps = parseRepresentantes(foundStr);
-          const matchingRep = foundReps.find((r) => r.dni === val);
-          if (matchingRep && matchingRep.nombre) {
-            newReps[index].nombre = matchingRep.nombre;
-            setReps([...newReps]);
-            onChange({
-              target: {
-                name,
-                value: stringifyRepresentantes(newReps),
-                type: "text",
-              },
-            });
-          }
-        }
-      } catch (e) {}
+      } catch (e) {
+        console.error("Error buscando el presentante por DNI:", e);
+      }
     }
   };
 
-  const addRep = () => setReps([...reps, { dni: "", nombre: "" }]);
-  const removeRep = (index: number) => {
-    const newReps = reps.filter((_, i) => i !== index);
-    if (newReps.length === 0) newReps.push({ dni: "", nombre: "" });
-    setReps(newReps);
-    onChange({
-      target: { name, value: stringifyRepresentantes(newReps), type: "text" },
-    });
-  };
-
   return (
-    <div className="flex flex-col col-span-2 bg-slate-50 border border-slate-200 p-4 rounded-xl shadow-inner">
+    <div className="flex flex-col col-span-1 md:col-span-2 bg-slate-50 border border-slate-200 p-4 rounded-xl shadow-inner">
       <div className="flex justify-between items-center mb-3">
         <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
           {label}
         </label>
       </div>
-      <div className="space-y-3">
-        {reps.map((rep, idx) => (
-          <div
-            key={idx}
-            className="flex gap-3 items-start animate-in fade-in duration-200"
-          >
-            <input
-              type="text"
-              placeholder="DNI / C.E."
-              maxLength={9}
-              value={rep.dni}
-              onChange={(e) =>
-                updateRep(idx, "dni", e.target.value.replace(/\D/g, ""))
-              }
-              readOnly={readOnly}
-              className="w-[120px] font-mono border border-slate-300 rounded-lg h-10 px-3 text-sm focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 outline-none font-bold text-blue-900"
-            />
-            <input
-              type="text"
-              placeholder="Nombres Completos..."
-              value={rep.nombre}
-              onChange={(e) =>
-                updateRep(idx, "nombre", e.target.value.toUpperCase())
-              }
-              readOnly={readOnly}
-              className="flex-1 font-bold border border-slate-300 rounded-lg h-10 px-3 text-sm focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 outline-none uppercase text-gray-800"
-            />
-            {!readOnly && (
-              <button
-                type="button"
-                onClick={() => removeRep(idx)}
-                className="h-10 w-10 flex shrink-0 items-center justify-center text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg border border-transparent hover:border-red-200 transition-colors"
-              >
-                <X size={18} strokeWidth={3} />
-              </button>
-            )}
-          </div>
-        ))}
+      <div className="flex gap-3 items-start animate-in fade-in duration-200">
+        <input
+          type="text"
+          placeholder="DNI / C.E."
+          maxLength={9}
+          value={rep.dni}
+          onChange={(e) => updateRep("dni", e.target.value.replace(/\D/g, ""))}
+          readOnly={readOnly}
+          className="w-[120px] font-mono border border-slate-300 rounded-lg h-10 px-3 text-sm focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 outline-none font-bold text-blue-900"
+        />
+        <input
+          type="text"
+          placeholder="Nombres Completos..."
+          value={rep.nombre}
+          onChange={(e) => updateRep("nombre", e.target.value.toUpperCase())}
+          readOnly={readOnly}
+          className="flex-1 font-bold border border-slate-300 rounded-lg h-10 px-3 text-sm focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 outline-none uppercase text-gray-800"
+        />
       </div>
-      {!readOnly && (
-        <button
-          type="button"
-          onClick={addRep}
-          className="mt-4 w-max text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1.5 bg-indigo-100/50 border border-indigo-200 px-4 py-2 rounded-lg hover:bg-indigo-100 transition-colors"
-        >
-          <Plus size={14} strokeWidth={3} /> Agregar otro Representante
-        </button>
-      )}
     </div>
   );
 };
