@@ -138,6 +138,18 @@ pub fn run() {
             sql: include_str!("../../src/app/db/migrations/0005_lush_gorgon.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 7,
+            description: "agregar_columnas_para_tramites",
+            sql: include_str!("../../src/app/db/migrations/0006_handy_maginty.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 8,
+            description: "agregar_columna_para_tramite_detalles",
+            sql: include_str!("../../src/app/db/migrations/0007_ambitious_medusa.sql"),
+            kind: MigrationKind::Up,
+        },
     ];
 
     tauri::Builder::default()

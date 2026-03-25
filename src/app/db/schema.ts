@@ -153,10 +153,19 @@ export const tramites = sqliteTable('tramites', {
     fechaPresentacion: text('fecha_presentacion').notNull(),
     observacionesGenerales: text('observaciones_generales'),
 
+    tarjetaEnOficina: integer('tarjeta_en_oficina', { mode: 'boolean' }).default(false),
+    fechaTarjetaEnOficina: text('fecha_tarjeta_en_oficina'),
+    placaEnOficina: integer('placa_en_oficina', { mode: 'boolean' }).default(false),
+    fechaPlacaEnOficina: text('fecha_placa_en_oficina'),
+
     entregoTarjeta: integer('entrego_tarjeta', { mode: 'boolean' }).default(false),
     fechaEntregaTarjeta: text('fecha_entrega_tarjeta'),
+    metodoEntregaTarjeta: text('metodo_entrega_tarjeta'),
+
     entregoPlaca: integer('entrego_placa', { mode: 'boolean' }).default(false),
     fechaEntregaPlaca: text('fecha_entrega_placa'),
+    metodoEntregaPlaca: text('metodo_entrega_placa'),
+
     observacionPlaca: text('observacion_placa'),
 
     ...syncColumns
@@ -182,6 +191,7 @@ export const tramiteDetalles = sqliteTable('tramite_detalles', {
     fechaBoleta: text('fecha_boleta'),
     dua: text('dua'),
     numFormatoInmatriculacion: text('num_formato_inmatriculacion'),
+    numeroReciboTramite: text('numero_recibo_tramite'),
 
     clausulaMonto: real('clausula_monto'),
     clausulaFormaPago: text('clausula_forma_pago'),

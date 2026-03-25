@@ -1,0 +1,1 @@
+ALTER TABLE `tramite_detalles` ADD `numero_recibo_tramite` text;

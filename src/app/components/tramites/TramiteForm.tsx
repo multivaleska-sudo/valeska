@@ -22,8 +22,7 @@ import {
   ModernInput,
   ModernSelect,
   ModernSearchInput,
-  ModernDynamicRepresentantes,
-  ModernTextarea
+  ModernTextarea,
 } from "./ModernFormSections";
 import { TramiteFormData } from "../../types/tramites/tramite.types";
 import { useBarcodeScanner } from "../../logic/tramites/useBarcodeScanner";
@@ -56,6 +55,10 @@ export function TramiteForm({ mode, initialData }: TramiteFormProps) {
     showEmpresaDropdown,
     setShowEmpresaDropdown,
     seleccionarEmpresa,
+    presentanteResultados,
+    showPresentanteDropdown,
+    setShowPresentanteDropdown,
+    seleccionarPresentante,
   } = useTramiteLogic(initialData);
 
   const [scanSuccess, setScanSuccess] = useState(false);
@@ -64,7 +67,6 @@ export function TramiteForm({ mode, initialData }: TramiteFormProps) {
     "tipo_tramite" | "situacion" | null
   >(null);
 
-  // Modificado para pasar el RUC inicial en caso de edición
   const [empresaModalRuc, setEmpresaModalRuc] = useState<string | null>(null);
 
   useBarcodeScanner((scannedData) => {
@@ -119,18 +121,15 @@ export function TramiteForm({ mode, initialData }: TramiteFormProps) {
         />
       )}
 
-      {/* MODAL DE EMPRESA (Acepta Edit o Crear) */}
       {empresaModalRuc !== null && (
         <EmpresaModal
           initialRuc={empresaModalRuc}
           onClose={() => setEmpresaModalRuc(null)}
-          onSuccess={(empresaStr, repsStr) => {
+          onSuccess={(empresaStr) => {
             setEmpresaModalRuc(null);
-            // Autollena ambas cajas al guardar/editar
             setFormData((prev) => ({
               ...prev,
               presentante_empresa: empresaStr,
-              presentante_persona: repsStr,
             }));
           }}
         />
@@ -221,7 +220,6 @@ export function TramiteForm({ mode, initialData }: TramiteFormProps) {
               title="Detalles del Trámite"
               icon={<FileText size={18} />}
             >
-              {/* Omitido para brevedad (Es exactamente igual) */}
               <div className="grid grid-cols-2 gap-4">
                 <ModernInput
                   label="Año"
@@ -286,51 +284,204 @@ export function TramiteForm({ mode, initialData }: TramiteFormProps) {
                   type="date"
                   name="fecha_presentacion"
                   value={formData.fecha_presentacion}
-                  readOnly
+                  onChange={handleChange}
+                  readOnly={isViewOnly}
                 />
                 <ModernInput
                   label="Código Verificación"
                   name="codigo_verificacion"
                   value={formData.codigo_verificacion}
-                  readOnly
+                  onChange={handleChange}
+                  readOnly={isViewOnly}
                 />
 
-                <div className="col-span-2 mt-2 space-y-3">
-                  <div className="flex items-center gap-3 bg-gray-50 p-3 rounded-lg border border-gray-100">
-                    <input
-                      type="checkbox"
-                      checked={formData.check_entrega_tarjeta}
-                      onChange={() => handleAutoCheck("check_entrega_tarjeta")}
-                      disabled={isViewOnly}
-                      className="w-4 h-4 text-blue-600 rounded cursor-pointer"
-                    />
-                    <span className="text-sm font-semibold flex-1">
-                      Entrega Tarjeta
-                    </span>
-                    <input
-                      type="date"
-                      value={formData.fecha_entrega_tarjeta}
-                      readOnly
-                      className="border border-gray-200 rounded-md px-2 py-1 text-xs bg-white w-32"
-                    />
+                <div className="col-span-2 mt-4 mb-2">
+                  <h3 className="text-gray-700 font-medium mb-3 border-b pb-1 text-xs uppercase tracking-wider">
+                    1. Recepción en Oficina (Gestora)
+                  </h3>
+
+                  <div className="bg-gray-50 p-4 rounded-md border border-gray-100 flex flex-col gap-4">
+                    <div className="flex items-center justify-between">
+                      <label className="flex items-center gap-3 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={formData.check_tarjeta_oficina || false}
+                          onChange={() =>
+                            handleAutoCheck("check_tarjeta_oficina")
+                          }
+                          disabled={isViewOnly}
+                          className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                        />
+                        <span className="text-gray-700 font-medium text-sm">
+                          Tarjeta en Oficina
+                        </span>
+                      </label>
+                      <input
+                        type="date"
+                        value={formData.fecha_tarjeta_oficina || ""}
+                        readOnly
+                        className="border border-gray-300 rounded-md px-3 py-1.5 text-xs text-gray-600 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-400"
+                        disabled={!formData.check_tarjeta_oficina}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <label className="flex items-center gap-3 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={formData.check_placa_oficina || false}
+                          onChange={() =>
+                            handleAutoCheck("check_placa_oficina")
+                          }
+                          disabled={isViewOnly}
+                          className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                        />
+                        <span className="text-gray-700 font-medium text-sm">
+                          Placa en Oficina
+                        </span>
+                      </label>
+                      <input
+                        type="date"
+                        value={formData.fecha_placa_oficina || ""}
+                        readOnly
+                        className="border border-gray-300 rounded-md px-3 py-1.5 text-xs text-gray-600 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-400"
+                        disabled={!formData.check_placa_oficina}
+                      />
+                    </div>
                   </div>
-                  <div className="flex items-center gap-3 bg-gray-50 p-3 rounded-lg border border-gray-100">
-                    <input
-                      type="checkbox"
-                      checked={formData.check_entrega_placa}
-                      onChange={() => handleAutoCheck("check_entrega_placa")}
-                      disabled={isViewOnly}
-                      className="w-4 h-4 text-blue-600 rounded cursor-pointer"
-                    />
-                    <span className="text-sm font-semibold flex-1">
-                      Entrega Placa
-                    </span>
-                    <input
-                      type="date"
-                      value={formData.fecha_entrega_placa}
-                      readOnly
-                      className="border border-gray-200 rounded-md px-2 py-1 text-xs bg-white w-32"
-                    />
+                </div>
+
+                <div className="col-span-2 mb-2">
+                  <h3 className="text-gray-700 font-medium mb-3 border-b pb-1 text-xs uppercase tracking-wider">
+                    2. Entrega al Cliente Final
+                  </h3>
+
+                  <div className="bg-blue-50/30 p-4 rounded-md border border-blue-100 flex flex-col gap-5">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="flex items-center gap-3 w-1/3">
+                        <input
+                          type="checkbox"
+                          checked={formData.check_entrega_tarjeta || false}
+                          onChange={() =>
+                            handleAutoCheck("check_entrega_tarjeta")
+                          }
+                          disabled={isViewOnly}
+                          className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                        />
+                        <span className="text-gray-700 font-medium text-sm">
+                          Entregó Tarjeta
+                        </span>
+                      </div>
+
+                      <div
+                        className={`flex items-center gap-4 transition-opacity ${formData.check_entrega_tarjeta ? "opacity-100" : "opacity-40 pointer-events-none"}`}
+                      >
+                        <span className="text-xs text-gray-500">
+                          ¿Cómo recogió?
+                        </span>
+                        <label className="flex items-center gap-1 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="metodo_entrega_tarjeta"
+                            value="RECIBO"
+                            checked={
+                              formData.metodo_entrega_tarjeta === "RECIBO"
+                            }
+                            onChange={handleChange}
+                            disabled={isViewOnly}
+                            className="w-3.5 h-3.5 text-blue-600"
+                          />
+                          <span className="text-xs text-gray-600 font-medium">
+                            Recibo
+                          </span>
+                        </label>
+                        <label className="flex items-center gap-1 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="metodo_entrega_tarjeta"
+                            value="DNI"
+                            checked={formData.metodo_entrega_tarjeta === "DNI"}
+                            onChange={handleChange}
+                            disabled={isViewOnly}
+                            className="w-3.5 h-3.5 text-blue-600"
+                          />
+                          <span className="text-xs text-gray-600 font-medium">
+                            DNI
+                          </span>
+                        </label>
+                      </div>
+
+                      <input
+                        type="date"
+                        value={formData.fecha_entrega_tarjeta || ""}
+                        readOnly
+                        className="border border-gray-300 rounded-md px-3 py-1.5 text-xs text-gray-600 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-400"
+                        disabled={!formData.check_entrega_tarjeta}
+                      />
+                    </div>
+
+                    <div className="h-px bg-gray-200 w-full"></div>
+
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="flex items-center gap-3 w-1/3">
+                        <input
+                          type="checkbox"
+                          checked={formData.check_entrega_placa || false}
+                          onChange={() =>
+                            handleAutoCheck("check_entrega_placa")
+                          }
+                          disabled={isViewOnly}
+                          className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                        />
+                        <span className="text-gray-700 font-medium text-sm">
+                          Entregó Placa
+                        </span>
+                      </div>
+
+                      <div
+                        className={`flex items-center gap-4 transition-opacity ${formData.check_entrega_placa ? "opacity-100" : "opacity-40 pointer-events-none"}`}
+                      >
+                        <span className="text-xs text-gray-500">
+                          ¿Cómo recogió?
+                        </span>
+                        <label className="flex items-center gap-1 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="metodo_entrega_placa"
+                            value="RECIBO"
+                            checked={formData.metodo_entrega_placa === "RECIBO"}
+                            onChange={handleChange}
+                            disabled={isViewOnly}
+                            className="w-3.5 h-3.5 text-blue-600"
+                          />
+                          <span className="text-xs text-gray-600 font-medium">
+                            Recibo
+                          </span>
+                        </label>
+                        <label className="flex items-center gap-1 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="metodo_entrega_placa"
+                            value="DNI"
+                            checked={formData.metodo_entrega_placa === "DNI"}
+                            onChange={handleChange}
+                            disabled={isViewOnly}
+                            className="w-3.5 h-3.5 text-blue-600"
+                          />
+                          <span className="text-xs text-gray-600 font-medium">
+                            DNI
+                          </span>
+                        </label>
+                      </div>
+
+                      <input
+                        type="date"
+                        value={formData.fecha_entrega_placa || ""}
+                        readOnly
+                        className="border border-gray-300 rounded-md px-3 py-1.5 text-xs text-gray-600 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-400"
+                        disabled={!formData.check_entrega_placa}
+                      />
+                    </div>
                   </div>
                 </div>
 
@@ -342,6 +493,7 @@ export function TramiteForm({ mode, initialData }: TramiteFormProps) {
                     onChange={handleChange}
                     readOnly={isViewOnly}
                     rows={3}
+                    placeholder="Escriba aquí solo si hubo alguna eventualidad. Ya no es necesario escribir si se entregó con DNI o Recibo."
                   />
                 </div>
               </div>
@@ -429,7 +581,7 @@ export function TramiteForm({ mode, initialData }: TramiteFormProps) {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 relative">
                 <div className="col-span-1 md:col-span-2 relative">
                   <ModernSearchInput
-                    label="Empresa (Buscar por RUC o Razón Social)"
+                    label="Empresa (Buscar por Razón Social o RUC)"
                     name="presentante_empresa"
                     value={formData.presentante_empresa}
                     onChange={(e: any) => {
@@ -437,14 +589,14 @@ export function TramiteForm({ mode, initialData }: TramiteFormProps) {
                       setShowEmpresaDropdown(true);
                     }}
                     readOnly={isViewOnly}
-                    placeholder="Ej. 2060... o MULTISERVICIOS..."
+                    placeholder="Ej. MULTISERVICIOS ABC - 2060..."
                     onAddClick={() => setEmpresaModalRuc("")}
-                    // NUEVO: Botón de Editar empresa (Solo si hay una seleccionada)
-                    onEditClick={() =>
-                      setEmpresaModalRuc(
-                        formData.presentante_empresa.split(" - ")[0],
-                      )
-                    }
+                    onEditClick={() => {
+                      // Extrae los 11 dígitos del final para pasarle al Modal
+                      const match =
+                        formData.presentante_empresa.match(/(\d{11})$/);
+                      if (match) setEmpresaModalRuc(match[1]);
+                    }}
                   />
 
                   {showEmpresaDropdown &&
@@ -469,14 +621,41 @@ export function TramiteForm({ mode, initialData }: TramiteFormProps) {
                     )}
                 </div>
 
-                {/* COMPONENTE DINÁMICO RECIÉN ACTUALIZADO */}
-                <ModernDynamicRepresentantes
-                  label="Representantes Legales (Añade, edita y busca por DNI)"
-                  name="presentante_persona"
-                  value={formData.presentante_persona}
-                  onChange={handleChange}
-                  readOnly={isViewOnly}
-                />
+                <div className="col-span-1 md:col-span-2 relative">
+                  <ModernSearchInput
+                    label="Presentante Legal (Busca por Nombres, Apellidos o DNI)"
+                    name="presentante_persona"
+                    value={formData.presentante_persona}
+                    onChange={(e: any) => {
+                      handleChange(e);
+                      setShowPresentanteDropdown(true);
+                    }}
+                    readOnly={isViewOnly}
+                    placeholder="Ej. JUAN PEREZ GOMEZ - 12345678"
+                  />
+
+                  {showPresentanteDropdown &&
+                    !isViewOnly &&
+                    presentanteResultados.length > 0 && (
+                      <div className="absolute top-[calc(100%+4px)] left-0 w-full bg-white border border-blue-200 rounded-xl shadow-2xl z-50 overflow-hidden divide-y divide-gray-100 max-h-60 overflow-y-auto">
+                        {presentanteResultados.map((p, idx) => (
+                          <div
+                            key={idx}
+                            onClick={() => seleccionarPresentante(p)}
+                            className="p-3 hover:bg-blue-50 cursor-pointer transition-colors"
+                          >
+                            <div className="text-sm font-black text-gray-800">
+                              {p.nombres} {p.primer_apellido}{" "}
+                              {p.segundo_apellido || ""}
+                            </div>
+                            <div className="text-xs font-mono font-bold text-blue-600 mt-1">
+                              DNI: {p.dni}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                </div>
 
                 <ModernSelect
                   label="Tipo de Boleta"
@@ -510,13 +689,23 @@ export function TramiteForm({ mode, initialData }: TramiteFormProps) {
                   onChange={handleChange}
                   readOnly={isViewOnly}
                 />
-                <ModernInput
-                  label="N° Formato Inmatriculación"
-                  name="num_formato_inmatriculacion"
-                  value={formData.num_formato_inmatriculacion}
-                  onChange={handleChange}
-                  readOnly={isViewOnly}
-                />
+
+                <div className="grid grid-cols-2 gap-2">
+                  <ModernInput
+                    label="N° Formato Inmatriculación"
+                    name="num_formato_inmatriculacion"
+                    value={formData.num_formato_inmatriculacion}
+                    onChange={handleChange}
+                    readOnly={isViewOnly}
+                  />
+                  <ModernInput
+                    label="N° Recibo de Trámite"
+                    name="numero_recibo_tramite"
+                    value={formData.numero_recibo_tramite}
+                    onChange={handleChange}
+                    readOnly={isViewOnly}
+                  />
+                </div>
               </div>
             </SectionCard>
 

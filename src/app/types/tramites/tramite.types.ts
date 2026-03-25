@@ -38,10 +38,22 @@ export interface TramiteFormData {
   estado_tramite: string;
   observaciones: string;
   fecha_presentacion: string;
+
+  // --- Recepción en Oficina ---
+  check_tarjeta_oficina: boolean;
+  fecha_tarjeta_oficina: string;
+  check_placa_oficina: boolean;
+  fecha_placa_oficina: string;
+
+  // --- Entrega al Cliente ---
   check_entrega_tarjeta: boolean;
   fecha_entrega_tarjeta: string;
+  metodo_entrega_tarjeta: string; // 'RECIBO', 'DNI' o ''
+
   check_entrega_placa: boolean;
   fecha_entrega_placa: string;
+  metodo_entrega_placa: string; // 'RECIBO', 'DNI' o ''
+
   codigo_verificacion: string;
 
   // DEL VEHICULO
@@ -61,6 +73,7 @@ export interface TramiteFormData {
   fecha_boleta: string;
   dua: string;
   num_formato_inmatriculacion: string;
+  numero_recibo_tramite: string;
 
   // CLAUSULA DE CANCELACIÓN
   clausula_monto: string;
