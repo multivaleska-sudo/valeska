@@ -14,6 +14,7 @@ export interface TramiteRow {
 
 export function useTramitesListLogic() {
     const [rawData, setRawData] = useState<TramiteRow[]>([]);
+    const [opcionesSituacion, setOpcionesSituacion] = useState<string[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
     const [searchCliente, setSearchCliente] = useState("");
@@ -25,6 +26,16 @@ export function useTramitesListLogic() {
 
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 10;
+
+    const fetchCatalogos = useCallback(async () => {
+        try {
+            const sqlite = await Database.load("sqlite:valeska.db");
+            const resSits: any[] = await sqlite.select("SELECT nombre FROM catalogo_situaciones WHERE activo = 1 ORDER BY nombre ASC");
+            setOpcionesSituacion(resSits.map(s => s.nombre));
+        } catch (error) {
+            console.error("Error al cargar catálogos para filtros:", error);
+        }
+    }, []);
 
     const fetchTramites = useCallback(async () => {
         setIsLoading(true);
@@ -73,10 +84,11 @@ export function useTramitesListLogic() {
     }, []);
 
     useEffect(() => {
+        fetchCatalogos();
         fetchTramites();
         window.addEventListener("valeska_reload_tramites", fetchTramites);
         return () => window.removeEventListener("valeska_reload_tramites", fetchTramites);
-    }, [fetchTramites]);
+    }, [fetchTramites, fetchCatalogos]);
 
     const filteredTramites = useMemo(() => {
         return rawData.filter((tramite) => {
@@ -123,6 +135,7 @@ export function useTramitesListLogic() {
             totalItems: filteredTramites.length
         },
         data: paginatedTramites,
-        isLoading
+        isLoading,
+        opcionesSituacion // Exportamos las situaciones cargadas de la BD
     };
 }

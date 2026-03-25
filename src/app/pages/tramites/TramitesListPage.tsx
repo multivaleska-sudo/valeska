@@ -5,13 +5,12 @@ import { useTramitesListLogic } from "../../logic/tramites/useTramitesListLogic"
 
 export function TramitesListPage() {
   const navigate = useNavigate();
-  // Extraemos toda la lógica limpia desde nuestro hook
-  const { filtros, paginacion, data } = useTramitesListLogic();
+  const { filtros, paginacion, data, opcionesSituacion } =
+    useTramitesListLogic();
 
   return (
     <div className="min-h-screen bg-slate-50 p-6 font-sans">
       <div className="max-w-[1400px] mx-auto space-y-6">
-        {/* Cabecera Principal */}
         <div className="flex justify-between items-center bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
           <div>
             <h1 className="text-2xl font-black text-gray-800">
@@ -29,7 +28,6 @@ export function TramitesListPage() {
           </button>
         </div>
 
-        {/* Panel de Filtros (Buscadores) */}
         <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
           <div className="flex items-center gap-2 mb-4 text-gray-800">
             <Filter size={18} className="text-blue-600" />
@@ -112,17 +110,16 @@ export function TramitesListPage() {
                 className="h-10 px-3 rounded-lg border border-gray-200 text-sm focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all uppercase cursor-pointer bg-white"
               >
                 <option value="">TODOS LOS ESTADOS</option>
-                <option value="En calificación">EN CALIFICACIÓN</option>
-                <option value="Inscrito">INSCRITO</option>
-                <option value="Observado">OBSERVADO</option>
-                <option value="Concluido">CONCLUIDO</option>
-                <option value="Reingresado">REINGRESADO</option>
+                {opcionesSituacion.map((situacion) => (
+                  <option key={situacion} value={situacion}>
+                    {situacion.toUpperCase()}
+                  </option>
+                ))}
               </select>
             </div>
           </div>
         </div>
 
-        {/* Tabla de Trámites (Data Grid) */}
         <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden flex flex-col">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
@@ -148,7 +145,7 @@ export function TramitesListPage() {
                       className="hover:bg-blue-50/50 cursor-pointer transition-colors group"
                     >
                       <td className="p-4 font-bold text-gray-500 text-xs">
-                        #{row.id}
+                        #{row.id.substring(0, 8)}
                       </td>
                       <td className="p-4 font-bold text-blue-600 text-sm">
                         {row.n_titulo}
@@ -167,6 +164,7 @@ export function TramitesListPage() {
                           ${row.situacion === "Inscrito" || row.situacion === "Concluido" ? "bg-green-100 text-green-700" : ""}
                           ${row.situacion === "Observado" ? "bg-red-100 text-red-700" : ""}
                           ${row.situacion === "Reingresado" ? "bg-purple-100 text-purple-700" : ""}
+                          ${!["En calificación", "Inscrito", "Concluido", "Observado", "Reingresado"].includes(row.situacion) ? "bg-gray-100 text-gray-700" : ""}
                         `}
                         >
                           {row.situacion}
@@ -196,7 +194,6 @@ export function TramitesListPage() {
             </table>
           </div>
 
-          {/* Componente de Paginación */}
           {paginacion.totalPages > 0 && (
             <div className="bg-gray-50 border-t border-gray-100 p-4 flex items-center justify-between">
               <span className="text-sm text-gray-500 font-medium">
