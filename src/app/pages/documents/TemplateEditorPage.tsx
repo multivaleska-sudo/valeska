@@ -14,6 +14,7 @@ import {
   Eye,
   Smartphone,
   Monitor,
+  Printer, // <-- Añadido el icono Printer
 } from "lucide-react";
 import { useTemplateEditorLogic } from "../../logic/documents/useTemplateEditorLogic";
 
@@ -32,6 +33,7 @@ export function TemplateEditorPage() {
     insertAtCursor,
     insertHtmlTag,
     handleSave,
+    handleSaveAndPrint, // <-- Extraemos la nueva función
     TEMPLATE_VARIABLES,
   } = useTemplateEditorLogic();
 
@@ -85,18 +87,36 @@ export function TemplateEditorPage() {
             </button>
           </div>
 
-          <button
-            onClick={handleSave}
-            disabled={isSaving}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg text-sm font-bold flex items-center gap-2 shadow-md shadow-blue-200 transition-colors disabled:opacity-50"
-          >
-            {isSaving ? (
-              <Loader2 size={16} className="animate-spin" />
-            ) : (
-              <Save size={16} />
-            )}
-            Guardar Plantilla
-          </button>
+          {/* NUEVOS BOTONES DE GUARDADO */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleSave}
+              disabled={isSaving}
+              className="bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 shadow-md transition-colors disabled:opacity-50"
+              title="Guardar y volver a Documentos"
+            >
+              {isSaving ? (
+                <Loader2 size={16} className="animate-spin" />
+              ) : (
+                <Save size={16} />
+              )}
+              Guardar
+            </button>
+
+            <button
+              onClick={handleSaveAndPrint}
+              disabled={isSaving}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 shadow-md shadow-blue-200 transition-colors disabled:opacity-50"
+              title="Guardar e ir a Trámites"
+            >
+              {isSaving ? (
+                <Loader2 size={16} className="animate-spin" />
+              ) : (
+                <Printer size={16} />
+              )}
+              Guardar e Imprimir
+            </button>
+          </div>
         </div>
       </div>
 
