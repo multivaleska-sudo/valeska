@@ -1,24 +1,19 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import { invoke } from "@tauri-apps/api/core";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { readTextFile, writeTextFile } from "@tauri-apps/plugin-fs";
-import { mapXmlToInvoiceData } from "./xmlMapper";
+import { parseXMLToInvoiceData } from "./xmlParser";
 
 export function useXmlEditorLogic() {
     const [filePath, setFilePath] = useState<string | null>(null);
     const [xmlContent, setXmlContent] = useState<string>("");
     const [invoiceData, setInvoiceData] = useState<any>(null);
 
-    const [liveDescriptions, setLiveDescriptions] = useState<string[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [hasChanges, setHasChanges] = useState(false);
     const [saveSuccess, setSaveSuccess] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    // =========================================================================
-    // 🔍 MAGIA DEL BUSCADOR: BACKDROP HIGHLIGHTING Y SCROLL EXACTO
-    // =========================================================================
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const backdropRef = useRef<HTMLDivElement>(null);
 
@@ -26,7 +21,29 @@ export function useXmlEditorLogic() {
     const [searchResult, setSearchResult] = useState<{ indices: number[], current: number }>({ indices: [], current: -1 });
     const isNavigating = useRef(false);
 
-    // 1. Encontrar posiciones exactas de las palabras
+    const handleDescriptionChange = (index: number, newValue: string) => {
+        if (!xmlContent) return;
+
+        const parser = new DOMParser();
+        const xmlDoc = parser.parseFromString(xmlContent, "text/xml");
+        const descriptions = Array.from(xmlDoc.getElementsByTagNameNS("*", "Description"));
+
+        const lineDescriptions = descriptions.filter(node =>
+            node.parentElement?.localName.includes("Line") ||
+            node.parentElement?.parentElement?.localName.includes("Line")
+        );
+
+        if (lineDescriptions[index]) {
+            lineDescriptions[index].textContent = newValue;
+            const serializer = new XMLSerializer();
+            const updatedXml = serializer.serializeToString(xmlDoc);
+
+            setXmlContent(updatedXml);
+            setHasChanges(true);
+            setSaveSuccess(false);
+        }
+    };
+
     useEffect(() => {
         if (!searchTerm || !xmlContent) {
             setSearchResult({ indices: [], current: -1 });
@@ -45,7 +62,6 @@ export function useXmlEditorLogic() {
         setSearchResult({ indices, current: indices.length > 0 ? 0 : -1 });
     }, [searchTerm, xmlContent]);
 
-    // 2. Generador del HTML para la capa de fondo (Ilumina las palabras)
     const highlightedHtml = useMemo(() => {
         if (!xmlContent) return "";
 
@@ -65,13 +81,9 @@ export function useXmlEditorLogic() {
         searchResult.indices.forEach((idx, i) => {
             const before = xmlContent.substring(lastIdx, idx);
             html += escapeHtml(before);
-
             const matchText = xmlContent.substring(idx, idx + searchTerm.length);
             const escapedMatch = escapeHtml(matchText);
-
             const isCurrent = i === searchResult.current;
-
-            // CRÍTICO: Le agregamos "active-mark" a la palabra seleccionada actualmente para rastrearla
             const markClass = isCurrent
                 ? "active-mark rounded-sm bg-yellow-400 text-black shadow-[0_0_8px_rgba(250,204,21,0.9)]"
                 : "rounded-sm bg-yellow-600/50 text-yellow-200";
@@ -83,31 +95,23 @@ export function useXmlEditorLogic() {
         const after = xmlContent.substring(lastIdx);
         html += escapeHtml(after);
         if (html.endsWith('\n')) html += '<br/>';
-
         return html;
     }, [xmlContent, searchTerm, searchResult]);
 
-    // 3. Auto-Scroll Exacto rastreando el DOM en lugar de calcular matemáticamente
     useEffect(() => {
         if (searchResult.current !== -1 && textareaRef.current && backdropRef.current) {
             const pos = searchResult.indices[searchResult.current];
             const textarea = textareaRef.current;
-
-            // NO robamos el foco permanentemente, solo marcamos la selección
             textarea.setSelectionRange(pos, pos + searchTerm.length);
 
             setTimeout(() => {
                 if (!backdropRef.current || !textareaRef.current) return;
-
                 const activeMark = backdropRef.current.querySelector('.active-mark') as HTMLElement;
-
                 if (activeMark) {
                     const scrollPos = Math.max(0, activeMark.offsetTop - 120);
-
                     textareaRef.current.scrollTop = scrollPos;
                     backdropRef.current.scrollTop = scrollPos;
                 }
-
                 if (isNavigating.current) {
                     textarea.focus();
                     isNavigating.current = false;
@@ -116,7 +120,6 @@ export function useXmlEditorLogic() {
         }
     }, [searchResult.current, searchTerm, highlightedHtml]);
 
-    // 4. Sincronizador en tiempo real del scroll del mouse
     const handleTextareaScroll = () => {
         if (textareaRef.current && backdropRef.current) {
             backdropRef.current.scrollTop = textareaRef.current.scrollTop;
@@ -140,24 +143,18 @@ export function useXmlEditorLogic() {
         });
     };
 
-    // =========================================================================
-    // PARSER EN TIEMPO REAL Y MÉTODOS DE ARCHIVO
-    // =========================================================================
     useEffect(() => {
         if (!xmlContent || !invoiceData) return;
         try {
-            const parser = new DOMParser();
-            const xmlDoc = parser.parseFromString(xmlContent, "text/xml");
-            const invoiceLines = Array.from(xmlDoc.getElementsByTagName("*")).filter(el => el.localName === "InvoiceLine");
+            const updatedData = parseXMLToInvoiceData(xmlContent);
+            const currentDescriptions = invoiceData.items.map((i: any) => i.descripcion).join("|");
+            const newDescriptions = updatedData.items.map((i: any) => i.descripcion).join("|");
 
-            const descriptions = invoiceLines.map(line => {
-                const descNode = Array.from(line.getElementsByTagName("*")).find(el => el.localName === "Description");
-                return descNode?.textContent || "Sin descripción";
-            });
-
-            setLiveDescriptions(descriptions);
+            if (currentDescriptions !== newDescriptions) {
+                setInvoiceData((prev: any) => ({ ...prev, items: updatedData.items }));
+            }
         } catch (e) { }
-    }, [xmlContent, invoiceData]);
+    }, [xmlContent]);
 
     const handleOpenFile = async () => {
         if (isLoading) return;
@@ -165,20 +162,20 @@ export function useXmlEditorLogic() {
         try {
             const selected = await open({
                 multiple: false,
-                filters: [{ name: "Factura XML SUNAT", extensions: ["xml"] }],
+                filters: [{ name: "Documentos XML", extensions: ["xml"] }],
             });
 
             if (!selected || typeof selected !== 'string') return;
 
             setIsLoading(true);
-            const rawData: any = await invoke("extract_full_invoice_data", { path: selected });
-            const mappedData = mapXmlToInvoiceData(rawData);
-
-            if (!mappedData) throw new Error("Datos incompatibles o XML corrupto.");
-
             const rawText = await readTextFile(selected);
-            // 🔥 CORRECCIÓN CRÍTICA: Normalizamos \r\n de Windows a \n puro de React
             const normalizedText = rawText.replace(/\r\n/g, '\n');
+
+            const mappedData = parseXMLToInvoiceData(normalizedText);
+
+            if (!mappedData.documento_id || mappedData.documento_id === "---") {
+                throw new Error("El archivo no contiene un identificador válido UBL.");
+            }
 
             setFilePath(selected);
             setInvoiceData(mappedData);
@@ -204,7 +201,7 @@ export function useXmlEditorLogic() {
             if (!pathToSave) {
                 pathToSave = await save({
                     filters: [{ name: "Documentos XML", extensions: ["xml"] }],
-                    defaultPath: "factura_modificada.xml",
+                    defaultPath: "documento_modificado.xml",
                 });
             }
 
@@ -216,7 +213,6 @@ export function useXmlEditorLogic() {
                 setTimeout(() => setSaveSuccess(false), 3000);
             }
         } catch (err: any) {
-            console.error("Error al guardar:", err);
             setError("No se pudo guardar el archivo. Verifique permisos.");
         } finally {
             setIsSaving(false);
@@ -233,10 +229,10 @@ export function useXmlEditorLogic() {
     };
 
     return {
-        filePath, xmlContent, setXmlContent, invoiceData, liveDescriptions,
+        filePath, xmlContent, setXmlContent, invoiceData,
         isLoading, isSaving, hasChanges, setHasChanges, saveSuccess, setSaveSuccess, error,
         textareaRef, backdropRef, highlightedHtml, handleTextareaScroll,
         searchTerm, setSearchTerm, searchResult, handleNextMatch, handlePrevMatch,
-        handleOpenFile, handleSaveFile, handleReset
+        handleOpenFile, handleSaveFile, handleReset, handleDescriptionChange
     };
 }
