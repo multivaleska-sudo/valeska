@@ -11,6 +11,10 @@ export function useDocumentCenterLogic() {
   const [selectedTemplate, setSelectedTemplate] = useState<TemplateData | null>(
     null,
   );
+
+  // NUEVO: Estados para el buscador
+  const [searchTerm, setSearchTerm] = useState("");
+
   const [isGenerating, setIsGenerating] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -20,10 +24,10 @@ export function useDocumentCenterLogic() {
       const sqlite = await Database.load("sqlite:valeska.db");
 
       const query = `
-                SELECT * FROM plantillas_documentos 
-                WHERE deleted_at IS NULL AND activo = 1
-                ORDER BY nombre_documento ASC
-            `;
+        SELECT * FROM plantillas_documentos 
+        WHERE deleted_at IS NULL AND activo = 1
+        ORDER BY nombre_documento ASC
+      `;
 
       const result: any[] = await sqlite.select(query);
 
@@ -63,6 +67,11 @@ export function useDocumentCenterLogic() {
     fetchTemplates();
   }, [fetchTemplates]);
 
+  // NUEVO: Filtramos las plantillas basándonos en lo que se escribe en el buscador
+  const filteredTemplates = templates.filter((tpl) =>
+    tpl.nombre.toLowerCase().includes(searchTerm.toLowerCase()),
+  );
+
   const handleGenerateAndPrint = async () => {
     if (!selectedTemplate || !id) return;
     setIsGenerating(true);
@@ -79,20 +88,14 @@ export function useDocumentCenterLogic() {
   const handleCreateNewTemplate = async (nombre: string, htmlBase: string) => {
     try {
       const sqlite = await Database.load("sqlite:valeska.db");
-
-      // 1. Generamos un ID único en formato texto (ej: "e581236a-2321-4f32-...")
       const newId = crypto.randomUUID();
 
-      // 2. Agregamos el "id" a la consulta de inserción (ahora son 3 parámetros)
       const insertQuery = `
-                INSERT INTO plantillas_documentos (id, nombre_documento, contenido_html, orientacion_papel, activo, created_at, updated_at)
-                VALUES ($1, $2, $3, 'PORTRAIT', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-            `;
+        INSERT INTO plantillas_documentos (id, nombre_documento, contenido_html, orientacion_papel, activo, created_at, updated_at)
+        VALUES ($1, $2, $3, 'PORTRAIT', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+      `;
 
-      // 3. Ejecutamos la inserción con el nuevo ID como primer parámetro
       await sqlite.execute(insertQuery, [newId, nombre, htmlBase]);
-
-      // 4. Como ya conocemos el newId, navegamos directamente al editor
       navigate(`/plantillas/${newId}/edit`);
     } catch (error) {
       console.error("Error al crear la nueva plantilla:", error);
@@ -100,15 +103,45 @@ export function useDocumentCenterLogic() {
     }
   };
 
+  // NUEVO: Función para eliminar de manera segura (Soft Delete)
+  const handleDeleteTemplate = async (templateId: string) => {
+    try {
+      const sqlite = await Database.load("sqlite:valeska.db");
+
+      await sqlite.execute(
+        `UPDATE plantillas_documentos SET deleted_at = CURRENT_TIMESTAMP WHERE id = $1`,
+        [templateId],
+      );
+
+      // Actualizar el estado local de forma inmediata
+      const remainingTemplates = templates.filter((t) => t.id !== templateId);
+      setTemplates(remainingTemplates);
+
+      // Si borramos la que estaba seleccionada, elegimos la primera que quede (o null)
+      if (selectedTemplate?.id === templateId) {
+        setSelectedTemplate(
+          remainingTemplates.length > 0 ? remainingTemplates[0] : null,
+        );
+      }
+    } catch (error) {
+      console.error("Error al eliminar la plantilla:", error);
+      throw error;
+    }
+  };
+
   return {
     id,
     navigate,
     templates,
+    filteredTemplates,
+    searchTerm,
+    setSearchTerm,
     selectedTemplate,
     setSelectedTemplate,
     handleGenerateAndPrint,
     isGenerating,
     isLoading,
     handleCreateNewTemplate,
+    handleDeleteTemplate,
   };
 }

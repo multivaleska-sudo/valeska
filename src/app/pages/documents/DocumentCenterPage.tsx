@@ -10,6 +10,7 @@ import {
   FileOutput,
   Loader2,
   X,
+  AlertTriangle, // Para el modal de borrar
 } from "lucide-react";
 import { DocumentPreviewPanel } from "../../components/documents/DocumentPreviewPanel";
 import { useDocumentCenterLogic } from "../../logic/documents/useDocumentCenterLogic";
@@ -18,21 +19,27 @@ export function DocumentCenterPage() {
   const {
     id,
     navigate,
-    templates,
+    filteredTemplates, // Usamos las filtradas en lugar de todas
+    searchTerm,
+    setSearchTerm,
     selectedTemplate,
     setSelectedTemplate,
     handleGenerateAndPrint,
     isGenerating,
     isLoading,
     handleCreateNewTemplate,
+    handleDeleteTemplate, // Función para eliminar
   } = useDocumentCenterLogic();
 
-  // Estados para controlar el modal de creación
+  // Estados Modal Creación
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newTemplateName, setNewTemplateName] = useState("");
   const [isCreating, setIsCreating] = useState(false);
 
-  // El texto por defecto que se inyectará en la nueva plantilla
+  // Estados Modal Eliminación
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
   const defaultTemplateHtml = `
 <div style="background: white; width: 21cm; min-height: 29.7cm; padding: 2cm; box-sizing: border-box; font-family: Arial, Helvetica, sans-serif; font-size: 14px; line-height: 1.5; color: #000; margin: 0 auto; border: 1px dashed #ccc;">
     <h2 style="text-align: center; font-weight: bold; text-decoration: underline; margin-bottom: 20px;">PLANTILLA BASE</h2>
@@ -56,20 +63,18 @@ export function DocumentCenterPage() {
     </div>
 
     <div style="display: flex; justify-content: space-between; margin-top: 30px;">
-    ejemplo de uso de imágenes en la plantilla:
+        ejemplo de uso de imágenes en la plantilla:
     </div>
 
     <!-- Logo AAP -->
-            <div style="width: 230px;">
-                <img src="/image/logo_aap.jpg" alt="Logo AAP" style="width: 100%; height: auto;" onerror="this.style.display='none';">
-            </div>
+    <div style="width: 230px;">
+        <img src="/image/logo_aap.jpg" alt="Logo AAP" style="width: 100%; height: auto;" onerror="this.style.display='none';">
+    </div>
             
-            <!-- Logo Notaría -->
-            <div style="width: 210px;">
-                <img src="/image/logo_Notaria.jpg" alt="Logo Notaria" style="width: 100%; height: auto; border-radius: 4px;" onerror="this.style.display='none';">
-            </div>
-      </div>
-
+    <!-- Logo Notaría -->
+    <div style="width: 210px;">
+        <img src="/image/logo_Notaria.jpg" alt="Logo Notaria" style="width: 100%; height: auto; border-radius: 4px;" onerror="this.style.display='none';">
+    </div>
 </div>`;
 
   const onCreateSubmit = async () => {
@@ -87,6 +92,21 @@ export function DocumentCenterPage() {
       setIsCreating(false);
       setIsModalOpen(false);
       setNewTemplateName("");
+    }
+  };
+
+  const onConfirmDelete = async () => {
+    if (!selectedTemplate) return;
+    setIsDeleting(true);
+    try {
+      if (handleDeleteTemplate) {
+        await handleDeleteTemplate(selectedTemplate.id);
+      }
+      setIsDeleteModalOpen(false);
+    } catch (error) {
+      alert("Hubo un error intentando eliminar la plantilla.");
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -125,6 +145,8 @@ export function DocumentCenterPage() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
               <input
                 type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="Buscar plantilla..."
                 className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all"
               />
@@ -163,7 +185,7 @@ export function DocumentCenterPage() {
             <div className="p-4 border-b border-gray-100 bg-gray-50/50">
               <h2 className="font-bold text-gray-800 uppercase tracking-wider text-sm flex items-center gap-2">
                 <FileText size={16} className="text-blue-600" /> Archivos Base (
-                {templates?.length || 0})
+                {filteredTemplates?.length || 0})
               </h2>
             </div>
 
@@ -172,8 +194,12 @@ export function DocumentCenterPage() {
                 <div className="p-8 text-center">
                   <Loader2 className="w-8 h-8 animate-spin text-blue-500 mx-auto" />
                 </div>
+              ) : filteredTemplates?.length === 0 ? (
+                <div className="p-8 text-center text-gray-400 text-sm font-medium">
+                  No se encontraron plantillas
+                </div>
               ) : (
-                templates?.map((tpl) => (
+                filteredTemplates?.map((tpl) => (
                   <div
                     key={tpl.id}
                     onClick={() => setSelectedTemplate(tpl)}
@@ -227,7 +253,11 @@ export function DocumentCenterPage() {
                   >
                     <Edit3 size={16} /> Editar Diseño (Visual)
                   </button>
-                  <button className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors border border-transparent hover:border-red-100">
+                  <button
+                    onClick={() => setIsDeleteModalOpen(true)}
+                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors border border-transparent hover:border-red-100"
+                    title="Eliminar plantilla"
+                  >
                     <Trash2 size={18} />
                   </button>
                 </div>
@@ -295,6 +325,63 @@ export function DocumentCenterPage() {
                   <Plus size={16} />
                 )}
                 Crear y Editar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* MODAL ELIMINAR PLANTILLA                                   */}
+      {/* ======================================================== */}
+      {isDeleteModalOpen && selectedTemplate && (
+        <div className="fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm transition-all">
+          <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden">
+            <div className="px-6 py-4 border-b border-red-100 flex justify-between items-center bg-red-50/50">
+              <h3 className="text-lg font-bold text-red-600 flex items-center gap-2">
+                <AlertTriangle size={18} /> Eliminar Plantilla
+              </h3>
+              <button
+                onClick={() => setIsDeleteModalOpen(false)}
+                className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="p-6 text-center">
+              <p className="text-sm text-gray-700">
+                ¿Estás seguro de que deseas eliminar permanentemente la
+                plantilla <br />
+                <strong className="text-gray-900 text-base">
+                  {selectedTemplate.nombre}
+                </strong>
+                ?
+              </p>
+              <p className="text-xs text-red-500 font-medium mt-3">
+                Esta acción no se puede deshacer.
+              </p>
+            </div>
+
+            <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 flex justify-end gap-3">
+              <button
+                onClick={() => setIsDeleteModalOpen(false)}
+                disabled={isDeleting}
+                className="px-4 py-2 text-sm font-bold text-gray-600 hover:bg-gray-200 rounded-xl transition-colors disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={onConfirmDelete}
+                disabled={isDeleting}
+                className="px-6 py-2 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-xl transition-all shadow-sm disabled:opacity-50 flex items-center gap-2"
+              >
+                {isDeleting ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <Trash2 size={16} />
+                )}
+                Sí, Eliminar
               </button>
             </div>
           </div>
