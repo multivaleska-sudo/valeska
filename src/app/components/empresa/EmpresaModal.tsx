@@ -1,15 +1,11 @@
 import React, { useState, useEffect } from "react";
-import { X, Building2, Loader2, CheckCircle2, Plus } from "lucide-react";
+import { X, Building2, Loader2, CheckCircle2 } from "lucide-react";
 import Database from "@tauri-apps/plugin-sql";
-import {
-  parseRepresentantes,
-  stringifyRepresentantes,
-} from "../tramites/ModernFormSections";
 
 interface EmpresaModalProps {
   initialRuc?: string;
   onClose: () => void;
-  onSuccess: (empresaName: string, representantes: string) => void;
+  onSuccess: (empresaName: string) => void;
 }
 
 export function EmpresaModal({
@@ -23,14 +19,10 @@ export function EmpresaModal({
   const [ruc, setRuc] = useState(initialRuc);
   const [razonSocial, setRazonSocial] = useState("");
   const [direccion, setDireccion] = useState("");
-  const [reps, setReps] = useState<{ dni: string; nombre: string }[]>([
-    { dni: "", nombre: "" },
-  ]);
 
   const [isSaving, setIsSaving] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
 
-  // Auto-cargar datos si el RUC tiene 11 dígitos
   useEffect(() => {
     const fetchEmpresa = async () => {
       if (ruc.length === 11) {
@@ -44,63 +36,19 @@ export function EmpresaModal({
             setEmpresaId(res[0].id);
             setRazonSocial(res[0].razon_social);
             setDireccion(res[0].direccion || "");
-            setReps(parseRepresentantes(res[0].representantes || ""));
             setIsEditing(true);
           } else {
             setIsEditing(false);
           }
-        } catch (error) {}
+        } catch (error) {
+          console.error("Error al cargar la empresa:", error);
+        }
       } else {
         setIsEditing(false);
       }
     };
     fetchEmpresa();
   }, [ruc]);
-
-  const updateRep = async (
-    index: number,
-    field: "dni" | "nombre",
-    val: string,
-  ) => {
-    const newReps = [...reps];
-    newReps[index][field] = val;
-    setReps(newReps);
-
-    // Autocompletar DNI
-    if (field === "dni" && (val.length === 8 || val.length === 9)) {
-      try {
-        const sqlite = await Database.load("sqlite:valeska.db");
-        let foundStr = "";
-        const resEmp: any[] = await sqlite.select(
-          `SELECT representantes FROM empresas_gestoras WHERE representantes LIKE '%${val}%' LIMIT 1`,
-        );
-        if (resEmp.length > 0 && resEmp[0].representantes)
-          foundStr = resEmp[0].representantes;
-        else {
-          const resTram: any[] = await sqlite.select(
-            `SELECT presentante_persona FROM tramite_detalles WHERE presentante_persona LIKE '%${val}%' LIMIT 1`,
-          );
-          if (resTram.length > 0 && resTram[0].presentante_persona)
-            foundStr = resTram[0].presentante_persona;
-        }
-        if (foundStr) {
-          const foundReps = parseRepresentantes(foundStr);
-          const matchingRep = foundReps.find((r) => r.dni === val);
-          if (matchingRep && matchingRep.nombre) {
-            newReps[index].nombre = matchingRep.nombre;
-            setReps([...newReps]);
-          }
-        }
-      } catch (e) {}
-    }
-  };
-
-  const addRep = () => setReps([...reps, { dni: "", nombre: "" }]);
-  const removeRep = (index: number) => {
-    const newReps = reps.filter((_, i) => i !== index);
-    if (newReps.length === 0) newReps.push({ dni: "", nombre: "" });
-    setReps(newReps);
-  };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -114,32 +62,17 @@ export function EmpresaModal({
       const sqlite = await Database.load("sqlite:valeska.db");
       const now = new Date().toISOString();
       const razonLimpia = razonSocial.trim().toUpperCase();
-      const representantesFinal = stringifyRepresentantes(reps);
 
       if (isEditing && empresaId) {
         await sqlite.execute(
-          `UPDATE empresas_gestoras SET razon_social = $1, direccion = $2, representantes = $3, updated_at = $4 WHERE id = $5`,
-          [
-            razonLimpia,
-            direccion.toUpperCase(),
-            representantesFinal,
-            now,
-            empresaId,
-          ],
+          `UPDATE empresas_gestoras SET razon_social = $1, direccion = $2, updated_at = $3 WHERE id = $4`,
+          [razonLimpia, direccion.toUpperCase(), now, empresaId],
         );
       } else {
         const newId = crypto.randomUUID();
         await sqlite.execute(
-          `INSERT INTO empresas_gestoras (id, ruc, razon_social, direccion, representantes, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-          [
-            newId,
-            ruc,
-            razonLimpia,
-            direccion.toUpperCase(),
-            representantesFinal,
-            now,
-            now,
-          ],
+          `INSERT INTO empresas_gestoras (id, ruc, razon_social, direccion, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6)`,
+          [newId, ruc, razonLimpia, direccion.toUpperCase(), now, now],
         );
       }
 
@@ -153,11 +86,7 @@ export function EmpresaModal({
       );
 
       setShowSuccess(true);
-      // Retornamos ambos valores para auto-llenar el formulario principal
-      setTimeout(
-        () => onSuccess(`${ruc} - ${razonLimpia}`, representantesFinal),
-        1000,
-      );
+      setTimeout(() => onSuccess(`${razonLimpia} - ${ruc}`), 1000);
     } catch (error: any) {
       console.error(error);
       alert("Error al guardar la empresa.");
@@ -234,51 +163,6 @@ export function EmpresaModal({
                 placeholder="Ej. JR. TACTA 335 DISTRITO..."
                 className="w-full border-2 border-gray-200 rounded-xl h-10 px-3 text-sm uppercase outline-none focus:border-emerald-500 transition-all"
               />
-            </div>
-
-            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-3">
-                Apoderados / Representantes Legales
-              </label>
-              <div className="space-y-3">
-                {reps.map((rep, idx) => (
-                  <div key={idx} className="flex gap-2 items-start">
-                    <input
-                      type="text"
-                      placeholder="DNI/CE"
-                      maxLength={9}
-                      value={rep.dni}
-                      onChange={(e) =>
-                        updateRep(idx, "dni", e.target.value.replace(/\D/g, ""))
-                      }
-                      className="w-[110px] font-mono font-bold text-emerald-900 border border-slate-300 rounded-lg h-10 px-3 text-sm focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 outline-none"
-                    />
-                    <input
-                      type="text"
-                      placeholder="Nombres Completos..."
-                      value={rep.nombre}
-                      onChange={(e) =>
-                        updateRep(idx, "nombre", e.target.value.toUpperCase())
-                      }
-                      className="flex-1 font-bold border border-slate-300 rounded-lg h-10 px-3 text-sm focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 outline-none uppercase"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => removeRep(idx)}
-                      className="h-10 w-10 flex shrink-0 items-center justify-center text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg border border-transparent transition-colors"
-                    >
-                      <X size={18} strokeWidth={3} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-              <button
-                type="button"
-                onClick={addRep}
-                className="mt-4 w-max text-xs font-bold text-emerald-700 flex items-center gap-1.5 bg-emerald-100/50 border border-emerald-200 px-4 py-2 rounded-lg hover:bg-emerald-100 transition-colors"
-              >
-                <Plus size={14} strokeWidth={3} /> Agregar Apoderado
-              </button>
             </div>
 
             <div className="flex gap-3 pt-2">
