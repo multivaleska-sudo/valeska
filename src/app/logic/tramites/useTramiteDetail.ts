@@ -3,21 +3,21 @@ import Database from "@tauri-apps/plugin-sql";
 import { TramiteFormData } from "../../types/tramites/tramite.types";
 
 export function useTramiteDetail(id: string | undefined) {
-    const [data, setData] = useState<Partial<TramiteFormData> | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+  const [data, setData] = useState<Partial<TramiteFormData> | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-    useEffect(() => {
-        const fetchData = async () => {
-            if (!id) {
-                setIsLoading(false);
-                return;
-            }
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!id) {
+        setIsLoading(false);
+        return;
+      }
 
-            try {
-                const sqlite = await Database.load("sqlite:valeska.db");
+      try {
+        const sqlite = await Database.load("sqlite:valeska.db");
 
-                const query = `
+        const query = `
           SELECT 
             t.id, t.codigo_verificacion, t.tramite_anio, t.n_titulo, t.fecha_presentacion, t.observaciones_generales as observaciones,
             
@@ -32,10 +32,10 @@ export function useTramiteDetail(id: string | undefined) {
             ctt.nombre as tipo_tramite,
             cs.nombre as estado_tramite,
             
-            -- FORMATO: NOMBRES PRIMER_APELLIDO SEGUNDO_APELLIDO - DNI
+            -- FORMATO CORREGIDO: PRIMER_APELLIDO SEGUNDO_APELLIDO NOMBRES - DNI
             CASE 
               WHEN p.id IS NOT NULL THEN 
-                 REPLACE(TRIM(COALESCE(p.nombres, '') || ' ' || COALESCE(p.primer_apellido, '') || ' ' || COALESCE(p.segundo_apellido, '')), '  ', ' ') || ' - ' || p.dni
+                 REPLACE(TRIM(COALESCE(p.primer_apellido, '') || ' ' || COALESCE(p.segundo_apellido, '') || ' ' || COALESCE(p.nombres, '')), '  ', ' ') || CASE WHEN p.dni IS NOT NULL AND p.dni != 'S/N' AND p.dni != '' THEN ' - ' || p.dni ELSE '' END
               ELSE ''
             END as presentante_persona,
             
@@ -54,36 +54,43 @@ export function useTramiteDetail(id: string | undefined) {
           WHERE t.id = $1
         `;
 
-                const result: any[] = await sqlite.select(query, [id]);
+        const result: any[] = await sqlite.select(query, [id]);
 
-                if (result.length > 0) {
-                    const row = result[0];
+        if (result.length > 0) {
+          const row = result[0];
 
-                    row.check_entrega_tarjeta = row.check_entrega_tarjeta === 1;
-                    row.check_entrega_placa = row.check_entrega_placa === 1;
-                    row.check_tarjeta_oficina = row.check_tarjeta_oficina === 1;
-                    row.check_placa_oficina = row.check_placa_oficina === 1;
+          row.check_entrega_tarjeta = row.check_entrega_tarjeta === 1;
+          row.check_entrega_placa = row.check_entrega_placa === 1;
+          row.check_tarjeta_oficina = row.check_tarjeta_oficina === 1;
+          row.check_placa_oficina = row.check_placa_oficina === 1;
 
-                    if (row.empresa_ruc && row.empresa_razon_social) {
-                        row.presentante_empresa = `${row.empresa_razon_social} - ${row.empresa_ruc}`;
-                    } else {
-                        row.presentante_empresa = "";
-                    }
+          if (row.empresa_ruc && row.empresa_razon_social) {
+            row.presentante_empresa = `${row.empresa_razon_social} - ${row.empresa_ruc}`;
+          } else {
+            row.presentante_empresa = "";
+          }
 
-                    setData(row);
-                } else {
-                    setError("Trámite no encontrado.");
-                }
-            } catch (e: any) {
-                console.error("Error cargando trámite:", e);
-                setError("Ocurrió un error al cargar la base de datos.");
-            } finally {
-                setIsLoading(false);
-            }
-        };
+          // Limpieza final de espacios para evitar errores visuales
+          if (row.presentante_persona) {
+            row.presentante_persona = row.presentante_persona
+              .replace(/\s+/g, " ")
+              .trim();
+          }
 
-        fetchData();
-    }, [id]);
+          setData(row);
+        } else {
+          setError("Trámite no encontrado.");
+        }
+      } catch (e: any) {
+        console.error("Error cargando trámite:", e);
+        setError("Ocurrió un error al cargar la base de datos.");
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-    return { data, isLoading, error };
+    fetchData();
+  }, [id]);
+
+  return { data, isLoading, error };
 }
