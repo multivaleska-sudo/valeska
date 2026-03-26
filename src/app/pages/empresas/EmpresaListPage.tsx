@@ -11,6 +11,7 @@ import {
   ClipboardCopy,
 } from "lucide-react";
 import { useDirectorioLogic } from "../../logic/empresas/useDirectorioLogic";
+import { CopiableField } from "../../components/shared/CopiableField"; // <-- IMPORTADO
 
 export function EmpresaListPage() {
   const {
@@ -204,7 +205,7 @@ export function EmpresaListPage() {
                 activeTab === "presentantes" ? copyPresentante : copyEmpresa
               }
               className="text-blue-100 hover:text-white transition-colors"
-              title="Copiar datos al portapapeles"
+              title="Copiar TODOS los datos al portapapeles"
             >
               <ClipboardCopy size={18} />
             </button>
@@ -213,171 +214,120 @@ export function EmpresaListPage() {
           <div className="p-6 flex-1 overflow-y-auto custom-scrollbar bg-[#f8fafc]">
             {activeTab === "presentantes" ? (
               <div className="space-y-4">
-                <div className="flex flex-col">
-                  <label className="text-[10px] font-black text-gray-500 uppercase tracking-wider mb-1">
-                    PARTIDA REGISTRAL
-                  </label>
-                  <input
-                    type="text"
-                    className="w-full border-2 border-gray-200 rounded-lg h-10 px-3 text-sm font-bold text-gray-800 uppercase outline-none focus:border-blue-500"
-                    value={formPresentante.partida_registral}
-                    onChange={(e) =>
-                      setFormPresentante({
-                        ...formPresentante,
-                        partida_registral: e.target.value.toUpperCase(),
-                      })
-                    }
-                  />
-                </div>
-                <div className="flex flex-col">
-                  <label className="text-[10px] font-black text-gray-500 uppercase tracking-wider mb-1">
-                    OFICINA REGISTRAL
-                  </label>
-                  <input
-                    type="text"
-                    className="w-full border-2 border-gray-200 rounded-lg h-10 px-3 text-sm font-bold text-gray-800 uppercase outline-none focus:border-blue-500"
-                    value={formPresentante.oficina_registral}
-                    onChange={(e) =>
-                      setFormPresentante({
-                        ...formPresentante,
-                        oficina_registral: e.target.value.toUpperCase(),
-                      })
-                    }
-                  />
-                </div>
-                <div className="flex flex-col">
-                  <label className="text-[10px] font-black text-gray-500 uppercase tracking-wider mb-1">
-                    DOMICILIO
-                  </label>
-                  <input
-                    type="text"
-                    className="w-full border-2 border-gray-200 rounded-lg h-10 px-3 text-sm font-bold text-gray-800 uppercase outline-none focus:border-blue-500"
-                    value={formPresentante.domicilio}
-                    onChange={(e) =>
-                      setFormPresentante({
-                        ...formPresentante,
-                        domicilio: e.target.value.toUpperCase(),
-                      })
-                    }
-                  />
-                </div>
-                <div className="flex flex-col">
-                  <label className="text-[10px] font-black text-blue-600 uppercase tracking-wider mb-1">
-                    D.N.I. (*)
-                  </label>
-                  <input
-                    type="text"
-                    maxLength={8}
-                    className="w-full border-2 border-blue-200 bg-blue-50 rounded-lg h-10 px-3 text-sm font-black text-blue-900 uppercase outline-none focus:border-blue-600 font-mono"
-                    value={formPresentante.dni}
-                    onChange={(e) =>
-                      setFormPresentante({
-                        ...formPresentante,
-                        dni: e.target.value.replace(/\D/g, ""),
-                      })
-                    }
-                  />
-                </div>
-                <div className="flex flex-col">
-                  <label className="text-[10px] font-black text-blue-600 uppercase tracking-wider mb-1">
-                    PRIMER APELLIDO (*)
-                  </label>
-                  <input
-                    type="text"
-                    className="w-full border-2 border-blue-200 bg-blue-50 rounded-lg h-10 px-3 text-sm font-black text-blue-900 uppercase outline-none focus:border-blue-600"
-                    value={formPresentante.primer_apellido}
-                    onChange={(e) =>
-                      setFormPresentante({
-                        ...formPresentante,
-                        primer_apellido: e.target.value.toUpperCase(),
-                      })
-                    }
-                  />
-                </div>
-                <div className="flex flex-col">
-                  <label className="text-[10px] font-black text-gray-500 uppercase tracking-wider mb-1">
-                    SEGUNDO APELLIDO
-                  </label>
-                  <input
-                    type="text"
-                    className="w-full border-2 border-gray-200 rounded-lg h-10 px-3 text-sm font-bold text-gray-800 uppercase outline-none focus:border-blue-500"
-                    value={formPresentante.segundo_apellido}
-                    onChange={(e) =>
-                      setFormPresentante({
-                        ...formPresentante,
-                        segundo_apellido: e.target.value.toUpperCase(),
-                      })
-                    }
-                  />
-                </div>
-                <div className="flex flex-col">
-                  <label className="text-[10px] font-black text-blue-600 uppercase tracking-wider mb-1">
-                    NOMBRES (*)
-                  </label>
-                  <input
-                    type="text"
-                    className="w-full border-2 border-blue-200 bg-blue-50 rounded-lg h-10 px-3 text-sm font-black text-blue-900 uppercase outline-none focus:border-blue-600"
-                    value={formPresentante.nombres}
-                    onChange={(e) =>
-                      setFormPresentante({
-                        ...formPresentante,
-                        nombres: e.target.value.toUpperCase(),
-                      })
-                    }
-                  />
-                </div>
+                <CopiableField
+                  label="PARTIDA REGISTRAL"
+                  value={formPresentante.partida_registral || ""}
+                  onChange={(val) =>
+                    setFormPresentante({
+                      ...formPresentante,
+                      partida_registral: val.toUpperCase(),
+                    })
+                  }
+                />
+
+                <CopiableField
+                  label="OFICINA REGISTRAL"
+                  value={formPresentante.oficina_registral || ""}
+                  onChange={(val) =>
+                    setFormPresentante({
+                      ...formPresentante,
+                      oficina_registral: val.toUpperCase(),
+                    })
+                  }
+                />
+
+                <CopiableField
+                  label="DOMICILIO"
+                  value={formPresentante.domicilio || ""}
+                  onChange={(val) =>
+                    setFormPresentante({
+                      ...formPresentante,
+                      domicilio: val.toUpperCase(),
+                    })
+                  }
+                />
+
+                <CopiableField
+                  label="D.N.I. (*)"
+                  value={formPresentante.dni || ""}
+                  mono={true}
+                  onChange={(val) =>
+                    setFormPresentante({
+                      ...formPresentante,
+                      dni: val.replace(/\D/g, "").slice(0, 8),
+                    })
+                  }
+                />
+
+                <CopiableField
+                  label="PRIMER APELLIDO (*)"
+                  value={formPresentante.primer_apellido || ""}
+                  onChange={(val) =>
+                    setFormPresentante({
+                      ...formPresentante,
+                      primer_apellido: val.toUpperCase(),
+                    })
+                  }
+                />
+
+                <CopiableField
+                  label="SEGUNDO APELLIDO"
+                  value={formPresentante.segundo_apellido || ""}
+                  onChange={(val) =>
+                    setFormPresentante({
+                      ...formPresentante,
+                      segundo_apellido: val.toUpperCase(),
+                    })
+                  }
+                />
+
+                <CopiableField
+                  label="NOMBRES (*)"
+                  value={formPresentante.nombres || ""}
+                  onChange={(val) =>
+                    setFormPresentante({
+                      ...formPresentante,
+                      nombres: val.toUpperCase(),
+                    })
+                  }
+                />
               </div>
             ) : (
               <div className="space-y-4">
-                <div className="flex flex-col">
-                  <label className="text-[10px] font-black text-blue-600 uppercase tracking-wider mb-1">
-                    R.U.C. (*)
-                  </label>
-                  <input
-                    type="text"
-                    maxLength={11}
-                    className="w-full border-2 border-blue-200 bg-blue-50 rounded-lg h-10 px-3 text-sm font-black text-blue-900 uppercase outline-none focus:border-blue-600 font-mono"
-                    value={formEmpresa.ruc}
-                    onChange={(e) =>
-                      setFormEmpresa({
-                        ...formEmpresa,
-                        ruc: e.target.value.replace(/\D/g, ""),
-                      })
-                    }
-                  />
-                </div>
-                <div className="flex flex-col">
-                  <label className="text-[10px] font-black text-blue-600 uppercase tracking-wider mb-1">
-                    RAZÓN SOCIAL (*)
-                  </label>
-                  <input
-                    type="text"
-                    className="w-full border-2 border-blue-200 bg-blue-50 rounded-lg h-10 px-3 text-sm font-black text-blue-900 uppercase outline-none focus:border-blue-600"
-                    value={formEmpresa.razon_social}
-                    onChange={(e) =>
-                      setFormEmpresa({
-                        ...formEmpresa,
-                        razon_social: e.target.value.toUpperCase(),
-                      })
-                    }
-                  />
-                </div>
-                <div className="flex flex-col">
-                  <label className="text-[10px] font-black text-gray-500 uppercase tracking-wider mb-1">
-                    DIRECCIÓN FISCAL
-                  </label>
-                  <textarea
-                    rows={3}
-                    className="w-full border-2 border-gray-200 rounded-lg p-3 text-sm font-bold text-gray-800 uppercase outline-none focus:border-blue-500 resize-none"
-                    value={formEmpresa.direccion}
-                    onChange={(e) =>
-                      setFormEmpresa({
-                        ...formEmpresa,
-                        direccion: e.target.value.toUpperCase(),
-                      })
-                    }
-                  />
-                </div>
+                <CopiableField
+                  label="R.U.C. (*)"
+                  value={formEmpresa.ruc || ""}
+                  mono={true}
+                  onChange={(val) =>
+                    setFormEmpresa({
+                      ...formEmpresa,
+                      ruc: val.replace(/\D/g, "").slice(0, 11),
+                    })
+                  }
+                />
+
+                <CopiableField
+                  label="RAZÓN SOCIAL (*)"
+                  value={formEmpresa.razon_social || ""}
+                  onChange={(val) =>
+                    setFormEmpresa({
+                      ...formEmpresa,
+                      razon_social: val.toUpperCase(),
+                    })
+                  }
+                />
+
+                {/* Se reemplaza el Textarea por CopiableField para mantener coherencia de copiado */}
+                <CopiableField
+                  label="DIRECCIÓN FISCAL"
+                  value={formEmpresa.direccion || ""}
+                  onChange={(val) =>
+                    setFormEmpresa({
+                      ...formEmpresa,
+                      direccion: val.toUpperCase(),
+                    })
+                  }
+                />
               </div>
             )}
           </div>
@@ -385,7 +335,9 @@ export function EmpresaListPage() {
           <div className="p-4 bg-white border-t border-gray-200 flex justify-center gap-4 shrink-0">
             {activeTab === "presentantes" && formPresentante.id && (
               <button
-                onClick={() => deleteRecord("presentantes", formPresentante.id)}
+                onClick={() =>
+                  deleteRecord("presentantes", formPresentante.id!)
+                }
                 className="bg-red-50 text-red-600 border border-red-200 px-6 py-2.5 rounded-lg font-black text-xs uppercase tracking-widest hover:bg-red-100 transition-colors shadow-sm flex items-center gap-2"
               >
                 <Trash2 size={16} /> Eliminar
@@ -394,7 +346,7 @@ export function EmpresaListPage() {
             {activeTab === "empresas" && formEmpresa.id && (
               <button
                 onClick={() =>
-                  deleteRecord("empresas_gestoras", formEmpresa.id)
+                  deleteRecord("empresas_gestoras", formEmpresa.id!)
                 }
                 className="bg-red-50 text-red-600 border border-red-200 px-6 py-2.5 rounded-lg font-black text-xs uppercase tracking-widest hover:bg-red-100 transition-colors shadow-sm flex items-center gap-2"
               >

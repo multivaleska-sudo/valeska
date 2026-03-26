@@ -24,6 +24,7 @@ import {
   ModernSearchInput,
   ModernTextarea,
 } from "./ModernFormSections";
+import { CopiableField } from "../../components/shared/CopiableField"; // <-- IMPORTADO
 import { TramiteFormData } from "../../types/tramites/tramite.types";
 import { useBarcodeScanner } from "../../logic/tramites/useBarcodeScanner";
 import { CatalogoModal } from "../catalogo/CatalogoModal";
@@ -81,8 +82,8 @@ export function TramiteForm({ mode, initialData }: TramiteFormProps) {
   };
 
   const handleSave = async () => {
-    const success = await saveTramite();
-    if (success) navigate("/tramites");
+    const savedId = await saveTramite();
+    if (savedId) navigate("/tramites");
   };
 
   const handleOpenLink = async (url: string) => {
@@ -221,40 +222,63 @@ export function TramiteForm({ mode, initialData }: TramiteFormProps) {
               icon={<FileText size={18} />}
             >
               <div className="grid grid-cols-2 gap-4">
-                <ModernInput
+                <CopiableField
                   label="Año"
-                  name="tramite_anio"
                   value={formData.tramite_anio}
-                  onChange={handleChange}
+                  onChange={(val) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      tramite_anio: val.replace(/\D/g, "").slice(0, 4),
+                    }))
+                  }
                   readOnly={isViewOnly}
+                  mono={true}
                 />
-                <ModernInput
+                <CopiableField
                   label="DNI / RUC"
-                  name="dni"
                   value={formData.dni}
-                  onChange={handleChange}
+                  onChange={(val) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      dni: val.replace(/\D/g, "").slice(0, 11),
+                    }))
+                  }
                   readOnly={isViewOnly}
+                  mono={true}
                 />
-                <ModernInput
-                  label="Cliente"
-                  name="cliente"
-                  value={formData.cliente}
-                  onChange={handleChange}
-                  className="col-span-2"
-                  readOnly={isViewOnly}
-                />
-                <ModernInput
+                <div className="col-span-2">
+                  <CopiableField
+                    label="Cliente"
+                    value={formData.cliente}
+                    onChange={(val) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        cliente: val.toUpperCase(),
+                      }))
+                    }
+                    readOnly={isViewOnly}
+                  />
+                </div>
+                <CopiableField
                   label="Teléfono"
-                  name="telefono"
                   value={formData.telefono}
-                  onChange={handleChange}
+                  onChange={(val) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      telefono: val.replace(/\D/g, "").slice(0, 15),
+                    }))
+                  }
                   readOnly={isViewOnly}
                 />
-                <ModernInput
+                <CopiableField
                   label="N° Título"
-                  name="n_titulo"
                   value={formData.n_titulo}
-                  onChange={handleChange}
+                  onChange={(val) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      n_titulo: val.toUpperCase(),
+                    }))
+                  }
                   readOnly={isViewOnly}
                 />
 
@@ -287,12 +311,17 @@ export function TramiteForm({ mode, initialData }: TramiteFormProps) {
                   onChange={handleChange}
                   readOnly={isViewOnly}
                 />
-                <ModernInput
+                <CopiableField
                   label="Código Verificación"
-                  name="codigo_verificacion"
                   value={formData.codigo_verificacion}
-                  onChange={handleChange}
+                  onChange={(val) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      codigo_verificacion: val.toUpperCase(),
+                    }))
+                  }
                   readOnly={isViewOnly}
+                  mono={true}
                 />
 
                 <div className="col-span-2 mt-4 mb-2">
@@ -520,55 +549,87 @@ export function TramiteForm({ mode, initialData }: TramiteFormProps) {
           <div className="xl:col-span-7 space-y-6">
             <SectionCard title="Datos del Vehículo" icon={<Car size={18} />}>
               <div className="grid grid-cols-3 gap-4">
-                <ModernInput
+                <CopiableField
                   label="Placa"
-                  name="vehiculo_placa"
                   value={formData.vehiculo_placa}
-                  onChange={handleChange}
+                  onChange={(val) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      vehiculo_placa: val.toUpperCase(),
+                    }))
+                  }
                   readOnly={isViewOnly}
+                  mono={true}
                 />
-                <ModernInput
+                <CopiableField
                   label="Marca"
-                  name="vehiculo_marca"
                   value={formData.vehiculo_marca}
-                  onChange={handleChange}
+                  onChange={(val) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      vehiculo_marca: val.toUpperCase(),
+                    }))
+                  }
                   readOnly={isViewOnly}
                 />
-                <ModernInput
+                <CopiableField
                   label="Modelo"
-                  name="vehiculo_modelo"
                   value={formData.vehiculo_modelo}
-                  onChange={handleChange}
+                  onChange={(val) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      vehiculo_modelo: val.toUpperCase(),
+                    }))
+                  }
                   readOnly={isViewOnly}
                 />
-                <ModernInput
+                <CopiableField
                   label="Año"
-                  name="vehiculo_anio"
                   value={formData.vehiculo_anio}
-                  onChange={handleChange}
+                  onChange={(val) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      vehiculo_anio: val.replace(/\D/g, "").slice(0, 4),
+                    }))
+                  }
                   readOnly={isViewOnly}
+                  mono={true}
                 />
-                <ModernInput
+                <CopiableField
                   label="Color"
-                  name="vehiculo_color"
                   value={formData.vehiculo_color}
-                  onChange={handleChange}
+                  onChange={(val) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      vehiculo_color: val.toUpperCase(),
+                    }))
+                  }
                   readOnly={isViewOnly}
                 />
                 <div className="col-span-3 grid grid-cols-2 gap-4">
-                  <ModernInput
+                  <CopiableField
                     label="Motor"
-                    name="vehiculo_motor"
                     value={formData.vehiculo_motor}
-                    onChange={handleChange}
+                    onChange={(val) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        vehiculo_motor: val.toUpperCase(),
+                      }))
+                    }
                     readOnly={isViewOnly}
+                    mono={true}
                   />
-                  <ModernInput
-                    label="Chasis"
-                    name="vehiculo_chasis"
+                  <CopiableField
+                    label="Chasis / VIN"
                     value={formData.vehiculo_chasis}
-                    onChange={handleChange}
+                    onChange={(val) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        vehiculo_chasis: val.toUpperCase(),
+                      }))
+                    }
                     readOnly={isViewOnly}
+                    mono={true}
                   />
                 </div>
               </div>
@@ -666,12 +727,17 @@ export function TramiteForm({ mode, initialData }: TramiteFormProps) {
                   options={["Manual", "Electrónica"]}
                 />
                 <div className="grid grid-cols-2 gap-2">
-                  <ModernInput
+                  <CopiableField
                     label="Número Boleta"
-                    name="numero_boleta"
                     value={formData.numero_boleta}
-                    onChange={handleChange}
+                    onChange={(val) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        numero_boleta: val.toUpperCase(),
+                      }))
+                    }
                     readOnly={isViewOnly}
+                    mono={true}
                   />
                   <ModernInput
                     label="Fecha Boleta"
@@ -682,28 +748,45 @@ export function TramiteForm({ mode, initialData }: TramiteFormProps) {
                     readOnly={isViewOnly}
                   />
                 </div>
-                <ModernInput
-                  label="DUA"
-                  name="dua"
-                  value={formData.dua}
-                  onChange={handleChange}
-                  readOnly={isViewOnly}
-                />
-
-                <div className="grid grid-cols-2 gap-2">
-                  <ModernInput
-                    label="N° Formato Inmatriculación"
-                    name="num_formato_inmatriculacion"
-                    value={formData.num_formato_inmatriculacion}
-                    onChange={handleChange}
+                <div className="col-span-1 md:col-span-2">
+                  <CopiableField
+                    label="DUA"
+                    value={formData.dua}
+                    onChange={(val) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        dua: val.toUpperCase(),
+                      }))
+                    }
                     readOnly={isViewOnly}
+                    mono={true}
                   />
-                  <ModernInput
-                    label="N° Recibo de Trámite"
-                    name="numero_recibo_tramite"
-                    value={formData.numero_recibo_tramite}
-                    onChange={handleChange}
+                </div>
+
+                <div className="col-span-1 md:col-span-2 grid grid-cols-2 gap-2">
+                  <CopiableField
+                    label="N° Formato Inmatriculación"
+                    value={formData.num_formato_inmatriculacion}
+                    onChange={(val) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        num_formato_inmatriculacion: val.toUpperCase(),
+                      }))
+                    }
                     readOnly={isViewOnly}
+                    mono={true}
+                  />
+                  <CopiableField
+                    label="N° Recibo de Trámite"
+                    value={formData.numero_recibo_tramite}
+                    onChange={(val) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        numero_recibo_tramite: val.toUpperCase(),
+                      }))
+                    }
+                    readOnly={isViewOnly}
+                    mono={true}
                   />
                 </div>
               </div>
@@ -715,44 +798,64 @@ export function TramiteForm({ mode, initialData }: TramiteFormProps) {
                 icon={<FileCheck size={18} />}
               >
                 <div className="space-y-4">
-                  <ModernInput
+                  <CopiableField
                     label="Monto Total"
-                    name="clausula_monto"
                     value={formData.clausula_monto}
-                    onChange={handleChange}
+                    onChange={(val) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        clausula_monto: val.toUpperCase(),
+                      }))
+                    }
                     readOnly={isViewOnly}
                     placeholder="Ej. 15000.00"
                   />
-                  <ModernInput
+                  <CopiableField
                     label="Forma de Pago"
-                    name="clausula_forma_pago"
                     value={formData.clausula_forma_pago}
-                    onChange={handleChange}
+                    onChange={(val) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        clausula_forma_pago: val.toUpperCase(),
+                      }))
+                    }
                     readOnly={isViewOnly}
                   />
-                  <ModernInput
+                  <CopiableField
                     label="Pago Bancarizado Según"
-                    name="clausula_pago_bancarizado"
                     value={formData.clausula_pago_bancarizado}
-                    onChange={handleChange}
+                    onChange={(val) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        clausula_pago_bancarizado: val.toUpperCase(),
+                      }))
+                    }
                     readOnly={isViewOnly}
                   />
                   <div className="mt-4 pt-4 border-t border-gray-100 space-y-4">
                     <h4 className="text-xs font-bold text-gray-500 uppercase">
                       Aclaración
                     </h4>
-                    <ModernInput
+                    <CopiableField
                       label="Dice"
-                      name="aclaracion_dice"
                       value={formData.aclaracion_dice}
-                      onChange={handleChange}
+                      onChange={(val) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          aclaracion_dice: val.toUpperCase(),
+                        }))
+                      }
                       readOnly={isViewOnly}
                     />
-                    <ModernInput
+                    <CopiableField
                       label="Debe Decir"
-                      name="aclaracion_debe_decir"
                       value={formData.aclaracion_debe_decir}
-                      onChange={handleChange}
+                      onChange={(val) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          aclaracion_debe_decir: val.toUpperCase(),
+                        }))
+                      }
                       readOnly={isViewOnly}
                     />
                   </div>
