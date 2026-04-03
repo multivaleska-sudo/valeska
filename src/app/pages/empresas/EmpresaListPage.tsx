@@ -58,6 +58,9 @@ export function EmpresaListPage() {
     navigator.clipboard.writeText(txt);
   };
 
+  const TRACTOSUCESIVO =
+    "TRACTO SUCESIVO: SE ADJUNTA AL CORREO INSTITUCIONAL COMPROBANTESDEPAGO_CUSCO@SUNARP.GOB.PE, Y/O EN EL NUMERAL 5 DE ESTE FORMATO DE INMATRICULACIÓN EL COMPROBANTE DE ADQUISICIÓN CON SU RESPECTIVO XML CON EL FIN DE ACREDITAR EL TRACTO SUCESIVO.";
+
   const copyEmpresa = () => {
     const txt =
       `EMPRESA:\nRUC: ${formEmpresa.ruc}\nRAZÓN SOCIAL: ${formEmpresa.razon_social}\nDIRECCIÓN: ${formEmpresa.direccion || "-"}`.trim();
@@ -76,6 +79,17 @@ export function EmpresaListPage() {
           </p>
         </div>
 
+        <div className="flex bg-gray-200/80 p-1 rounded-xl shadow-inner border border-gray-200">
+          <button
+            className="bg-green-500 text-white text-sm px-3 py-1.5 rounded-md hover:bg-green-600 transition"
+            onClick={() => {
+              navigator.clipboard.writeText(TRACTOSUCESIVO);
+              alert("TRACTO SUCESIVO COPIADO");
+            }}
+          >
+            ENVIAR XML SOLO PARA ACREDITAR ACTO SUCESIVO
+          </button>
+        </div>
         <div className="flex bg-gray-200/80 p-1 rounded-xl shadow-inner border border-gray-200">
           <button
             onClick={() => {
