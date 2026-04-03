@@ -24,10 +24,10 @@ import {
   ModernSearchInput,
   ModernTextarea,
 } from "./ModernFormSections";
-import { CopiableField } from "../../components/shared/CopiableField"; // <-- IMPORTADO
+import { CopiableField } from "../../components/shared/CopiableField";
 import { TramiteFormData } from "../../types/tramites/tramite.types";
 import { useBarcodeScanner } from "../../logic/tramites/useBarcodeScanner";
-import { CatalogoModal } from "../catalogo/CatalogoModal";
+import { CatalogoModal } from "../catalogos/CatalogoModal";
 import { EmpresaModal } from "../empresa/EmpresaModal";
 import { WebcamScannerModal } from "./WebcamScannerModal";
 
