@@ -29,11 +29,9 @@ const navItems = [
   { path: "/catalogos", label: "Catálogos", icon: Layers },
   { path: "/xml", label: "XML SUNAT", icon: FileCode },
   { path: "/documentos", label: "Documentos", icon: FolderOpen },
-  { path: "/recibos", label: "Recibos", icon: Receipt },
   { path: "/sync", label: "Sincronización", icon: RefreshCw },
   { path: "/usuarios", label: "Usuarios", icon: UserCog },
   { path: "/central", label: "Central", icon: Radio },
-  { path: "/ayuda", label: "Ayuda", icon: HelpCircle },
   { path: "/config", label: "Configuración", icon: Settings },
 ];
 
