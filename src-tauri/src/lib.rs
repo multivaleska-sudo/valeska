@@ -150,6 +150,12 @@ pub fn run() {
             sql: include_str!("../../src/app/db/migrations/0007_ambitious_medusa.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 9,
+            description: "agregar_columna_para_conflictos_de_sincronizacion",
+            sql: include_str!("../../src/app/db/migrations/0008_aberrant_hellion.sql"),
+            kind: MigrationKind::Up,
+        },
     ];
 
     tauri::Builder::default()

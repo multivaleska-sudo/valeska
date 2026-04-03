@@ -25,6 +25,7 @@ import CatalogosPage from "./pages/catalogos/CatalogosPage";
 import { HelpPage } from "./pages/HelpPage";
 import { TemplateEditorPage } from "./pages/documents/TemplateEditorPage";
 import { PrintDocumentPage } from "./pages/documents/PrintDocumentPage";
+import { DevicesPage } from "./pages/central/DevicesPage";
 
 export const router = createBrowserRouter([
   {
@@ -62,6 +63,7 @@ export const router = createBrowserRouter([
       { path: "central", element: <CentralPage /> },
       { path: "central/conflictos", element: <ConflictListPage /> },
       { path: "central/conflictos/:id", element: <ResolveConflictPage /> },
+      { path: "central/devices", element: <DevicesPage /> },
       { path: "ayuda", element: <HelpPage /> },
       { path: "config", element: <ConfigPage /> },
       { path: "catalogos", element: <CatalogosPage /> },
