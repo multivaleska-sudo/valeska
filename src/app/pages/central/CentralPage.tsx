@@ -1,16 +1,15 @@
-import {
-  Radio,
-  AlertCircle,
-  Monitor,
-  ChevronRight,
-  ShieldAlert,
-  Activity,
-  ArrowUpRight,
-} from "lucide-react";
+import React, { useEffect } from "react";
+import { AlertCircle, Monitor, ChevronRight, ArrowUpRight } from "lucide-react";
 import { useNavigate } from "react-router";
+import { useConflictosLogic } from "../../logic/central/useConflictosLogic";
 
 export function CentralPage() {
   const navigate = useNavigate();
+  const { conflictCount, loadConflictCount } = useConflictosLogic();
+
+  useEffect(() => {
+    loadConflictCount();
+  }, [loadConflictCount]);
 
   const modules = [
     {
@@ -19,7 +18,7 @@ export function CentralPage() {
       title: "Gestión de Conflictos",
       description:
         "Resolución de discrepancias de datos entre sucursales y la nube.",
-      count: 1,
+      count: conflictCount, // Conectado a base de datos
       path: "/central/conflictos",
       color: "bg-red-600",
       lightColor: "bg-red-50",
@@ -31,7 +30,7 @@ export function CentralPage() {
       title: "Monitor de Instancias",
       description:
         "Estado de conexión y sincronización de todas las terminales activas.",
-      count: 5,
+      count: 5, // A futuro conectarlo con otra consulta SQLite
       path: "/central/devices",
       color: "bg-emerald-600",
       lightColor: "bg-emerald-50",
@@ -40,77 +39,42 @@ export function CentralPage() {
   ];
 
   return (
-    <div className="p-8 space-y-8 animate-in fade-in duration-500 bg-[#F6F7FB] min-h-screen pb-20">
-      {/* BANNER DE RESTRICCIÓN (UI MEJORADA) */}
-      <div className="bg-blue-50 border border-blue-100 p-5 rounded-[2rem] flex items-start gap-5 shadow-sm">
-        <div className="bg-blue-600 p-3 rounded-2xl text-white shadow-lg shadow-blue-200">
-          <ShieldAlert size={24} />
-        </div>
-        <div>
-          <p className="text-xs font-black text-blue-900 uppercase tracking-[0.2em] mb-1">
-            Acceso de Nivel Central
-          </p>
-          <p className="text-xs text-blue-700 font-bold leading-relaxed max-w-2xl">
-            Este panel permite la administración global del ecosistema Valeska.
-            Las acciones realizadas aquí afectan la integridad de los datos en
-            todas las sucursales conectadas. Solo disponible para roles de{" "}
-            <strong>Admin Central</strong>.
-          </p>
-        </div>
-      </div>
-
-      {/* HEADER DE MÓDULO */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-gray-200 pb-8">
-        <div>
-          <h1 className="text-3xl font-black text-[#111827] tracking-tighter flex items-center gap-3 uppercase">
-            <Radio className="text-[#2563EB] animate-pulse" /> Panel de Control
-            Maestro
+    <div className="p-8 space-y-8 animate-in fade-in duration-500 bg-[#F6F7FB] min-h-screen">
+      <div className="flex justify-between items-end">
+        <div className="space-y-2">
+          <h1 className="text-4xl font-black text-[#111827] tracking-tight">
+            Central Command
           </h1>
-          <p className="text-sm text-[#6B7280] mt-1 font-bold">
-            Supervisión técnica y conciliación de datos del sistema.
+          <p className="text-lg text-[#6B7280] font-medium">
+            Centro de control y sincronización de sistema
           </p>
-        </div>
-        <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-2xl border border-gray-200 shadow-sm">
-          <Activity size={16} className="text-emerald-500" />
-          <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">
-            Red: Sincronizada
-          </span>
         </div>
       </div>
 
-      {/* GRID DE MÓDULOS FILTRADOS */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {modules.map((module) => (
           <button
             key={module.id}
             onClick={() => navigate(module.path)}
-            className="group bg-white rounded-[3rem] border border-gray-100 p-10 hover:shadow-2xl hover:shadow-blue-900/5 transition-all duration-500 text-left relative overflow-hidden active:scale-[0.98]"
+            className="group relative bg-white p-8 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 text-left overflow-hidden"
           >
-            <div
-              className={`absolute -right-10 -top-10 opacity-[0.03] group-hover:opacity-[0.08] transition-opacity duration-500 ${module.textColor}`}
-            >
-              <module.icon size={250} />
-            </div>
+            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-gray-50 to-transparent rounded-bl-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
 
-            <div className="flex items-start justify-between mb-8 relative z-10">
+            <div className="flex justify-between items-start mb-8 relative z-10">
               <div
-                className={`${module.color} w-16 h-16 rounded-[1.5rem] flex items-center justify-center shadow-2xl shadow-blue-200 group-hover:scale-110 transition-transform duration-500`}
+                className={`p-4 rounded-xl ${module.lightColor} ${module.textColor}`}
               >
-                <module.icon className="w-8 h-8 text-white" />
+                <module.icon size={28} strokeWidth={2.5} />
               </div>
-
-              <div className="flex flex-col items-end gap-2">
-                {module.count > 0 && (
-                  <span
-                    className={`px-4 py-1 ${module.lightColor} ${module.textColor} text-[10px] font-black rounded-full uppercase tracking-widest border border-current/20`}
-                  >
-                    {module.count}{" "}
-                    {module.id === "conflictos" ? "Pendiente" : "Activos"}
-                  </span>
-                )}
-                <div className="p-2 bg-gray-50 rounded-xl text-gray-300 group-hover:bg-blue-600 group-hover:text-white transition-all">
-                  <ArrowUpRight size={20} />
-                </div>
+              <div className="flex flex-col items-end">
+                <span
+                  className={`text-3xl font-black ${module.textColor} tracking-tighter`}
+                >
+                  {module.count}
+                </span>
+                <span className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">
+                  Registros
+                </span>
               </div>
             </div>
 
@@ -134,17 +98,6 @@ export function CentralPage() {
             </div>
           </button>
         ))}
-      </div>
-
-      {/* FOOTER DE ESTADO */}
-      <div className="flex justify-center pt-12 opacity-30">
-        <div className="flex items-center gap-4">
-          <div className="w-1.5 h-1.5 rounded-full bg-blue-600" />
-          <span className="text-[10px] font-black uppercase tracking-[0.4em]">
-            Valeska Central
-          </span>
-          <div className="w-1.5 h-1.5 rounded-full bg-blue-600" />
-        </div>
       </div>
     </div>
   );
