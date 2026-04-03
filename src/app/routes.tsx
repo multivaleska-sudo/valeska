@@ -21,6 +21,7 @@ import { DocumentCenterPage } from "./pages/documents/DocumentCenterPage";
 import { ConflictListPage } from "./pages/central/ConflictListPage";
 import { ResolveConflictPage } from "./pages/central/ResolveConflictPage";
 import { ConfigPage } from "./pages/ConfigPage";
+import CatalogosPage from "./pages/catalogos/CatalogosPage";
 import { HelpPage } from "./pages/HelpPage";
 import { TemplateEditorPage } from "./pages/documents/TemplateEditorPage";
 import { PrintDocumentPage } from "./pages/documents/PrintDocumentPage";
@@ -63,6 +64,7 @@ export const router = createBrowserRouter([
       { path: "central/conflictos/:id", element: <ResolveConflictPage /> },
       { path: "ayuda", element: <HelpPage /> },
       { path: "config", element: <ConfigPage /> },
+      { path: "catalogos", element: <CatalogosPage /> },
       { path: "plantillas/:id/edit", element: <TemplateEditorPage /> },
       { path: "plantillas/new", element: <TemplateEditorPage /> },
       {

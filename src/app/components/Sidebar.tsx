@@ -12,6 +12,7 @@ import {
   Radio,
   HelpCircle,
   Settings,
+  Layers,
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import * as Tooltip from "@radix-ui/react-tooltip";
@@ -25,6 +26,7 @@ const navItems = [
   { path: "/tramites", label: "Trámites", icon: FileText },
   { path: "/empresas", label: "Empresas", icon: Building2 },
   { path: "/situaciones", label: "Situaciones", icon: Tag },
+  { path: "/catalogos", label: "Catálogos", icon: Layers },
   { path: "/xml", label: "XML SUNAT", icon: FileCode },
   { path: "/documentos", label: "Documentos", icon: FolderOpen },
   { path: "/recibos", label: "Recibos", icon: Receipt },
