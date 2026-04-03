@@ -217,3 +217,20 @@ export const plantillasDocumentos = sqliteTable('plantillas_documentos', {
 }, (table) => ({
     nombreDocIdx: uniqueIndex('plantilla_nombre_idx').on(table.nombreDocumento),
 }));
+
+// ============================================================================
+// 7. GESTIÓN DE CONFLICTOS DE SINCRONIZACIÓN
+// ============================================================================
+export const syncConflictos = sqliteTable('sync_conflictos', {
+    id: text('id').primaryKey(),
+    tablaAfectada: text('tabla_afectada').notNull(), // ej: 'tramites', 'clientes'
+    registroId: text('registro_id').notNull(),       // El ID original del trámite o cliente
+    identificadorVisual: text('identificador_visual'), // ej: 'Trámite T-2024-0348'
+    datosLocales: text('datos_locales').notNull(),   // JSON con la versión de SQLite
+    datosRemotos: text('datos_remotos').notNull(),   // JSON con la versión de la nube
+    resuelto: integer('resuelto', { mode: 'boolean' }).notNull().default(false),
+    fechaConflicto: integer('fecha_conflicto', { mode: 'timestamp' }).notNull(),
+}, (table) => ({
+    resueltoIdx: index('conflicto_resuelto_idx').on(table.resuelto),
+    registroIdx: index('conflicto_registro_idx').on(table.registroId),
+}));
