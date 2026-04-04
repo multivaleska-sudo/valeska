@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import Database from "@tauri-apps/plugin-sql";
 import { TramiteFormData } from "../../types/tramites/tramite.types";
+import { sileo } from "sileo";
 
 export function useTramiteDetail(id: string | undefined) {
   const [data, setData] = useState<Partial<TramiteFormData> | null>(null);
@@ -80,10 +81,18 @@ export function useTramiteDetail(id: string | undefined) {
           setData(row);
         } else {
           setError("Trámite no encontrado.");
+          sileo.error({
+            title: "No encontrado",
+            description: "Trámite no encontrado.",
+          });
         }
       } catch (e: any) {
         console.error("Error cargando trámite:", e);
         setError("Ocurrió un error al cargar la base de datos.");
+        sileo.error({
+          title: "Error de lectura",
+          description: "Ocurrió un error al cargar la base de datos.",
+        });
       } finally {
         setIsLoading(false);
       }

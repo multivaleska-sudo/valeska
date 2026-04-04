@@ -11,7 +11,7 @@ import {
   ClipboardCopy,
 } from "lucide-react";
 import { useDirectorioLogic } from "../../logic/empresas/useDirectorioLogic";
-import { CopiableField } from "../../components/shared/CopiableField"; // <-- IMPORTADO
+import { CopiableField } from "../../components/shared/CopiableField";
 
 export function EmpresaListPage() {
   const {

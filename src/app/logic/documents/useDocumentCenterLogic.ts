@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router";
 import Database from "@tauri-apps/plugin-sql";
 import { TemplateData } from "../../types/documents/template.types";
+import { sileo } from "sileo";
 
 export function useDocumentCenterLogic() {
   const { id } = useParams();
@@ -58,6 +59,10 @@ export function useDocumentCenterLogic() {
       }
     } catch (error) {
       console.error("Error al cargar plantillas desde SQLite:", error);
+      sileo.error({
+        title: "Error",
+        description: "No se pudieron cargar las plantillas.",
+      });
     } finally {
       setIsLoading(false);
     }
@@ -79,7 +84,10 @@ export function useDocumentCenterLogic() {
       navigate(`/tramites/${id}/print/${selectedTemplate.id}`);
     } catch (error) {
       console.error("Error crítico al generar:", error);
-      alert("No se pudo iniciar el proceso de impresión.");
+      sileo.error({
+        title: "Error",
+        description: "No se pudo iniciar el proceso de impresión.",
+      });
     } finally {
       setIsGenerating(false);
     }
@@ -96,10 +104,18 @@ export function useDocumentCenterLogic() {
       `;
 
       await sqlite.execute(insertQuery, [newId, nombre, htmlBase]);
+      sileo.success({
+        title: "Plantilla Creada",
+        description: "La plantilla se ha creado correctamente.",
+      });
       navigate(`/plantillas/${newId}/edit`);
     } catch (error) {
       console.error("Error al crear la nueva plantilla:", error);
-      alert("Ocurrió un error al guardar la plantilla en la base de datos.");
+      sileo.error({
+        title: "Error",
+        description:
+          "Ocurrió un error al guardar la plantilla en la base de datos.",
+      });
     }
   };
 
@@ -123,8 +139,17 @@ export function useDocumentCenterLogic() {
           remainingTemplates.length > 0 ? remainingTemplates[0] : null,
         );
       }
+
+      sileo.success({
+        title: "Plantilla Eliminada",
+        description: "La plantilla ha sido eliminada correctamente.",
+      });
     } catch (error) {
       console.error("Error al eliminar la plantilla:", error);
+      sileo.error({
+        title: "Error",
+        description: "No se pudo eliminar la plantilla.",
+      });
       throw error;
     }
   };

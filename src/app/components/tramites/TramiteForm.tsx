@@ -653,7 +653,6 @@ export function TramiteForm({ mode, initialData }: TramiteFormProps) {
                     placeholder="Ej. MULTISERVICIOS ABC - 2060..."
                     onAddClick={() => setEmpresaModalRuc("")}
                     onEditClick={() => {
-                      // Extrae los 11 dígitos del final para pasarle al Modal
                       const match =
                         formData.presentante_empresa.match(/(\d{11})$/);
                       if (match) setEmpresaModalRuc(match[1]);

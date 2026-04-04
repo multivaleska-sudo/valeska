@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router";
 import Database from "@tauri-apps/plugin-sql";
+import { sileo } from "sileo";
 
 export function usePrintDocumentLogic() {
   const { tramiteId, templateId } = useParams();
@@ -225,7 +226,10 @@ export function usePrintDocumentLogic() {
 
         setRenderedHtml(finalHtml);
       } catch (err: any) {
-        setError(err.message || "Error inesperado al procesar documento.");
+        const errorMsg =
+          err.message || "Error inesperado al procesar documento.";
+        setError(errorMsg);
+        sileo.error({ title: "Error de Impresión", description: errorMsg });
       } finally {
         setIsLoading(false);
       }

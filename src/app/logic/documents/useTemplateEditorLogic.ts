@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router";
 import Database from "@tauri-apps/plugin-sql";
 import { TEMPLATE_VARIABLES } from "../../constants/templateVariables";
+import { sileo } from "sileo";
 
 export function useTemplateEditorLogic() {
   const { id } = useParams();
@@ -40,11 +41,18 @@ export function useTemplateEditorLogic() {
           setHtmlContent(tpl.contenido_html);
           setOrientation(tpl.orientacion_papel);
         } else {
-          alert("Plantilla no encontrada");
+          sileo.error({
+            title: "No encontrada",
+            description: "La plantilla solicitada no existe.",
+          });
           navigate("/documentos");
         }
       } catch (error) {
         console.error("Error al cargar plantilla:", error);
+        sileo.error({
+          title: "Error",
+          description: "No se pudo cargar la plantilla.",
+        });
       } finally {
         setIsLoading(false);
       }
@@ -100,7 +108,10 @@ export function useTemplateEditorLogic() {
 
   const performSaveToDb = async (): Promise<boolean> => {
     if (!templateName.trim()) {
-      alert("Por favor, ponle un nombre a la plantilla.");
+      sileo.warning({
+        title: "Falta Nombre",
+        description: "Por favor, ponle un nombre a la plantilla.",
+      });
       return false;
     }
 
@@ -133,7 +144,10 @@ export function useTemplateEditorLogic() {
       return true;
     } catch (error) {
       console.error("Error al guardar plantilla:", error);
-      alert("Error al guardar. Asegúrate de que el nombre no esté duplicado.");
+      sileo.error({
+        title: "Error al guardar",
+        description: "Asegúrate de que el nombre no esté duplicado.",
+      });
       return false;
     }
   };
@@ -144,7 +158,10 @@ export function useTemplateEditorLogic() {
     setIsSaving(false);
 
     if (success) {
-      alert("✅ Plantilla guardada con éxito.");
+      sileo.success({
+        title: "Guardado exitoso",
+        description: "La plantilla se ha guardado correctamente.",
+      });
       navigate("/documentos");
     }
   };
@@ -155,7 +172,10 @@ export function useTemplateEditorLogic() {
     setIsSaving(false);
 
     if (success) {
-      alert("✅ Plantilla guardada con éxito.");
+      sileo.success({
+        title: "Guardado exitoso",
+        description: "La plantilla se ha guardado correctamente.",
+      });
       navigate("/tramites");
     }
   };

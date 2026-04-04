@@ -1,11 +1,10 @@
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import { ask } from "@tauri-apps/plugin-dialog";
-import { SituationData } from "../../types/reports/situation";
+import Database from "@tauri-apps/plugin-sql";
+import { sileo } from "sileo";
 
-export const generateSituacionesReport = async (
-  situaciones: SituationData[],
-) => {
+export const generateSituacionesReport = async () => {
   try {
     const confirmed = await ask("¿Deseas generar el reporte en formato PDF?", {
       title: "Confirmación de Reporte",
@@ -16,13 +15,43 @@ export const generateSituacionesReport = async (
 
     if (!confirmed) return;
 
+    const sqlite = await Database.load("sqlite:valeska.db");
+    const query = `
+        SELECT 
+            cs.nombre, 
+            cs.color_hex as color, 
+            COUNT(t.id) as count 
+        FROM catalogo_situaciones cs
+        LEFT JOIN tramites t ON cs.id = t.situacion_id AND t.deleted_at IS NULL
+        WHERE cs.activo = 1
+        GROUP BY cs.id, cs.nombre, cs.color_hex
+        ORDER BY count DESC
+    `;
+
+    const dbResult: any[] = await sqlite.select(query);
+
+    const situaciones = dbResult.map((r) => ({
+      nombre: r.nombre || "Desconocido",
+      count: Number(r.count) || 0,
+      color: r.color || "#cccccc",
+    }));
+
+    const total = situaciones.reduce((acc, curr) => acc + curr.count, 0);
+
+    if (total === 0) {
+      sileo.warning({
+        title: "Sin datos",
+        description: "No hay trámites registrados para generar la gráfica.",
+      });
+      return;
+    }
+
     const doc = new jsPDF({
       orientation: "portrait",
       unit: "mm",
       format: "a4",
     });
 
-    const total = situaciones.reduce((acc, curr) => acc + curr.count, 0);
     const now = new Date();
     const dateStr = now.toLocaleDateString() + " " + now.toLocaleTimeString();
 
@@ -73,15 +102,20 @@ export const generateSituacionesReport = async (
 
     let currentAngle = 0;
 
+    // Helper para parsear colores hexadecimales de forma segura
+    const getRGB = (hex: string) => {
+      const cleanHex = hex.startsWith("#") ? hex : `#${hex}`;
+      const r = parseInt(cleanHex.slice(1, 3), 16) || 200;
+      const g = parseInt(cleanHex.slice(3, 5), 16) || 200;
+      const b = parseInt(cleanHex.slice(5, 7), 16) || 200;
+      return { r, g, b };
+    };
+
     situaciones.forEach((s) => {
       if (s.count === 0) return;
 
       const sliceAngle = (s.count / total) * 2 * Math.PI;
-
-      // Colores
-      const r = parseInt(s.color.slice(1, 3), 16);
-      const g = parseInt(s.color.slice(3, 5), 16);
-      const b = parseInt(s.color.slice(5, 7), 16);
+      const { r, g, b } = getRGB(s.color);
 
       doc.setFillColor(r, g, b);
       doc.setDrawColor(255, 255, 255);
@@ -129,9 +163,7 @@ export const generateSituacionesReport = async (
     const legendX = 125;
 
     situaciones.forEach((s) => {
-      const r = parseInt(s.color.slice(1, 3), 16);
-      const g = parseInt(s.color.slice(3, 5), 16);
-      const b = parseInt(s.color.slice(5, 7), 16);
+      const { r, g, b } = getRGB(s.color);
 
       doc.setFillColor(r, g, b);
       doc.roundedRect(legendX, legendY, 5, 5, 1, 1, "F");
@@ -163,7 +195,15 @@ export const generateSituacionesReport = async (
     );
 
     doc.save(`REPORTE_SITUACIONES_${now.getTime()}.pdf`);
-  } catch (error) {
+    sileo.success({
+      title: "Reporte Generado",
+      description: "El documento PDF ha sido guardado exitosamente.",
+    });
+  } catch (error: any) {
     console.error("CRASH EN GENERADOR PDF:", error);
+    sileo.error({
+      title: "Error de PDF",
+      description: error.message || "Fallo al generar el reporte estadístico.",
+    });
   }
 };

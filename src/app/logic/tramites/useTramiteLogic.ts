@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import Database from "@tauri-apps/plugin-sql";
 import { TramiteFormData } from "../../types/tramites/tramite.types";
 import { handlePdfAutofillAction } from "./pdfActions";
+import { sileo } from "sileo";
 
 export function useTramiteLogic(initialData?: Partial<TramiteFormData>) {
   const [isSaving, setIsSaving] = useState(false);
@@ -127,6 +128,10 @@ export function useTramiteLogic(initialData?: Partial<TramiteFormData>) {
       });
     } catch (error) {
       console.error("Error general de catálogos:", error);
+      sileo.error({
+        title: "Error",
+        description: "No se pudieron cargar los catálogos.",
+      });
     }
   }, []);
 
@@ -255,6 +260,10 @@ export function useTramiteLogic(initialData?: Partial<TramiteFormData>) {
     const pdfData = await handlePdfAutofillAction();
     if (pdfData) {
       setFormData((prev) => ({ ...prev, ...pdfData }));
+      sileo.success({
+        title: "Completado",
+        description: "Datos extraídos del PDF correctamente.",
+      });
     }
     setIsFilling(false);
   };
@@ -594,10 +603,20 @@ export function useTramiteLogic(initialData?: Partial<TramiteFormData>) {
         }),
       );
 
+      sileo.success({
+        title: "Éxito",
+        description: formData.id
+          ? "Trámite actualizado correctamente"
+          : "Trámite registrado correctamente",
+      });
+
       return tramiteFinalId;
     } catch (error: any) {
       console.error("Error al guardar en DB:", error);
-      alert("Error interno al procesar el trámite: " + error.message);
+      sileo.error({
+        title: "Error",
+        description: "Error interno al procesar el trámite: " + error.message,
+      });
       return null;
     } finally {
       setIsSaving(false);
