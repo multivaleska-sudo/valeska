@@ -1,6 +1,7 @@
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
-import { ask } from "@tauri-apps/plugin-dialog";
+import { ask, save } from "@tauri-apps/plugin-dialog";
+import { writeFile } from "@tauri-apps/plugin-fs";
 import Database from "@tauri-apps/plugin-sql";
 import { sileo } from "sileo";
 
@@ -67,7 +68,6 @@ export const generateSituacionesReport = async () => {
     doc.setFont("helvetica", "normal");
     doc.text(`Sistema de Gestión Valeska - Generado el: ${dateStr}`, 20, 30);
 
-    // 2. Tabla de Resumen
     doc.setTextColor(0, 0, 0);
     doc.setFontSize(14);
     doc.setFont("helvetica", "bold");
@@ -102,7 +102,6 @@ export const generateSituacionesReport = async () => {
 
     let currentAngle = 0;
 
-    // Helper para parsear colores hexadecimales de forma segura
     const getRGB = (hex: string) => {
       const cleanHex = hex.startsWith("#") ? hex : `#${hex}`;
       const r = parseInt(cleanHex.slice(1, 3), 16) || 200;
@@ -123,12 +122,10 @@ export const generateSituacionesReport = async () => {
 
       const lines = [];
 
-      // Primer punto: Del centro al inicio del arco
       let startXRel = radius * Math.cos(currentAngle);
       let startYRel = radius * Math.sin(currentAngle);
       lines.push([startXRel, startYRel]);
 
-      // Puntos del arco: Cada punto es relativo al ANTERIOR
       let lastX = startXRel;
       let lastY = startYRel;
       const segments = 40;
@@ -158,7 +155,6 @@ export const generateSituacionesReport = async () => {
     doc.setFontSize(7);
     doc.text("TRÁMITES", centerX, centerY + 7, { align: "center" });
 
-    // 4. Leyenda Calibrada
     let legendY = centerY - 15;
     const legendX = 125;
 
@@ -194,11 +190,29 @@ export const generateSituacionesReport = async () => {
       { align: "center" },
     );
 
-    doc.save(`REPORTE_SITUACIONES_${now.getTime()}.pdf`);
-    sileo.success({
-      title: "Reporte Generado",
-      description: "El documento PDF ha sido guardado exitosamente.",
+    // =========================================================================
+    // GUARDADO NATIVO CON TAURI (Permite elegir ruta y nombre)
+    // =========================================================================
+
+    const pdfBytes = doc.output("arraybuffer");
+
+    const filePath = await save({
+      filters: [{ name: "Documento PDF", extensions: ["pdf"] }],
+      defaultPath: `REPORTE_SITUACIONES_${now.getTime()}.pdf`,
     });
+
+    if (filePath) {
+      await writeFile(filePath, new Uint8Array(pdfBytes));
+      sileo.success({
+        title: "Reporte Generado",
+        description: "El documento PDF ha sido guardado exitosamente.",
+      });
+    } else {
+      sileo.warning({
+        title: "Cancelado",
+        description: "No se guardó el reporte.",
+      });
+    }
   } catch (error: any) {
     console.error("CRASH EN GENERADOR PDF:", error);
     sileo.error({
