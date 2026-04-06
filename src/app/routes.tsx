@@ -9,7 +9,6 @@ import { TramiteDetailPage } from "./pages/tramites/TramiteDetailPage";
 import { NewTramitePage } from "./pages/tramites/NewTramitePage";
 import { EditTramitePage } from "./pages/tramites/EditTramitePage";
 import { EmpresaListPage } from "./pages/empresas/EmpresaListPage";
-import { EmpresaForm } from "./pages/empresas/EmpresaForm";
 import { SituacionesPage } from "./pages/SituacionesPage";
 import { XmlEditorPage } from "./pages/xml/XMLEditorPage";
 import { SyncPage } from "./pages/SyncPage";
@@ -48,8 +47,6 @@ export const router = createBrowserRouter([
       { path: "tramites/:id/edit", element: <EditTramitePage /> },
       { path: "tramites/:id/documents", element: <DocumentCenterPage /> },
       { path: "empresas", element: <EmpresaListPage /> },
-      { path: "empresas/form", element: <EmpresaForm /> },
-      { path: "empresas/form/:id", element: <EmpresaForm /> },
       { path: "situaciones", element: <SituacionesPage /> },
       { path: "xml", element: <XmlEditorPage /> },
       { path: "documentos", element: <DocumentCenterPage /> },
