@@ -102,7 +102,7 @@ export function useTramiteLogic(initialData?: Partial<TramiteFormData>) {
 
       try {
         resTpl = await sqlite.select(
-          "SELECT id, nombre_documento FROM plantillas_documentos ORDER BY nombre_documento ASC",
+          "SELECT id, nombre_documento FROM plantillas_documentos WHERE deleted_at IS NULL AND activo = 1 ORDER BY nombre_documento ASC",
         );
       } catch (e) {
         console.error("Error cargando plantillas:", e);
