@@ -41,41 +41,51 @@ export function DocumentCenterPage() {
   const [isDeleting, setIsDeleting] = useState(false);
 
   const defaultTemplateHtml = `
-<div style="background: white; width: 21cm; min-height: 29.7cm; padding: 2cm; box-sizing: border-box; font-family: Arial, Helvetica, sans-serif; font-size: 14px; line-height: 1.5; color: #000; margin: 0 auto; border: 1px dashed #ccc;">
-    <h2 style="text-align: center; font-weight: bold; text-decoration: underline; margin-bottom: 20px;">PLANTILLA BASE</h2>
-    
-    <div style="text-align: justify; margin-bottom: 15px;">
-        Hola, para editar esta plantilla se usa <strong>solo divs y css</strong>, nada más.
+<div style="background: white; width: 21cm; min-height: 29.7cm; padding: 2cm; box-sizing: border-box; font-family: Arial, Helvetica, sans-serif; font-size: 14px; line-height: 1.5; color: #000; margin: 0 auto; border: 1px dashed #ccc; position: relative;">
+
+    <!-- HEADER -->
+    <div style="text-align: center; margin-bottom: 20px;">
+        <h2 style="font-weight: bold; text-decoration: underline;">PLANTILLA BASE</h2>
     </div>
     
-    <div style="text-align: justify; margin-bottom: 15px;">
-        Copiar y pegar para apoyarse en la inteligencia artificial para que pueda tener contexto de lo que quiere hacer en el documento y su edición.
-    </div>
-    
-    <div style="text-align: justify; margin-bottom: 15px;">
-        Para acceder a sus imágenes la ruta es:
-        <br>
-        <code>/image/logo_aap.jpg</code> o <code>/image/logo_Notaria.jpg</code> para acceder a sus logos.
-    </div>
-    
-    <div style="text-align: justify; margin-bottom: 15px; color: #666;">
-        <em>Este texto sirve como contexto para apoyarse con la IA o para usted. ¡Borre este contenido y comience a diseñar!</em>
+    <!-- CONTENIDO -->
+    <div>
+        <div style="margin-bottom: 15px;">
+            Hola, para editar esta plantilla usa <strong>contenido simple (divs, texto, variables)</strong>.
+        </div>
+        
+        <div style="margin-bottom: 15px;">
+            Luego podrás ajustar posiciones en el <strong>modo visual</strong>.
+        </div>
+        
+        <div style="margin-bottom: 15px;">
+            Variables disponibles:
+            <br>
+            <code>{{CLIENTE_NOMBRE}}</code>, <code>{{VEHICULO_PLACA}}</code>, etc.
+        </div>
+        
+        <div style="margin-bottom: 15px; color: #666;">
+            <em>Este contenido es solo guía. Puedes eliminarlo.</em>
+        </div>
     </div>
 
-    <div style="display: flex; justify-content: space-between; margin-top: 30px;">
-        ejemplo de uso de imágenes en la plantilla:
+    <!-- EJEMPLO IMÁGENES -->
+    <div style="margin-top: 30px;">
+        Ejemplo de uso de imágenes:
     </div>
 
-    <!-- Logo AAP -->
-    <div style="width: 230px;">
-        <img src="/image/logo_aap.jpg" alt="Logo AAP" style="width: 100%; height: auto;" onerror="this.style.display='none';">
+    <div style="display: flex; gap: 20px; margin-top: 10px;">
+        <div style="width: 230px;">
+            <img src="/image/logo_aap.jpg" style="width: 100%;" onerror="this.style.display='none';">
+        </div>
+        
+        <div style="width: 210px;">
+            <img src="/image/logo_Notaria.jpg" style="width: 100%;" onerror="this.style.display='none';">
+        </div>
     </div>
-            
-    <!-- Logo Notaría -->
-    <div style="width: 210px;">
-        <img src="/image/logo_Notaria.jpg" alt="Logo Notaria" style="width: 100%; height: auto; border-radius: 4px;" onerror="this.style.display='none';">
-    </div>
-</div>`;
+
+</div>
+`;
 
   const onCreateSubmit = async () => {
     if (!newTemplateName.trim()) return;
