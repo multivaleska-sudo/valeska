@@ -1,14 +1,29 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { AlertCircle, Monitor, ChevronRight, ArrowUpRight } from "lucide-react";
 import { useNavigate } from "react-router";
+import Database from "@tauri-apps/plugin-sql";
 import { useConflictosLogic } from "../../logic/central/useConflictosLogic";
 
 export function CentralPage() {
   const navigate = useNavigate();
   const { conflictCount, loadConflictCount } = useConflictosLogic();
+  const [deviceCount, setDeviceCount] = useState(0);
 
   useEffect(() => {
     loadConflictCount();
+
+    const loadDeviceCount = async () => {
+      try {
+        const sqlite = await Database.load("sqlite:valeska.db");
+        const res: any[] = await sqlite.select(
+          "SELECT COUNT(id) as count FROM dispositivos WHERE deleted_at IS NULL",
+        );
+        setDeviceCount(res[0]?.count || 0);
+      } catch (error) {
+        console.error("Error cargando dispositivos:", error);
+      }
+    };
+    loadDeviceCount();
   }, [loadConflictCount]);
 
   const modules = [
@@ -18,7 +33,7 @@ export function CentralPage() {
       title: "Gestión de Conflictos",
       description:
         "Resolución de discrepancias de datos entre sucursales y la nube.",
-      count: conflictCount, // Conectado a base de datos
+      count: conflictCount,
       path: "/central/conflictos",
       color: "bg-red-600",
       lightColor: "bg-red-50",
@@ -30,7 +45,7 @@ export function CentralPage() {
       title: "Monitor de Instancias",
       description:
         "Estado de conexión y sincronización de todas las terminales activas.",
-      count: 5, // A futuro conectarlo con otra consulta SQLite
+      count: deviceCount,
       path: "/central/devices",
       color: "bg-emerald-600",
       lightColor: "bg-emerald-50",
