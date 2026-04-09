@@ -24,6 +24,10 @@ interface EditableElement {
   bold?: boolean;
   width: number;
   height: number;
+  // Estilos adicionales para renderizado fiel
+  textDecoration?: string;
+  textAlign?: string;
+  color?: string;
 }
 
 interface VisualLayoutEditorProps {
@@ -117,6 +121,9 @@ const DraggableItem = ({
         style={{
           fontSize: item.fontSize ? `${item.fontSize}px` : undefined,
           fontWeight: item.bold ? "bold" : "normal",
+          textDecoration: item.textDecoration,
+          textAlign: item.textAlign as any,
+          color: item.color,
           fontFamily: "Arial, sans-serif",
           minHeight: "14px",
           boxSizing: "border-box",
@@ -151,20 +158,19 @@ export default function VisualLayoutEditor({
 }: VisualLayoutEditorProps) {
   const [elements, setElements] = useState<EditableElement[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [backgroundHtml, setBackgroundHtml] = useState<string>("");
   const [showGrid, setShowGrid] = useState(true);
   const [zoom, setZoom] = useState(0.65);
   const hiddenRenderRef = useRef<HTMLDivElement>(null);
 
   const selectedElement = elements.find((el) => el.tempId === selectedId);
 
-  // MOTOR DE INYECCIÓN Y ETIQUETADO DINÁMICO V10 (Súper Greedy)
+  // MOTOR DE INYECCIÓN Y ETIQUETADO DINÁMICO V10 (Optimizado para fidelidad)
   useEffect(() => {
     if (!hiddenRenderRef.current) return;
 
-    // 1. Inyectamos el HTML para analizarlo físicamente
     hiddenRenderRef.current.innerHTML = htmlContent;
 
-    // 2. Identificamos el contenedor de la página (el lienzo)
     const pageContainer =
       hiddenRenderRef.current.querySelector("#visual-form-container") ||
       Array.from(hiddenRenderRef.current.querySelectorAll("div")).find(
@@ -179,7 +185,6 @@ export default function VisualLayoutEditor({
 
     const timer = setTimeout(() => {
       const pageRect = (pageContainer as HTMLElement).getBoundingClientRect();
-      // Buscamos todas las etiquetas que podrían ser contenido relevante
       const allCandidates = Array.from(
         pageContainer.querySelectorAll(
           "div, img, code, h1, h2, h3, p, table, section, article",
@@ -189,40 +194,26 @@ export default function VisualLayoutEditor({
 
       allCandidates.forEach((el, idx) => {
         if (!(el instanceof HTMLElement)) return;
-
-        // REGLA: No etiquetamos la propia página raíz
         if (el === pageContainer) return;
 
         const tagName = el.tagName.toUpperCase();
         const rect = el.getBoundingClientRect();
         const isAbsolute = el.style.position === "absolute";
 
-        // Filtro de dimensiones mínimas para evitar ruidos
         if (rect.width < 2 || rect.height < 2) return;
 
-        // Lógica de detección de contenido directo (Texto no vacío que pertenece al elemento)
         const hasDirectText = Array.from(el.childNodes).some(
           (node) =>
             node.nodeType === Node.TEXT_NODE &&
             node.textContent?.trim().length! > 0,
         );
 
-        // Lógica de detección de etiquetas de formato (em, strong, span) con texto
-        // Si un DIV contiene un EM con texto, ese DIV debe ser movible si no hay otros bloques grandes.
         const hasFormatText = Array.from(
           el.querySelectorAll("em, strong, b, u, span, i"),
         ).some((child) => (child as HTMLElement).innerText?.trim().length > 0);
 
         const isIndependentTag = ["CODE", "IMG"].includes(tagName);
 
-        /**
-         * REGLA MAESTRA V10:
-         * Un elemento es movible si:
-         * 1. Es independiente (CODE/IMG).
-         * 2. Ya es absoluto.
-         * 3. Es un contenedor (DIV/P/...) que tiene texto directo O texto en etiquetas de formato,
-         * INCLUSO si tiene hijos independientes (para poder mover el texto que sobra).
-         */
         const isTarget =
           isIndependentTag ||
           isAbsolute ||
@@ -245,7 +236,6 @@ export default function VisualLayoutEditor({
                   el.innerText.substring(0, 15).trim() + "...",
             originalText: tagName === "IMG" ? undefined : el.innerHTML,
             src: tagName === "IMG" ? (el as HTMLImageElement).src : undefined,
-            // Coordenadas relativas a la página
             top: isAbsolute
               ? parseFloat(el.style.top) || 0
               : (rect.top - pageRect.top) / CM_TO_PX,
@@ -259,10 +249,24 @@ export default function VisualLayoutEditor({
               ["H1", "H2", "B", "STRONG"].includes(tagName),
             width: rect.width,
             height: rect.height,
+            // Fidelidad de estilos:
+            textDecoration: style.textDecoration,
+            textAlign: style.textAlign,
+            color: style.color,
           });
         }
       });
 
+      // Creamos una copia del fondo donde ocultamos los elementos que hemos capturado
+      const cleanClone = (pageContainer as HTMLElement).cloneNode(
+        true,
+      ) as HTMLElement;
+      // Inyectamos un estilo para ocultar las piezas originales y evitar el efecto "duplicado"
+      const hideStyle = document.createElement("style");
+      hideStyle.innerHTML = `[data-layout-id] { visibility: hidden !important; }`;
+      cleanClone.appendChild(hideStyle);
+
+      setBackgroundHtml(cleanClone.outerHTML);
       setElements(extracted);
     }, 500);
 
@@ -278,15 +282,12 @@ export default function VisualLayoutEditor({
   const handleSave = () => {
     const root = hiddenRenderRef.current!;
 
-    // Al guardar, procesamos todos los elementos para aplicar sus nuevas coordenadas
     elements.forEach((el) => {
       const target = root.querySelector(
         `[data-layout-id="${el.tempId}"]`,
       ) as HTMLElement;
 
       if (target) {
-        // Obtenemos el offset del padre si el padre también es absoluto (nesting)
-        // Pero para simplificar y asegurar precisión WYSIWYG, forzamos coordenadas de página.
         target.style.position = "absolute";
         target.style.top = `${el.top.toFixed(2)}cm`;
         target.style.left = `${el.left.toFixed(2)}cm`;
@@ -338,10 +339,10 @@ export default function VisualLayoutEditor({
             </button>
             <div className="flex flex-col">
               <h2 className="text-[10px] font-black uppercase tracking-widest text-blue-600 leading-none mb-1 text-left">
-                Motor Valeska V10
+                Motor Valeska V10.1
               </h2>
               <span className="text-sm font-bold text-slate-800 leading-none">
-                Diseñador de Capas Independientes
+                Diseñador de Capas Fieles
               </span>
             </div>
           </div>
@@ -401,7 +402,8 @@ export default function VisualLayoutEditor({
             </div>
           ) : (
             <div className="text-xs text-slate-400 italic font-medium">
-              Haz clic en cualquier elemento (div, code o imagen) para moverlo
+              Los elementos originales se ocultan automáticamente para evitar
+              duplicados visuales
             </div>
           )}
         </div>
@@ -454,10 +456,12 @@ export default function VisualLayoutEditor({
             if (e.target === e.currentTarget) setSelectedId(null);
           }}
         >
+          {/* FONDO LIMPIO: Renderizamos el documento con las piezas originales ocultas para evitar duplicación */}
           <div
-            className="absolute inset-0 pointer-events-none opacity-10 select-none overflow-hidden"
-            dangerouslySetInnerHTML={{ __html: htmlContent }}
+            className="absolute inset-0 pointer-events-none opacity-20 select-none overflow-hidden"
+            dangerouslySetInnerHTML={{ __html: backgroundHtml }}
           />
+
           {showGrid && (
             <div
               className="absolute inset-0 pointer-events-none opacity-[0.06]"
@@ -467,6 +471,8 @@ export default function VisualLayoutEditor({
               }}
             />
           )}
+
+          {/* CAPAS ACTIVAS: Renderizadas con sus estilos originales capturados */}
           {elements.map((el) => (
             <DraggableItem
               key={el.tempId}
@@ -494,7 +500,7 @@ export default function VisualLayoutEditor({
             </span>
           )}
         </div>
-        <span>A4 WYSIWYG ENGINE v10.0</span>
+        <span>A4 DESIGN ENGINE v10.1 (Fidelidad de Render)</span>
       </div>
     </div>
   );
