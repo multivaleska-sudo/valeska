@@ -78,6 +78,7 @@ const DraggableItem = ({
       let newTop = dragStartPos.current.top + dyPx / CM_TO_PX;
 
       if (snapToGrid) {
+        // Ajuste a 1mm de precisión (0.1cm)
         newLeft = Math.round(newLeft * 10) / 10;
         newTop = Math.round(newTop * 10) / 10;
       }
@@ -456,17 +457,21 @@ export default function VisualLayoutEditor({
             if (e.target === e.currentTarget) setSelectedId(null);
           }}
         >
-          {/* FONDO LIMPIO: Renderizamos el documento con las piezas originales ocultas para evitar duplicación */}
+          {/* FONDO LIMPIO: Renderizamos el documento con las piezas originales ocultas */}
           <div
             className="absolute inset-0 pointer-events-none opacity-20 select-none overflow-hidden"
             dangerouslySetInnerHTML={{ __html: backgroundHtml }}
           />
 
+          {/* REJILLA CUADRICULADA (Papel milimetrado) */}
           {showGrid && (
             <div
-              className="absolute inset-0 pointer-events-none opacity-[0.06]"
+              className="absolute inset-0 pointer-events-none z-0"
               style={{
-                backgroundImage: "radial-gradient(#000 1px, transparent 1px)",
+                backgroundImage: `
+                  linear-gradient(to right, rgba(99, 102, 241, 0.1) 1px, transparent 1px),
+                  linear-gradient(to bottom, rgba(99, 102, 241, 0.1) 1px, transparent 1px)
+                `,
                 backgroundSize: "0.5cm 0.5cm",
               }}
             />
@@ -500,7 +505,7 @@ export default function VisualLayoutEditor({
             </span>
           )}
         </div>
-        <span>A4 DESIGN ENGINE v10.1 (Fidelidad de Render)</span>
+        <span>A4 DESIGN ENGINE v10.2 (Rejilla Cuadriculada)</span>
       </div>
     </div>
   );
