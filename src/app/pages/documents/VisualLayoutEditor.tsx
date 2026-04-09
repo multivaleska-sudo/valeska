@@ -110,6 +110,8 @@ const DraggableItem = ({
         width: `${item.width}px`,
         height: item.type === "image" ? `${item.height}px` : "auto",
       }}
+      // Evitamos que el clic en el elemento deseleccione al propagarse al fondo
+      onClick={(e) => e.stopPropagation()}
     >
       <div
         onMouseDown={handleMouseDown}
@@ -318,7 +320,10 @@ export default function VisualLayoutEditor({
   return (
     <div
       className="fixed inset-0 z-[100] bg-slate-950/98 flex flex-col backdrop-blur-2xl"
-      onClick={() => setSelectedId(null)}
+      // Solo deseleccionamos si el clic es directamente en el fondo oscuro exterior
+      onClick={(e) => {
+        if (e.target === e.currentTarget) setSelectedId(null);
+      }}
     >
       <div
         ref={hiddenRenderRef}
@@ -328,6 +333,7 @@ export default function VisualLayoutEditor({
 
       <div
         className="h-16 bg-white border-b flex items-center justify-between px-6 shadow-2xl z-50"
+        // Evitamos que los clics en la barra de herramientas lleguen al fondo
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center gap-6">
@@ -454,16 +460,17 @@ export default function VisualLayoutEditor({
             transform: `scale(${zoom})`,
           }}
           onClick={(e) => {
+            // Solo deseleccionamos si se hace clic en la "hoja", no en sus hijos
             if (e.target === e.currentTarget) setSelectedId(null);
           }}
         >
-          {/* FONDO LIMPIO: Renderizamos el documento con las piezas originales ocultas */}
+          {/* FONDO LIMPIO */}
           <div
             className="absolute inset-0 pointer-events-none opacity-20 select-none overflow-hidden"
             dangerouslySetInnerHTML={{ __html: backgroundHtml }}
           />
 
-          {/* REJILLA CUADRICULADA (Papel milimetrado) */}
+          {/* REJILLA CUADRICULADA */}
           {showGrid && (
             <div
               className="absolute inset-0 pointer-events-none z-0"
@@ -477,7 +484,7 @@ export default function VisualLayoutEditor({
             />
           )}
 
-          {/* CAPAS ACTIVAS: Renderizadas con sus estilos originales capturados */}
+          {/* CAPAS ACTIVAS */}
           {elements.map((el) => (
             <DraggableItem
               key={el.tempId}
@@ -505,7 +512,7 @@ export default function VisualLayoutEditor({
             </span>
           )}
         </div>
-        <span>A4 DESIGN ENGINE v10.2 (Rejilla Cuadriculada)</span>
+        <span>A4 DESIGN ENGINE v10.1 (Rejilla Cuadriculada)</span>
       </div>
     </div>
   );
