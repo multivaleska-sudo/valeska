@@ -8,20 +8,16 @@ import {
   Underline,
   Heading1,
   AlignLeft,
-  CornerDownLeft,
   Settings,
   Code,
   Eye,
   Smartphone,
   Monitor,
   Printer,
-  Move,
-  FileCode,
   Layout,
 } from "lucide-react";
 import { useTemplateEditorLogic } from "../../logic/documents/useTemplateEditorLogic";
 import VisualLayoutEditor from "./VisualLayoutEditor";
-import { sileo } from "sileo";
 
 export function TemplateEditorPage() {
   const {
@@ -45,37 +41,29 @@ export function TemplateEditorPage() {
   const [showVisualEditor, setShowVisualEditor] = useState(false);
 
   /**
-   * Esta función ahora es NO destructiva.
-   * Solo prepara el HTML existente para que sea compatible con el Designer Visual
-   * sin añadir texto de ejemplo ni paddings extraños.
+   * NORMALIZADOR PRO V10.3:
+   * Ahora detecta si el HTML ya tiene una estructura multi-página o si necesita ser envuelto.
    */
   const convertToAbsoluteMode = () => {
     const parser = new DOMParser();
     const doc = parser.parseFromString(htmlContent, "text/html");
 
-    // Si ya existe el contenedor, simplemente abrimos el editor
-    if (doc.querySelector("#visual-form-container")) {
-      setShowVisualEditor(true);
-      return;
-    }
+    // Buscamos cualquier indicio de un contenedor de 21cm o el ID estándar
+    const hasContainer =
+      doc.querySelector("#visual-form-container") ||
+      Array.from(doc.querySelectorAll("div")).find(
+        (d) => d.style.width === "21cm" || d.style.width === "210mm",
+      );
 
-    // Buscamos el div principal (normalmente el que tiene 21cm o el primer div del body)
-    const mainDiv = doc.body.firstElementChild;
-
-    if (mainDiv instanceof HTMLElement) {
-      // Le inyectamos los requisitos mínimos para el editor de coordenadas
-      mainDiv.id = "visual-form-container";
-      if (
-        mainDiv.style.position !== "relative" &&
-        mainDiv.style.position !== "absolute"
-      ) {
-        mainDiv.style.position = "relative";
-      }
-      setHtmlContent(doc.body.innerHTML);
+    if (!hasContainer) {
+      // Si no hay contenedor, envolvemos todo para que el motor tenga un lienzo donde trabajar
+      const wrappedContent = `<div id="visual-form-container" style="background: #525659; padding: 20px; display: flex; flex-direction: column; gap: 20px; align-items: center;">\n<div style="background: white; width: 21cm; min-height: 29.7cm; padding: 2cm; box-sizing: border-box; font-family: Arial, sans-serif; font-size: 13px; position: relative;">\n${htmlContent}\n</div>\n</div>`;
+      setHtmlContent(wrappedContent);
     } else {
-      // Si el HTML está vacío o no tiene estructura de tags, creamos el envoltorio limpio
-      const base = `<div id="visual-form-container" style="width: 21cm; min-height: 29.7cm; position: relative; font-family: Arial; font-size: 13px; margin: 0 auto; background: white;">\n${htmlContent}\n</div>`;
-      setHtmlContent(base);
+      // Si ya tiene contenedor, aseguramos que el ID esté presente para el motor
+      const container = hasContainer as HTMLElement;
+      if (!container.id) container.id = "visual-form-container";
+      setHtmlContent(doc.body.innerHTML);
     }
 
     setShowVisualEditor(true);
@@ -112,16 +100,13 @@ export function TemplateEditorPage() {
         </div>
 
         <div className="flex items-center gap-4">
-          {/* BOTÓN DESIGNER VISUAL */}
           <button
             onClick={convertToAbsoluteMode}
             className="flex items-center gap-2 px-5 py-2 bg-indigo-600 text-white rounded-xl font-black text-xs hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition-all active:scale-95"
           >
             <Layout size={16} /> DESIGNER VISUAL
           </button>
-
           <div className="h-8 w-px bg-gray-200"></div>
-
           <div className="flex items-center gap-2">
             <button
               onClick={handleSave}
@@ -132,10 +117,9 @@ export function TemplateEditorPage() {
                 <Loader2 size={16} className="animate-spin" />
               ) : (
                 <Save size={16} />
-              )}
+              )}{" "}
               Guardar
             </button>
-
             <button
               onClick={handleSaveAndPrint}
               disabled={isSaving}
@@ -159,7 +143,6 @@ export function TemplateEditorPage() {
               </h2>
             </div>
           </div>
-
           <div className="flex-1 overflow-y-auto p-4 space-y-6 custom-scrollbar">
             {TEMPLATE_VARIABLES.map((group, idx) => (
               <div key={idx} className="space-y-2">
@@ -227,7 +210,6 @@ export function TemplateEditorPage() {
               </button>
             </div>
           </div>
-
           <textarea
             ref={textareaRef}
             value={htmlContent}
@@ -238,7 +220,7 @@ export function TemplateEditorPage() {
           />
         </div>
 
-        {/* VISTA PREVIA */}
+        {/* VISTA PREVIA RÁPIDA */}
         <div className="w-[45%] bg-gray-200 flex flex-col relative h-full">
           <div className="absolute top-0 w-full bg-slate-700/90 backdrop-blur-sm text-white px-4 py-2 flex items-center justify-between shadow-md z-10">
             <span className="text-xs font-bold uppercase tracking-widest flex items-center gap-2">
@@ -260,12 +242,9 @@ export function TemplateEditorPage() {
               </button>
             </div>
           </div>
-
           <div className="absolute inset-0 top-[36px] overflow-y-auto p-8 flex flex-col items-center">
             <div
-              className={`bg-white shadow-2xl relative origin-top shrink-0 transition-all
-                ${orientation === "PORTRAIT" ? "w-[794px] min-h-[1123px]" : "w-[1123px] min-h-[794px]"}
-              `}
+              className={`bg-white shadow-2xl relative origin-top shrink-0 transition-all ${orientation === "PORTRAIT" ? "w-[794px] min-h-[1123px]" : "w-[1123px] min-h-[794px]"}`}
               style={{
                 transform: "scale(0.65)",
                 transformOrigin: "top center",
@@ -281,7 +260,6 @@ export function TemplateEditorPage() {
         </div>
       </div>
 
-      {/* OVERLAY DEL DESIGNER VISUAL */}
       {showVisualEditor && (
         <VisualLayoutEditor
           htmlContent={htmlContent}

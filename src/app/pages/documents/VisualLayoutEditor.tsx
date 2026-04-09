@@ -9,6 +9,7 @@ import {
   Bold,
   ImageIcon,
   Layers,
+  Monitor,
 } from "lucide-react";
 
 interface EditableElement {
@@ -24,7 +25,6 @@ interface EditableElement {
   bold?: boolean;
   width: number;
   height: number;
-  // Estilos adicionales para renderizado fiel
   textDecoration?: string;
   textAlign?: string;
   color?: string;
@@ -78,7 +78,6 @@ const DraggableItem = ({
       let newTop = dragStartPos.current.top + dyPx / CM_TO_PX;
 
       if (snapToGrid) {
-        // Ajuste a 1mm de precisión (0.1cm)
         newLeft = Math.round(newLeft * 10) / 10;
         newTop = Math.round(newTop * 10) / 10;
       }
@@ -110,7 +109,6 @@ const DraggableItem = ({
         width: `${item.width}px`,
         height: item.type === "image" ? `${item.height}px` : "auto",
       }}
-      // Evitamos que el clic en el elemento deseleccione al propagarse al fondo
       onClick={(e) => e.stopPropagation()}
     >
       <div
@@ -162,32 +160,30 @@ export default function VisualLayoutEditor({
   const [elements, setElements] = useState<EditableElement[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [backgroundHtml, setBackgroundHtml] = useState<string>("");
+  const [canvasSize, setCanvasSize] = useState({ width: 794, height: 1123 });
+  const [zoom, setZoom] = useState(0.5);
   const [showGrid, setShowGrid] = useState(true);
-  const [zoom, setZoom] = useState(0.65);
   const hiddenRenderRef = useRef<HTMLDivElement>(null);
 
   const selectedElement = elements.find((el) => el.tempId === selectedId);
 
-  // MOTOR DE INYECCIÓN Y ETIQUETADO DINÁMICO V10 (Optimizado para fidelidad)
   useEffect(() => {
     if (!hiddenRenderRef.current) return;
 
     hiddenRenderRef.current.innerHTML = htmlContent;
 
+    // Detectamos el contenedor que envuelve las páginas
     const pageContainer =
       hiddenRenderRef.current.querySelector("#visual-form-container") ||
-      Array.from(hiddenRenderRef.current.querySelectorAll("div")).find(
-        (d) =>
-          d.style.width === "21cm" ||
-          d.style.width === "210mm" ||
-          (d.getBoundingClientRect().width > 790 &&
-            d.getBoundingClientRect().width < 800),
-      ) ||
       hiddenRenderRef.current.firstElementChild ||
       hiddenRenderRef.current;
 
     const timer = setTimeout(() => {
       const pageRect = (pageContainer as HTMLElement).getBoundingClientRect();
+
+      // Actualizamos el tamaño del canvas del editor para que coincida con el original
+      setCanvasSize({ width: pageRect.width, height: pageRect.height });
+
       const allCandidates = Array.from(
         pageContainer.querySelectorAll(
           "div, img, code, h1, h2, h3, p, table, section, article",
@@ -252,7 +248,6 @@ export default function VisualLayoutEditor({
               ["H1", "H2", "B", "STRONG"].includes(tagName),
             width: rect.width,
             height: rect.height,
-            // Fidelidad de estilos:
             textDecoration: style.textDecoration,
             textAlign: style.textAlign,
             color: style.color,
@@ -260,11 +255,10 @@ export default function VisualLayoutEditor({
         }
       });
 
-      // Creamos una copia del fondo donde ocultamos los elementos que hemos capturado
+      // Crear fondo ocultando piezas movibles
       const cleanClone = (pageContainer as HTMLElement).cloneNode(
         true,
       ) as HTMLElement;
-      // Inyectamos un estilo para ocultar las piezas originales y evitar el efecto "duplicado"
       const hideStyle = document.createElement("style");
       hideStyle.innerHTML = `[data-layout-id] { visibility: hidden !important; }`;
       cleanClone.appendChild(hideStyle);
@@ -284,18 +278,15 @@ export default function VisualLayoutEditor({
 
   const handleSave = () => {
     const root = hiddenRenderRef.current!;
-
     elements.forEach((el) => {
       const target = root.querySelector(
         `[data-layout-id="${el.tempId}"]`,
       ) as HTMLElement;
-
       if (target) {
         target.style.position = "absolute";
         target.style.top = `${el.top.toFixed(2)}cm`;
         target.style.left = `${el.left.toFixed(2)}cm`;
         target.style.width = `${el.width.toFixed(2)}px`;
-
         if (el.type === "text") {
           target.style.fontSize = `${el.fontSize}px`;
           target.style.fontWeight = el.bold ? "bold" : "normal";
@@ -303,16 +294,13 @@ export default function VisualLayoutEditor({
         } else {
           target.style.height = `${el.height.toFixed(2)}px`;
         }
-
         target.style.margin = "0";
         target.removeAttribute("data-layout-id");
       }
     });
-
     root
       .querySelectorAll("[data-layout-id]")
       .forEach((node) => node.removeAttribute("data-layout-id"));
-
     onChange(root.innerHTML);
     onClose();
   };
@@ -320,20 +308,17 @@ export default function VisualLayoutEditor({
   return (
     <div
       className="fixed inset-0 z-[100] bg-slate-950/98 flex flex-col backdrop-blur-2xl"
-      // Solo deseleccionamos si el clic es directamente en el fondo oscuro exterior
-      onClick={(e) => {
-        if (e.target === e.currentTarget) setSelectedId(null);
-      }}
+      onClick={(e) => e.target === e.currentTarget && setSelectedId(null)}
     >
       <div
         ref={hiddenRenderRef}
         className="fixed opacity-0 pointer-events-none invisible"
-        style={{ width: "21cm", height: "29.7cm" }}
+        style={{ width: "21cm" }}
       />
 
+      {/* HEADER TOOLS */}
       <div
         className="h-16 bg-white border-b flex items-center justify-between px-6 shadow-2xl z-50"
-        // Evitamos que los clics en la barra de herramientas lleguen al fondo
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center gap-6">
@@ -346,15 +331,14 @@ export default function VisualLayoutEditor({
             </button>
             <div className="flex flex-col">
               <h2 className="text-[10px] font-black uppercase tracking-widest text-blue-600 leading-none mb-1 text-left">
-                Motor Valeska V10.1
+                Motor Valeska V10.3
               </h2>
               <span className="text-sm font-bold text-slate-800 leading-none">
-                Diseñador de Capas Fieles
+                Diseñador Multi-Página
               </span>
             </div>
           </div>
           <div className="h-8 w-px bg-slate-200"></div>
-
           {selectedElement ? (
             <div className="flex items-center gap-2 bg-indigo-50 p-1.5 rounded-xl border border-indigo-100 animate-in slide-in-from-left-2 shadow-inner">
               <div className="flex items-center gap-2 px-3 border-r border-indigo-200">
@@ -367,54 +351,46 @@ export default function VisualLayoutEditor({
                   {selectedElement.variable}
                 </span>
               </div>
-              {selectedElement.type === "text" && (
-                <>
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={() =>
-                        updateElement(selectedId!, {
-                          fontSize: (selectedElement.fontSize || 14) - 1,
-                        })
-                      }
-                      className="p-1.5 hover:bg-white rounded-lg text-slate-600 transition-colors"
-                    >
-                      <Minus size={14} />
-                    </button>
-                    <span className="text-xs font-mono font-bold w-10 text-center bg-white rounded border border-indigo-200 py-1">
-                      {selectedElement.fontSize}
-                    </span>
-                    <button
-                      onClick={() =>
-                        updateElement(selectedId!, {
-                          fontSize: (selectedElement.fontSize || 14) + 1,
-                        })
-                      }
-                      className="p-1.5 hover:bg-white rounded-lg text-slate-600 transition-colors"
-                    >
-                      <Plus size={14} />
-                    </button>
-                  </div>
-                  <button
-                    onClick={() =>
-                      updateElement(selectedId!, {
-                        bold: !selectedElement.bold,
-                      })
-                    }
-                    className={`p-2 rounded-lg transition-all ${selectedElement.bold ? "bg-indigo-600 text-white shadow-md" : "text-slate-500 hover:bg-white"}`}
-                  >
-                    <Bold size={16} />
-                  </button>
-                </>
-              )}
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() =>
+                    updateElement(selectedId!, {
+                      fontSize: (selectedElement.fontSize || 14) - 1,
+                    })
+                  }
+                  className="p-1.5 hover:bg-white rounded-lg text-slate-600 transition-colors"
+                >
+                  <Minus size={14} />
+                </button>
+                <span className="text-xs font-mono font-bold w-10 text-center bg-white rounded border border-indigo-200 py-1">
+                  {selectedElement.fontSize}
+                </span>
+                <button
+                  onClick={() =>
+                    updateElement(selectedId!, {
+                      fontSize: (selectedElement.fontSize || 14) + 1,
+                    })
+                  }
+                  className="p-1.5 hover:bg-white rounded-lg text-slate-600 transition-colors"
+                >
+                  <Plus size={14} />
+                </button>
+              </div>
+              <button
+                onClick={() =>
+                  updateElement(selectedId!, { bold: !selectedElement.bold })
+                }
+                className={`p-2 rounded-lg transition-all ${selectedElement.bold ? "bg-indigo-600 text-white shadow-md" : "text-slate-500 hover:bg-white"}`}
+              >
+                <Bold size={16} />
+              </button>
             </div>
           ) : (
-            <div className="text-xs text-slate-400 italic font-medium">
-              Los elementos originales se ocultan automáticamente para evitar
-              duplicados visuales
+            <div className="text-xs text-slate-400 italic">
+              Mueve elementos libremente a través de todas las páginas
             </div>
           )}
         </div>
-
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-xl border border-slate-200">
             <button
@@ -426,7 +402,7 @@ export default function VisualLayoutEditor({
             <div className="h-4 w-px bg-slate-200"></div>
             <div className="flex items-center gap-1 px-2">
               <button
-                onClick={() => setZoom((z) => Math.max(0.3, z - 0.1))}
+                onClick={() => setZoom((z) => Math.max(0.2, z - 0.1))}
                 className="p-1 text-slate-500 hover:text-indigo-600 transition-colors"
               >
                 <Minus size={14} />
@@ -451,34 +427,30 @@ export default function VisualLayoutEditor({
         </div>
       </div>
 
+      {/* CANVAS AREA */}
       <div className="flex-1 overflow-auto bg-slate-900/50 flex justify-center items-start p-12 custom-scrollbar">
         <div
-          className="bg-white shadow-[0_0_80px_rgba(0,0,0,0.4)] relative border border-slate-300 origin-top shrink-0 transition-transform duration-200"
+          className="relative origin-top transition-transform duration-200"
           style={{
-            width: "21cm",
-            height: "29.7cm",
+            width: `${canvasSize.width}px`,
+            height: `${canvasSize.height}px`,
             transform: `scale(${zoom})`,
           }}
-          onClick={(e) => {
-            // Solo deseleccionamos si se hace clic en la "hoja", no en sus hijos
-            if (e.target === e.currentTarget) setSelectedId(null);
-          }}
+          onClick={(e) => e.target === e.currentTarget && setSelectedId(null)}
         >
-          {/* FONDO LIMPIO */}
+          {/* FONDO LIMPIO (Todas las páginas) */}
           <div
-            className="absolute inset-0 pointer-events-none opacity-20 select-none overflow-hidden"
+            className="absolute inset-0 pointer-events-none select-none overflow-hidden"
             dangerouslySetInnerHTML={{ __html: backgroundHtml }}
           />
 
-          {/* REJILLA CUADRICULADA */}
+          {/* REJILLA */}
           {showGrid && (
             <div
               className="absolute inset-0 pointer-events-none z-0"
               style={{
-                backgroundImage: `
-                  linear-gradient(to right, rgba(99, 102, 241, 0.1) 1px, transparent 1px),
-                  linear-gradient(to bottom, rgba(99, 102, 241, 0.1) 1px, transparent 1px)
-                `,
+                backgroundImage:
+                  "linear-gradient(to right, rgba(99, 102, 241, 0.1) 1px, transparent 1px), linear-gradient(to bottom, rgba(99, 102, 241, 0.1) 1px, transparent 1px)",
                 backgroundSize: "0.5cm 0.5cm",
               }}
             />
@@ -503,16 +475,16 @@ export default function VisualLayoutEditor({
         <div className="flex gap-6 items-center">
           <span className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-blue-500 shadow-md shadow-blue-500/50"></div>{" "}
-            CAPAS ACTIVAS: {elements.length}
+            CAPAS: {elements.length}
           </span>
           {selectedId && (
-            <span className="text-indigo-400 font-bold tracking-widest animate-pulse">
+            <span className="text-indigo-400 font-bold animate-pulse">
               POS: {selectedElement?.left.toFixed(1)}cm x{" "}
               {selectedElement?.top.toFixed(1)}cm
             </span>
           )}
         </div>
-        <span>A4 DESIGN ENGINE v10.1 (Rejilla Cuadriculada)</span>
+        <span>A4 MULTI-PAGE ENGINE v10.3</span>
       </div>
     </div>
   );
