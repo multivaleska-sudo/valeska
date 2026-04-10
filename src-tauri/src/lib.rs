@@ -3,12 +3,15 @@ use aes_gcm::{
     aead::{Aead, KeyInit},
     Aes256Gcm, Nonce,
 };
-use dotenvy_macro::dotenv;
+use dotenvy_macro::dotenv; 
 use log::LevelFilter;
 use mac_address::get_mac_address;
 use sha2::{Digest, Sha256};
 use std::fs;
 use tauri_plugin_sql::{Builder as SqlBuilder, Migration, MigrationKind};
+
+
+const VALESKA_SECRET: &str = dotenv!("VALESKA_SECRET");
 
 #[tauri::command]
 async fn extract_pdf_data(path: String) -> Result<logic::pdf_parser::ExtractedData, String> {
@@ -41,9 +44,8 @@ fn import_provisioning_profile(file_path: String) -> Result<String, String> {
     let file_bytes =
         fs::read(&file_path).map_err(|_| "No se pudo leer el archivo de provisión.".to_string())?;
 
-    let secret = dotenv!("VALESKA_SECRET");
     let mut hasher = Sha256::new();
-    hasher.update(secret.as_bytes());
+    hasher.update(VALESKA_SECRET.as_bytes());
     let key_bytes = hasher.finalize();
 
     if file_bytes.len() < 12 {
@@ -76,9 +78,8 @@ fn generate_provisioning_file(
         return Err("Error criptográfico: Nonce inválido".to_string());
     }
 
-    let secret = dotenv!("VALESKA_SECRET");
     let mut hasher = Sha256::new();
-    hasher.update(secret.as_bytes());
+    hasher.update(VALESKA_SECRET.as_bytes());
     let key_bytes = hasher.finalize();
 
     let key = aes_gcm::Key::<Aes256Gcm>::from_slice(&key_bytes);
