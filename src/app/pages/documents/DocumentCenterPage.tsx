@@ -41,50 +41,52 @@ export function DocumentCenterPage() {
   const [isDeleting, setIsDeleting] = useState(false);
 
   const defaultTemplateHtml = `
-<div style="background: white; width: 21cm; min-height: 29.7cm; padding: 2cm; box-sizing: border-box; font-family: Arial, Helvetica, sans-serif; font-size: 14px; line-height: 1.5; color: #000; margin: 0 auto; border: 1px dashed #ccc; position: relative;">
+<div style="background: white; width: 21cm; min-height: 29.7cm; padding: 2cm; box-sizing: border-box; font-family: Arial, Helvetica, sans-serif; font-size: 14px; line-height: 1.5; color: #000; margin: 0 auto; border: 1px dashed #ccc; position: relative;" id="visual-form-container">
 
     <!-- HEADER -->
     <div style="text-align: center; margin-bottom: 20px;">
-        <h2 style="font-weight: bold; text-decoration: underline;">PLANTILLA BASE</h2>
+        <h2 style="font-weight: bold; text-decoration: underline; position: absolute; top: 2.03cm; left: 2.03cm; width: 640.53px; font-size: 17px; height: auto; margin: 0px;">PLANTILLA BASE</h2>
     </div>
     
     <!-- CONTENIDO -->
-    <div>
-        <div style="margin-bottom: 15px;">
+    
+        <div style="margin: 0px; position: absolute; top: 3.25cm; left: 2.03cm; width: 640.53px; font-size: 14px; font-weight: normal; height: auto;">
             Hola, para editar esta plantilla usa <strong>contenido simple (divs, texto, variables)</strong>.
         </div>
         
-        <div style="margin-bottom: 15px;">
-            Luego podrás ajustar posiciones en el <strong>modo visual</strong>.
+        <div style="margin: 0px; position: absolute; top: 4.2cm; left: 2.03cm; width: 640.53px; font-size: 14px; font-weight: normal; height: auto;">
+            Luego podrás ajustar posiciones en el <strong>modo visual</strong>
         </div>
         
-        <div style="margin-bottom: 15px;">
+        <div style="margin: 0px; position: absolute; top: 5.15cm; left: 2.03cm; width: 640.53px; font-size: 14px; font-weight: normal; height: auto;">
             Variables disponibles:
             <br>
-            <code>{{CLIENTE_NOMBRE}}</code>, <code>{{VEHICULO_PLACA}}</code>, etc.
+            
         </div>
+<code style="position: absolute; top: 6.16cm; left: 2.03cm; width: 144px; font-size: 14px; font-weight: normal; height: auto; margin: 0px;">{{CLIENTE_NOMBRE}}</code>, <code style="position: absolute; top: 6.16cm; left: 6.05cm; width: 144px; font-size: 14px; font-weight: normal; height: auto; margin: 0px;">{{VEHICULO_PLACA}}</code>
         
-        <div style="margin-bottom: 15px; color: #666;">
-            <em>Este contenido es solo guía. Puedes eliminarlo.</em>
+        <div style="margin: 0px; color: rgb(102, 102, 102); position: absolute; top: 6.66cm; left: 2.03cm; width: 640.53px; font-size: 14px; font-weight: normal; height: auto;">
+            Este contenido es solo guía. Puedes eliminarlo.
         </div>
-    </div>
+    
 
     <!-- EJEMPLO IMÁGENES -->
-    <div style="margin-top: 30px;">
+    <div style="margin: 0px; position: absolute; top: 8.01cm; left: 2.03cm; width: 640.53px; font-size: 14px; font-weight: normal; height: auto;">
         Ejemplo de uso de imágenes:
     </div>
 
     <div style="display: flex; gap: 20px; margin-top: 10px;">
         <div style="width: 230px;">
-            <img src="/image/logo_aap.jpg" style="width: 100%;" onerror="this.style.display='none';">
+            <img src="/image/logo_aap.jpg" style="width: 230px; position: absolute; top: 8.83cm; left: 2.03cm; height: 93.09px; margin: 0px;" onerror="this.style.display='none';">
         </div>
         
         <div style="width: 210px;">
-            <img src="/image/logo_Notaria.jpg" style="width: 100%;" onerror="this.style.display='none';">
+            <img src="/image/logo_Notaria.jpg" style="width: 210px; position: absolute; top: 16cm; left: 11.8cm; height: 83.16px; margin: 0px;" onerror="this.style.display='none';">
         </div>
     </div>
 
 </div>
+
 `;
 
   const onCreateSubmit = async () => {
