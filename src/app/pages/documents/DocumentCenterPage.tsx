@@ -10,7 +10,7 @@ import {
   FileOutput,
   Loader2,
   X,
-  AlertTriangle, // Para el modal de borrar
+  AlertTriangle,
 } from "lucide-react";
 import { DocumentPreviewPanel } from "../../components/documents/DocumentPreviewPanel";
 import { useDocumentCenterLogic } from "../../logic/documents/useDocumentCenterLogic";
@@ -19,7 +19,7 @@ export function DocumentCenterPage() {
   const {
     id,
     navigate,
-    filteredTemplates, // Usamos las filtradas en lugar de todas
+    filteredTemplates,
     searchTerm,
     setSearchTerm,
     selectedTemplate,
@@ -28,54 +28,64 @@ export function DocumentCenterPage() {
     isGenerating,
     isLoading,
     handleCreateNewTemplate,
-    handleDeleteTemplate, // Función para eliminar
+    handleDeleteTemplate,
   } = useDocumentCenterLogic();
 
-  // Estados Modal Creación
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newTemplateName, setNewTemplateName] = useState("");
   const [isCreating, setIsCreating] = useState(false);
 
-  // Estados Modal Eliminación
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
   const defaultTemplateHtml = `
-<div style="background: white; width: 21cm; min-height: 29.7cm; padding: 2cm; box-sizing: border-box; font-family: Arial, Helvetica, sans-serif; font-size: 14px; line-height: 1.5; color: #000; margin: 0 auto; border: 1px dashed #ccc;">
-    <h2 style="text-align: center; font-weight: bold; text-decoration: underline; margin-bottom: 20px;">PLANTILLA BASE</h2>
-    
-    <div style="text-align: justify; margin-bottom: 15px;">
-        Hola, para editar esta plantilla se usa <strong>solo divs y css</strong>, nada más.
-    </div>
-    
-    <div style="text-align: justify; margin-bottom: 15px;">
-        Copiar y pegar para apoyarse en la inteligencia artificial para que pueda tener contexto de lo que quiere hacer en el documento y su edición.
-    </div>
-    
-    <div style="text-align: justify; margin-bottom: 15px;">
-        Para acceder a sus imágenes la ruta es:
-        <br>
-        <code>/image/logo_aap.jpg</code> o <code>/image/logo_Notaria.jpg</code> para acceder a sus logos.
-    </div>
-    
-    <div style="text-align: justify; margin-bottom: 15px; color: #666;">
-        <em>Este texto sirve como contexto para apoyarse con la IA o para usted. ¡Borre este contenido y comience a diseñar!</em>
-    </div>
+<div style="background: white; width: 21cm; min-height: 29.7cm; padding: 2cm; box-sizing: border-box; font-family: Arial, Helvetica, sans-serif; font-size: 14px; line-height: 1.5; color: #000; margin: 0 auto; border: 1px dashed #ccc; position: relative;" id="visual-form-container">
 
-    <div style="display: flex; justify-content: space-between; margin-top: 30px;">
-        ejemplo de uso de imágenes en la plantilla:
+    <!-- HEADER -->
+    <div style="text-align: center; margin-bottom: 20px;">
+        <h2 style="font-weight: bold; text-decoration: underline; position: absolute; top: 2.03cm; left: 2.03cm; width: 640.53px; font-size: 17px; height: auto; margin: 0px;">PLANTILLA BASE</h2>
     </div>
-
-    <!-- Logo AAP -->
-    <div style="width: 230px;">
-        <img src="/image/logo_aap.jpg" alt="Logo AAP" style="width: 100%; height: auto;" onerror="this.style.display='none';">
-    </div>
+    
+    <!-- CONTENIDO -->
+    
+        <div style="margin: 0px; position: absolute; top: 3.25cm; left: 2.03cm; width: 640.53px; font-size: 14px; font-weight: normal; height: auto;">
+            Hola, para editar esta plantilla usa <strong>contenido simple (divs, texto, variables)</strong>.
+        </div>
+        
+        <div style="margin: 0px; position: absolute; top: 4.2cm; left: 2.03cm; width: 640.53px; font-size: 14px; font-weight: normal; height: auto;">
+            Luego podrás ajustar posiciones en el <strong>modo visual</strong>
+        </div>
+        
+        <div style="margin: 0px; position: absolute; top: 5.15cm; left: 2.03cm; width: 640.53px; font-size: 14px; font-weight: normal; height: auto;">
+            Variables disponibles:
+            <br>
             
-    <!-- Logo Notaría -->
-    <div style="width: 210px;">
-        <img src="/image/logo_Notaria.jpg" alt="Logo Notaria" style="width: 100%; height: auto; border-radius: 4px;" onerror="this.style.display='none';">
+        </div>
+<code style="position: absolute; top: 6.16cm; left: 2.03cm; width: 144px; font-size: 14px; font-weight: normal; height: auto; margin: 0px;">{{CLIENTE_NOMBRE}}</code>, <code style="position: absolute; top: 6.16cm; left: 6.05cm; width: 144px; font-size: 14px; font-weight: normal; height: auto; margin: 0px;">{{VEHICULO_PLACA}}</code>
+        
+        <div style="margin: 0px; color: rgb(102, 102, 102); position: absolute; top: 6.66cm; left: 2.03cm; width: 640.53px; font-size: 14px; font-weight: normal; height: auto;">
+            Este contenido es solo guía. Puedes eliminarlo.
+        </div>
+    
+
+    <!-- EJEMPLO IMÁGENES -->
+    <div style="margin: 0px; position: absolute; top: 8.01cm; left: 2.03cm; width: 640.53px; font-size: 14px; font-weight: normal; height: auto;">
+        Ejemplo de uso de imágenes:
     </div>
-</div>`;
+
+    <div style="display: flex; gap: 20px; margin-top: 10px;">
+        <div style="width: 230px;">
+            <img src="/image/logo_aap.jpg" style="width: 230px; position: absolute; top: 8.83cm; left: 2.03cm; height: 93.09px; margin: 0px;" onerror="this.style.display='none';">
+        </div>
+        
+        <div style="width: 210px;">
+            <img src="/image/logo_Notaria.jpg" style="width: 210px; position: absolute; top: 16cm; left: 11.8cm; height: 83.16px; margin: 0px;" onerror="this.style.display='none';">
+        </div>
+    </div>
+
+</div>
+
+`;
 
   const onCreateSubmit = async () => {
     if (!newTemplateName.trim()) return;
@@ -266,10 +276,6 @@ export function DocumentCenterPage() {
           </div>
         </div>
       </div>
-
-      {/* ======================================================== */}
-      {/* MODAL CREAR PLANTILLA                                      */}
-      {/* ======================================================== */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm transition-all">
           <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
@@ -331,9 +337,6 @@ export function DocumentCenterPage() {
         </div>
       )}
 
-      {/* ======================================================== */}
-      {/* MODAL ELIMINAR PLANTILLA                                   */}
-      {/* ======================================================== */}
       {isDeleteModalOpen && selectedTemplate && (
         <div className="fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm transition-all">
           <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden">
