@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   ArrowLeft,
   Save,
@@ -15,6 +15,7 @@ import {
   Monitor,
   Printer,
   Layout,
+  AlertTriangle,
 } from "lucide-react";
 import { useTemplateEditorLogic } from "../../logic/documents/useTemplateEditorLogic";
 import VisualLayoutEditor from "./VisualLayoutEditor";
@@ -41,28 +42,37 @@ export function TemplateEditorPage() {
   const [showVisualEditor, setShowVisualEditor] = useState(false);
 
   /**
-   * NORMALIZADOR PRO V10.3:
-   * Ahora detecta si el HTML ya tiene una estructura multi-página o si necesita ser envuelto.
+   * LÓGICA DE FILTRO: Analiza si el documento es apto para el modo visual.
+   * Si detecta más de una página (div de 21cm), bloquea el acceso.
    */
+  const isMultiPage = useMemo(() => {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(htmlContent, "text/html");
+    const pages = Array.from(doc.querySelectorAll("div")).filter(
+      (d) => d.style.width === "21cm" || d.style.width === "210mm",
+    );
+    return pages.length > 1;
+  }, [htmlContent]);
+
   const convertToAbsoluteMode = () => {
+    if (isMultiPage) return; // Seguridad extra
+
     const parser = new DOMParser();
     const doc = parser.parseFromString(htmlContent, "text/html");
 
-    // Buscamos cualquier indicio de un contenedor de 21cm o el ID estándar
     const hasContainer =
       doc.querySelector("#visual-form-container") ||
       Array.from(doc.querySelectorAll("div")).find(
-        (d) => d.style.width === "21cm" || d.style.width === "210mm",
+        (d) => d.style.width === "21cm",
       );
 
     if (!hasContainer) {
-      // Si no hay contenedor, envolvemos todo para que el motor tenga un lienzo donde trabajar
-      const wrappedContent = `<div id="visual-form-container" style="background: #525659; padding: 20px; display: flex; flex-direction: column; gap: 20px; align-items: center;">\n<div style="background: white; width: 21cm; min-height: 29.7cm; padding: 2cm; box-sizing: border-box; font-family: Arial, sans-serif; font-size: 13px; position: relative;">\n${htmlContent}\n</div>\n</div>`;
+      const wrappedContent = `<div id="visual-form-container" style="background: white; width: 21cm; min-height: 29.7cm; padding: 2cm; box-sizing: border-box; font-family: Arial, sans-serif; font-size: 13px; position: relative; margin: 0 auto; border: 1px dashed #ccc;">\n${htmlContent}\n</div>`;
       setHtmlContent(wrappedContent);
     } else {
-      // Si ya tiene contenedor, aseguramos que el ID esté presente para el motor
       const container = hasContainer as HTMLElement;
       if (!container.id) container.id = "visual-form-container";
+      container.style.position = "relative";
       setHtmlContent(doc.body.innerHTML);
     }
 
@@ -100,13 +110,28 @@ export function TemplateEditorPage() {
         </div>
 
         <div className="flex items-center gap-4">
-          <button
-            onClick={convertToAbsoluteMode}
-            className="flex items-center gap-2 px-5 py-2 bg-indigo-600 text-white rounded-xl font-black text-xs hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition-all active:scale-95"
-          >
-            <Layout size={16} /> DESIGNER VISUAL
-          </button>
+          {/* BOTÓN CONDICIONAL: Solo aparece si el documento tiene 1 página o menos */}
+          {!isMultiPage ? (
+            <button
+              onClick={convertToAbsoluteMode}
+              className="flex items-center gap-2 px-5 py-2 bg-indigo-600 text-white rounded-xl font-black text-xs hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition-all active:scale-95"
+            >
+              <Layout size={16} /> DESIGNER VISUAL
+            </button>
+          ) : (
+            <div
+              className="flex items-center gap-2 px-4 py-2 bg-amber-50 text-amber-600 rounded-xl border border-amber-200 cursor-help"
+              title="El Diseñador Visual solo está disponible para documentos de una sola página."
+            >
+              <AlertTriangle size={14} />
+              <span className="text-[10px] font-black uppercase tracking-tight">
+                Modo Visual Deshabilitado (Multi-página)
+              </span>
+            </div>
+          )}
+
           <div className="h-8 w-px bg-gray-200"></div>
+
           <div className="flex items-center gap-2">
             <button
               onClick={handleSave}
@@ -131,9 +156,7 @@ export function TemplateEditorPage() {
         </div>
       </div>
 
-      {/* ÁREA DE TRABAJO */}
       <div className="flex-1 flex overflow-hidden relative">
-        {/* VARIABLES */}
         <div className="w-72 bg-slate-900 text-slate-300 flex flex-col shrink-0 overflow-hidden shadow-2xl z-10 h-full">
           <div className="p-4 border-b border-slate-800 bg-slate-950 flex items-center justify-between text-white">
             <div className="flex items-center gap-2">
@@ -144,13 +167,13 @@ export function TemplateEditorPage() {
             </div>
           </div>
           <div className="flex-1 overflow-y-auto p-4 space-y-6 custom-scrollbar">
-            {TEMPLATE_VARIABLES.map((group, idx) => (
+            {TEMPLATE_VARIABLES.map((group: any, idx: number) => (
               <div key={idx} className="space-y-2">
                 <h3 className="text-[10px] font-black uppercase text-slate-500 tracking-widest">
                   {group.category}
                 </h3>
                 <div className="space-y-1.5">
-                  {group.items.map((item, i) => (
+                  {group.items.map((item: any, i: number) => (
                     <button
                       key={i}
                       onClick={() => insertAtCursor(item.tag)}
@@ -170,7 +193,6 @@ export function TemplateEditorPage() {
           </div>
         </div>
 
-        {/* EDITOR DE CÓDIGO */}
         <div className="flex-1 flex flex-col border-r border-gray-200 bg-white h-full relative">
           <div className="bg-gray-50 border-b border-gray-200 p-2 flex items-center justify-between shrink-0">
             <div className="flex items-center gap-1">
@@ -220,7 +242,6 @@ export function TemplateEditorPage() {
           />
         </div>
 
-        {/* VISTA PREVIA RÁPIDA */}
         <div className="w-[45%] bg-gray-200 flex flex-col relative h-full">
           <div className="absolute top-0 w-full bg-slate-700/90 backdrop-blur-sm text-white px-4 py-2 flex items-center justify-between shadow-md z-10">
             <span className="text-xs font-bold uppercase tracking-widest flex items-center gap-2">

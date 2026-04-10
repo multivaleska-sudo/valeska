@@ -479,12 +479,11 @@ export default function VisualLayoutEditor({
           </span>
           {selectedId && (
             <span className="text-indigo-400 font-bold animate-pulse">
-              POS: {selectedElement?.left.toFixed(1)}cm x{" "}
+              POSICION: {selectedElement?.left.toFixed(1)}cm x{" "}
               {selectedElement?.top.toFixed(1)}cm
             </span>
           )}
         </div>
-        <span>A4 MULTI-PAGE ENGINE v10.3</span>
       </div>
     </div>
   );
