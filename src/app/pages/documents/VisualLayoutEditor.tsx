@@ -5,11 +5,9 @@ import {
   X,
   Plus,
   Minus,
-  Type,
   Bold,
   ImageIcon,
   Layers,
-  Monitor,
 } from "lucide-react";
 
 interface EditableElement {
@@ -172,7 +170,6 @@ export default function VisualLayoutEditor({
 
     hiddenRenderRef.current.innerHTML = htmlContent;
 
-    // Detectamos el contenedor que envuelve las páginas
     const pageContainer =
       hiddenRenderRef.current.querySelector("#visual-form-container") ||
       hiddenRenderRef.current.firstElementChild ||
@@ -181,7 +178,6 @@ export default function VisualLayoutEditor({
     const timer = setTimeout(() => {
       const pageRect = (pageContainer as HTMLElement).getBoundingClientRect();
 
-      // Actualizamos el tamaño del canvas del editor para que coincida con el original
       setCanvasSize({ width: pageRect.width, height: pageRect.height });
 
       const allCandidates = Array.from(
@@ -255,7 +251,6 @@ export default function VisualLayoutEditor({
         }
       });
 
-      // Crear fondo ocultando piezas movibles
       const cleanClone = (pageContainer as HTMLElement).cloneNode(
         true,
       ) as HTMLElement;
@@ -316,7 +311,6 @@ export default function VisualLayoutEditor({
         style={{ width: "21cm" }}
       />
 
-      {/* HEADER TOOLS */}
       <div
         className="h-16 bg-white border-b flex items-center justify-between px-6 shadow-2xl z-50"
         onClick={(e) => e.stopPropagation()}
@@ -438,13 +432,11 @@ export default function VisualLayoutEditor({
           }}
           onClick={(e) => e.target === e.currentTarget && setSelectedId(null)}
         >
-          {/* FONDO LIMPIO (Todas las páginas) */}
           <div
             className="absolute inset-0 pointer-events-none select-none overflow-hidden"
             dangerouslySetInnerHTML={{ __html: backgroundHtml }}
           />
 
-          {/* REJILLA */}
           {showGrid && (
             <div
               className="absolute inset-0 pointer-events-none z-0"

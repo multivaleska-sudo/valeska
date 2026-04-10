@@ -10,7 +10,7 @@ import {
   FileOutput,
   Loader2,
   X,
-  AlertTriangle, // Para el modal de borrar
+  AlertTriangle,
 } from "lucide-react";
 import { DocumentPreviewPanel } from "../../components/documents/DocumentPreviewPanel";
 import { useDocumentCenterLogic } from "../../logic/documents/useDocumentCenterLogic";
@@ -19,7 +19,7 @@ export function DocumentCenterPage() {
   const {
     id,
     navigate,
-    filteredTemplates, // Usamos las filtradas en lugar de todas
+    filteredTemplates,
     searchTerm,
     setSearchTerm,
     selectedTemplate,
@@ -28,15 +28,13 @@ export function DocumentCenterPage() {
     isGenerating,
     isLoading,
     handleCreateNewTemplate,
-    handleDeleteTemplate, // Función para eliminar
+    handleDeleteTemplate,
   } = useDocumentCenterLogic();
 
-  // Estados Modal Creación
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newTemplateName, setNewTemplateName] = useState("");
   const [isCreating, setIsCreating] = useState(false);
 
-  // Estados Modal Eliminación
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -278,10 +276,6 @@ export function DocumentCenterPage() {
           </div>
         </div>
       </div>
-
-      {/* ======================================================== */}
-      {/* MODAL CREAR PLANTILLA                                      */}
-      {/* ======================================================== */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm transition-all">
           <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
@@ -343,9 +337,6 @@ export function DocumentCenterPage() {
         </div>
       )}
 
-      {/* ======================================================== */}
-      {/* MODAL ELIMINAR PLANTILLA                                   */}
-      {/* ======================================================== */}
       {isDeleteModalOpen && selectedTemplate && (
         <div className="fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm transition-all">
           <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden">

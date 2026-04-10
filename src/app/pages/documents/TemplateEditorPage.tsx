@@ -41,10 +41,6 @@ export function TemplateEditorPage() {
 
   const [showVisualEditor, setShowVisualEditor] = useState(false);
 
-  /**
-   * LÓGICA DE FILTRO: Analiza si el documento es apto para el modo visual.
-   * Si detecta más de una página (div de 21cm), bloquea el acceso.
-   */
   const isMultiPage = useMemo(() => {
     const parser = new DOMParser();
     const doc = parser.parseFromString(htmlContent, "text/html");
@@ -55,7 +51,7 @@ export function TemplateEditorPage() {
   }, [htmlContent]);
 
   const convertToAbsoluteMode = () => {
-    if (isMultiPage) return; // Seguridad extra
+    if (isMultiPage) return;
 
     const parser = new DOMParser();
     const doc = parser.parseFromString(htmlContent, "text/html");
@@ -110,7 +106,6 @@ export function TemplateEditorPage() {
         </div>
 
         <div className="flex items-center gap-4">
-          {/* BOTÓN CONDICIONAL: Solo aparece si el documento tiene 1 página o menos */}
           {!isMultiPage ? (
             <button
               onClick={convertToAbsoluteMode}
