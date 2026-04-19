@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { UserPlus, ShieldCheck, ShieldAlert, Loader2 } from "lucide-react";
 import {
   useUsuariosLogic,
@@ -23,11 +23,25 @@ export function UsuariosPage() {
   const [showModal, setShowModal] = useState(false);
   const [editingUser, setEditingUser] = useState<UserDB | null>(null);
 
+  // Estados para verificar los permisos del usuario actual
+  const [isCurrentUserAdmin, setIsCurrentUserAdmin] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState("");
+
   const [transferData, setTransferData] = useState<{
     currentAdminId: string;
     targetAdminId: string;
     targetName: string;
   } | null>(null);
+
+  useEffect(() => {
+    // Verificamos quién es el usuario logueado actualmente
+    const sessionStr = localStorage.getItem("valeska_session_user");
+    if (sessionStr) {
+      const session = JSON.parse(sessionStr);
+      setIsCurrentUserAdmin(session.rol === "ADMIN_CENTRAL");
+      setCurrentUserId(session.id);
+    }
+  }, []);
 
   const handleSaveUser = async (updatedData: any) => {
     const currentAdmin = users.find((u) => u.rol === "ADMIN_CENTRAL");
@@ -97,15 +111,19 @@ export function UsuariosPage() {
             registrados).
           </p>
         </div>
-        <button
-          onClick={() => {
-            setEditingUser(null);
-            setShowModal(true);
-          }}
-          className="bg-[#2563EB] text-white px-8 py-4 rounded-[1.5rem] font-black flex items-center gap-2 shadow-xl shadow-blue-200 hover:bg-[#1D4ED8] transition-all text-[11px] uppercase tracking-widest"
-        >
-          <UserPlus size={18} /> Registrar Personal
-        </button>
+
+        {/* OCULTAMOS EL BOTÓN DE REGISTRO SI NO ES ADMINISTRADOR */}
+        {isCurrentUserAdmin && (
+          <button
+            onClick={() => {
+              setEditingUser(null);
+              setShowModal(true);
+            }}
+            className="bg-[#2563EB] text-white px-8 py-4 rounded-[1.5rem] font-black flex items-center gap-2 shadow-xl shadow-blue-200 hover:bg-[#1D4ED8] transition-all text-[11px] uppercase tracking-widest"
+          >
+            <UserPlus size={18} /> Registrar Personal
+          </button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
@@ -113,6 +131,8 @@ export function UsuariosPage() {
           <UserCard
             key={user.id}
             user={user}
+            isCurrentUserAdmin={isCurrentUserAdmin}
+            currentUserId={currentUserId}
             onToggleStatus={() => toggleUserStatus(user.id, user.esta_activo)}
             onDelete={() => deleteUser(user.id, user.rol)}
             onEdit={() => {
@@ -128,6 +148,7 @@ export function UsuariosPage() {
       {showModal && (
         <UserForm
           user={editingUser}
+          isCurrentUserAdmin={isCurrentUserAdmin}
           onClose={() => setShowModal(false)}
           onSave={handleSaveUser}
         />

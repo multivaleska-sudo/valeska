@@ -303,7 +303,7 @@ export function useAuthLogic() {
   };
 
   // =======================================================================
-  // 4. LOGIN NATIVO (SQL PURO)
+  // 4. LOGIN INTELIGENTE (VERIFICACIÓN LOCAL + RESCATE DE NUBE)
   // =======================================================================
   const login = async (username: string, passwordPlain: string) => {
     setError(null);
@@ -326,11 +326,66 @@ export function useAuthLogic() {
         return false;
       }
 
-      if (
-        user.esta_activo === 0 ||
-        user.esta_activo === false ||
-        user.esta_activo === "0"
-      ) {
+      // Verificamos el estado local primero
+      let isActive =
+        user.esta_activo === 1 ||
+        user.esta_activo === true ||
+        user.esta_activo === "1";
+
+      let isMatch = bcrypt.compareSync(passwordPlain, user.password_hash);
+
+      // MAGIA AQUI: Si está bloqueado localmente O la contraseña no cuadra
+      // (tal vez se la resetearon en la nube), hacemos una sincronización de rescate
+      if (!isActive || !isMatch) {
+        try {
+          const pullRes = await fetch(`${API_URL}/sync/pull?lastSync=`, {
+            headers: { "x-user-id": user.id },
+          });
+
+          if (pullRes.ok) {
+            const pullData = await pullRes.json();
+            const remoteUser = (pullData.usuarios || []).find(
+              (u: any) => u.id === user.id,
+            );
+
+            if (remoteUser) {
+              // Actualizamos SQLite silenciosamente con los datos frescos de la nube
+              await sqlite.execute(
+                "UPDATE usuarios SET esta_activo = $1, password_hash = $2, rol = $3, nombre_completo = $4, updated_at = $5 WHERE id = $6",
+                [
+                  remoteUser.estaActivo ? 1 : 0,
+                  remoteUser.passwordHash,
+                  remoteUser.rol,
+                  remoteUser.nombreCompleto,
+                  new Date().toISOString(),
+                  user.id,
+                ],
+              );
+
+              // Refrescamos las variables de memoria para que el Login re-evalue
+              user.password_hash = remoteUser.passwordHash;
+              isActive =
+                remoteUser.estaActivo === true || remoteUser.estaActivo === 1;
+              isMatch = bcrypt.compareSync(passwordPlain, user.password_hash);
+
+              if (isActive) {
+                sileo.success({
+                  title: "Sincronización Exitosa",
+                  description:
+                    "Tus datos de acceso han sido actualizados desde la central.",
+                });
+              }
+            }
+          }
+        } catch (e) {
+          console.log("Modo Offline: No se pudo verificar estado remoto.");
+        }
+      }
+
+      // -----------------------------------------------------------
+      // Evaluacion Final despues del intento de rescate
+      // -----------------------------------------------------------
+      if (!isActive) {
         setError("Su cuenta ha sido bloqueada por el Administrador.");
         sileo.error({
           title: "Acceso Denegado",
@@ -338,8 +393,6 @@ export function useAuthLogic() {
         });
         return false;
       }
-
-      const isMatch = bcrypt.compareSync(passwordPlain, user.password_hash);
 
       if (!isMatch) {
         setError("Contraseña incorrecta.");
@@ -350,6 +403,7 @@ export function useAuthLogic() {
         return false;
       }
 
+      // Si todo sale bien, entra
       localStorage.setItem(
         "valeska_session_user",
         JSON.stringify({

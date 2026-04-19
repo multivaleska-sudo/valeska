@@ -3,11 +3,17 @@ import { X, ShieldCheck, UserCircle, Mail, Key } from "lucide-react";
 
 interface UserFormProps {
   user: any | null;
+  isCurrentUserAdmin: boolean;
   onClose: () => void;
   onSave: (u: any) => void;
 }
 
-export function UserForm({ user, onClose, onSave }: UserFormProps) {
+export function UserForm({
+  user,
+  isCurrentUserAdmin,
+  onClose,
+  onSave,
+}: UserFormProps) {
   const [localData, setLocalData] = useState({
     id: user?.id || "",
     name: user?.nombre_completo || "",
@@ -87,7 +93,8 @@ export function UserForm({ user, onClose, onSave }: UserFormProps) {
                 Rol
               </label>
               <select
-                className="w-full h-14 px-6 bg-gray-100/50 border-2 border-gray-100 rounded-3xl font-black text-blue-900 outline-none focus:ring-4 focus:ring-blue-100 cursor-pointer"
+                disabled={!isCurrentUserAdmin} // Bloqueado si de milagro logra abrirlo un operador
+                className="w-full h-14 px-6 bg-gray-100/50 border-2 border-gray-100 rounded-3xl font-black text-blue-900 outline-none focus:ring-4 focus:ring-blue-100 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 value={localData.role}
                 onChange={(e) =>
                   setLocalData({ ...localData, role: e.target.value })

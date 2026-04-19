@@ -13,6 +13,8 @@ import { User } from "../../types/usuarios/user.types";
 
 interface UserCardProps {
   user: User;
+  isCurrentUserAdmin: boolean;
+  currentUserId: string;
   onToggleStatus: () => void;
   onDelete: () => void;
   onEdit: () => void;
@@ -22,6 +24,8 @@ interface UserCardProps {
 
 export function UserCard({
   user,
+  isCurrentUserAdmin,
+  currentUserId,
   onToggleStatus,
   onDelete,
   onEdit,
@@ -29,7 +33,7 @@ export function UserCard({
   onExport,
 }: UserCardProps) {
   const isActive = user.esta_activo === 1 || user.esta_activo === true;
-  const isAdmin = user.rol === "ADMIN_CENTRAL";
+  const isThisUserAdmin = user.rol === "ADMIN_CENTRAL";
 
   const lastActivity = user.updated_at
     ? new Date(user.updated_at).toLocaleDateString("es-PE", {
@@ -44,9 +48,9 @@ export function UserCard({
   return (
     <div
       className={`bg-white rounded-[2.5rem] border-2 transition-all group relative overflow-hidden p-8 shadow-sm hover:shadow-xl
-      ${isActive ? (isAdmin ? "border-blue-500 shadow-blue-50" : "border-gray-100") : "border-red-100 bg-red-50/10"}`}
+      ${isActive ? (isThisUserAdmin ? "border-blue-500 shadow-blue-50" : "border-gray-100") : "border-red-100 bg-red-50/10"}`}
     >
-      {isAdmin && (
+      {isThisUserAdmin && (
         <div className="absolute top-0 left-0 bg-blue-500 text-white px-4 py-1.5 rounded-br-2xl text-[9px] font-black uppercase tracking-widest flex items-center gap-2 z-10">
           <ShieldCheck size={12} /> Propietario de Instancia
         </div>
@@ -60,46 +64,49 @@ export function UserCard({
 
       <div className="flex justify-between items-start mt-4 mb-6 relative z-10">
         <div
-          className={`p-4 rounded-3xl ${isActive ? (isAdmin ? "bg-blue-600 text-white shadow-lg" : "bg-blue-50 text-blue-600") : "bg-red-100 text-red-600"}`}
+          className={`p-4 rounded-3xl ${isActive ? (isThisUserAdmin ? "bg-blue-600 text-white shadow-lg" : "bg-blue-50 text-blue-600") : "bg-red-100 text-red-600"}`}
         >
           <UserCircle size={32} />
         </div>
 
-        <div className="flex gap-1.5 bg-white/80 backdrop-blur-sm p-1 rounded-2xl shadow-sm border border-gray-50">
-          <button
-            onClick={onExport}
-            title="Exportar Licencia Fìsica (.valeska)"
-            className="p-2.5 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all"
-          >
-            <DownloadCloud size={18} />
-          </button>
-
-          <button
-            onClick={onEdit}
-            title="Editar Usuario"
-            className="p-2.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"
-          >
-            <Edit3 size={18} />
-          </button>
-
-          <button
-            onClick={onResetPassword}
-            title="Generar Contraseña Temporal"
-            className="p-2.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-xl transition-all"
-          >
-            <KeyRound size={18} />
-          </button>
-
-          {!isAdmin && (
+        {/* OCULTAMOS LAS ACCIONES SI NO ES ADMIN */}
+        {isCurrentUserAdmin && (
+          <div className="flex gap-1.5 bg-white/80 backdrop-blur-sm p-1 rounded-2xl shadow-sm border border-gray-50">
             <button
-              onClick={onDelete}
-              title="Eliminar Permanente"
-              className="p-2.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"
+              onClick={onExport}
+              title="Exportar Licencia Fìsica (.valeska)"
+              className="p-2.5 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all"
             >
-              <Trash2 size={18} />
+              <DownloadCloud size={18} />
             </button>
-          )}
-        </div>
+
+            <button
+              onClick={onEdit}
+              title="Editar Usuario"
+              className="p-2.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"
+            >
+              <Edit3 size={18} />
+            </button>
+
+            <button
+              onClick={onResetPassword}
+              title="Generar Contraseña Temporal"
+              className="p-2.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-xl transition-all"
+            >
+              <KeyRound size={18} />
+            </button>
+
+            {!isThisUserAdmin && (
+              <button
+                onClick={onDelete}
+                title="Eliminar Permanente"
+                className="p-2.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"
+              >
+                <Trash2 size={18} />
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="space-y-2 relative z-10">
@@ -121,7 +128,8 @@ export function UserCard({
           </span>
         </div>
 
-        {!isAdmin && (
+        {/* OCULTAMOS EL BOTON DE BLOQUEO SI NO ES ADMIN */}
+        {isCurrentUserAdmin && !isThisUserAdmin && (
           <button
             onClick={onToggleStatus}
             className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase transition-all shadow-md
