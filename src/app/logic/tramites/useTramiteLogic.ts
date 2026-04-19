@@ -22,9 +22,7 @@ export function useTramiteLogic(initialData?: Partial<TramiteFormData>) {
 
   const [formData, setFormData] = useState<TramiteFormData>(() => {
     const today = new Date().toISOString().split("T")[0];
-    const randomCode = `VAL${Math.floor(Math.random() * 100000000)
-      .toString()
-      .padStart(8, "0")}`;
+    const randomCode = ``;
 
     return {
       tramite_anio: new Date().getFullYear().toString(),
