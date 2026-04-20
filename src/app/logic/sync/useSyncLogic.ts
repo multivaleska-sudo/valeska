@@ -142,6 +142,7 @@ export function useSyncLogic() {
         "plantillas_documentos",
         "tramites",
         "tramite_detalles",
+        "message_templates", // <--- AÑADIDO A LA LIMPIEZA
       ];
 
       for (const table of tablesToMark) {
@@ -176,7 +177,8 @@ export function useSyncLogic() {
         payload.vehiculos.length +
         payload.empresasGestoras.length +
         payload.presentantes.length +
-        payload.plantillasDocumentos.length;
+        payload.plantillasDocumentos.length +
+        payload.messageTemplates.length; // <--- AÑADIDO A LAS ESTADÍSTICAS
 
       const currentStats = {
         push: {
