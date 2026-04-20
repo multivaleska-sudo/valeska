@@ -221,17 +221,14 @@ export function useConfigLogic() {
     isSavingSystem,
     username,
     rol,
-
     nombre,
     setNombre,
-
     currentPassword,
     setCurrentPassword,
     newPassword,
     setNewPassword,
     confirmPassword,
     setConfirmPassword,
-
     dispositivoNombre,
     setDispositivoNombre,
     sucursalId,
@@ -239,7 +236,6 @@ export function useConfigLogic() {
     sucursalesList,
     autoSync,
     setAutoSync,
-
     handleUpdateProfile,
     handleChangePassword,
     handleUpdateSystem,

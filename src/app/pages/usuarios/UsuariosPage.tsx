@@ -134,7 +134,7 @@ export function UsuariosPage() {
             isCurrentUserAdmin={isCurrentUserAdmin}
             currentUserId={currentUserId}
             onToggleStatus={() => toggleUserStatus(user.id, user.esta_activo)}
-            onDelete={() => deleteUser(user.id, user.rol)}
+            onDelete={() => deleteUser(user.id, currentUserId)}
             onEdit={() => {
               setEditingUser(user);
               setShowModal(true);

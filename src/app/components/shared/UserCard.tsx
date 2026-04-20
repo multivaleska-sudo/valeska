@@ -74,7 +74,7 @@ export function UserCard({
           <div className="flex gap-1.5 bg-white/80 backdrop-blur-sm p-1 rounded-2xl shadow-sm border border-gray-50">
             <button
               onClick={onExport}
-              title="Exportar Licencia Fìsica (.valeska)"
+              title="Exportar Licencia Física (.valeska)"
               className="p-2.5 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all"
             >
               <DownloadCloud size={18} />
@@ -96,10 +96,10 @@ export function UserCard({
               <KeyRound size={18} />
             </button>
 
-            {!isThisUserAdmin && (
+            {user.id !== currentUserId && (
               <button
                 onClick={onDelete}
-                title="Eliminar Permanente"
+                title="Eliminar Cuenta"
                 className="p-2.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"
               >
                 <Trash2 size={18} />
@@ -128,12 +128,12 @@ export function UserCard({
           </span>
         </div>
 
-        {/* OCULTAMOS EL BOTON DE BLOQUEO SI NO ES ADMIN */}
-        {isCurrentUserAdmin && !isThisUserAdmin && (
+        {/* AHORA UN ADMIN PUEDE BLOQUEAR A OTRO ADMIN, EXCEPTO A SÍ MISMO */}
+        {isCurrentUserAdmin && user.id !== currentUserId && (
           <button
             onClick={onToggleStatus}
             className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase transition-all shadow-md
-              ${isActive ? "bg-red-50 text-red-600 hover:bg-red-600 hover:text-white" : "bg-green-50 text-green-600 hover:bg-green-600 hover:text-white"}`}
+            ${isActive ? "bg-red-50 text-red-600 hover:bg-red-600 hover:text-white" : "bg-green-50 text-green-600 hover:bg-green-600 hover:text-white"}`}
           >
             {isActive ? <Lock size={14} /> : <Unlock size={14} />}
             {isActive ? "Bloquear" : "Desbloquear"}

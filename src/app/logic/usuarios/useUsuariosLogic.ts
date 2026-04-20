@@ -22,8 +22,9 @@ export function useUsuariosLogic() {
     setIsLoading(true);
     try {
       const sqlite = await Database.load("sqlite:valeska.db");
+      // MAGIA 1: Solo traemos a los usuarios que NO están eliminados
       const result: UserDB[] = await sqlite.select(
-        "SELECT * FROM usuarios ORDER BY created_at DESC",
+        "SELECT * FROM usuarios WHERE deleted_at IS NULL ORDER BY created_at DESC",
       );
       setUsers(result);
     } catch (error) {
@@ -49,7 +50,7 @@ export function useUsuariosLogic() {
       const sqlite = await Database.load("sqlite:valeska.db");
       const newStatus = currentStatus ? 0 : 1;
       await sqlite.execute(
-        "UPDATE usuarios SET esta_activo = $1, updated_at = $2 WHERE id = $3",
+        "UPDATE usuarios SET esta_activo = $1, updated_at = $2, sync_status = 'LOCAL_UPDATE' WHERE id = $3",
         [newStatus, new Date().toISOString(), id],
       );
       await fetchUsers();
@@ -76,27 +77,37 @@ export function useUsuariosLogic() {
     }
   };
 
-  const deleteUser = async (id: string, role: string) => {
-    if (role === "ADMIN_CENTRAL") {
+  // Recibimos el currentUserId para evitar auto-eliminaciones accidentales
+  const deleteUser = async (id: string, currentUserId: string) => {
+    if (id === currentUserId) {
       sileo.warning({
         title: "Acción no permitida",
-        description: "No puedes eliminar al Administrador Central.",
+        description:
+          "No puedes eliminar tu propia cuenta mientras estás en sesión.",
       });
       return;
     }
+
     const confirm = window.confirm(
-      "¿Estás seguro de que deseas eliminar este usuario permanentemente?",
+      "¿Estás seguro de que deseas eliminar este usuario? (Perderá acceso al sistema)",
     );
     if (!confirm) return;
 
     try {
       const sqlite = await Database.load("sqlite:valeska.db");
-      await sqlite.execute("DELETE FROM usuarios WHERE id = $1", [id]);
+      const now = Date.now();
+
+      // MAGIA 2: Soft Delete (ocultarlo de la vista) en lugar de borrarlo de la base de datos
+      await sqlite.execute(
+        "UPDATE usuarios SET deleted_at = $1, esta_activo = 0, sync_status = 'LOCAL_UPDATE' WHERE id = $2",
+        [now, id],
+      );
+
       await fetchUsers();
       window.dispatchEvent(new Event("valeska_request_sync"));
       sileo.success({
         title: "Usuario Eliminado",
-        description: "El usuario ha sido eliminado correctamente.",
+        description: "El usuario ha sido retirado del sistema.",
       });
     } catch (error) {
       console.error("Error al eliminar:", error);
@@ -117,7 +128,7 @@ export function useUsuariosLogic() {
           const salt = bcrypt.genSaltSync(10);
           const hash = bcrypt.hashSync(userData.password, salt);
           await sqlite.execute(
-            "UPDATE usuarios SET nombre_completo = $1, username = $2, rol = $3, password_hash = $4, updated_at = $5 WHERE id = $6",
+            "UPDATE usuarios SET nombre_completo = $1, username = $2, rol = $3, password_hash = $4, updated_at = $5, sync_status = 'LOCAL_UPDATE' WHERE id = $6",
             [
               userData.name,
               userData.email,
@@ -129,7 +140,7 @@ export function useUsuariosLogic() {
           );
         } else {
           await sqlite.execute(
-            "UPDATE usuarios SET nombre_completo = $1, username = $2, rol = $3, updated_at = $4 WHERE id = $5",
+            "UPDATE usuarios SET nombre_completo = $1, username = $2, rol = $3, updated_at = $4, sync_status = 'LOCAL_UPDATE' WHERE id = $5",
             [userData.name, userData.email, userData.role, now, userData.id],
           );
         }
@@ -139,28 +150,45 @@ export function useUsuariosLogic() {
 
         const salt = bcrypt.genSaltSync(10);
         const hash = bcrypt.hashSync(userData.password, salt);
-        const newId = crypto.randomUUID();
 
-        const deviceResult: any[] = await sqlite.select(
-          "SELECT id FROM dispositivos LIMIT 1",
+        // MAGIA 3: Buscamos si el correo (username) ya existe como Fantasma
+        const existing: any[] = await sqlite.select(
+          "SELECT id FROM usuarios WHERE username = $1",
+          [userData.email],
         );
-        const deviceId = deviceResult[0]?.id || "";
 
-        await sqlite.execute(
-          "INSERT INTO usuarios (id, username, password_hash, rol, nombre_completo, dispositivo_id, esta_activo, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
-          [
-            newId,
-            userData.email,
-            hash,
-            userData.role,
-            userData.name,
-            deviceId,
-            1,
-            now,
-            now,
-          ],
-        );
+        if (existing.length > 0) {
+          // REVIVIR USUARIO FANTASMA
+          const targetId = existing[0].id;
+          await sqlite.execute(
+            "UPDATE usuarios SET nombre_completo = $1, rol = $2, password_hash = $3, esta_activo = 1, deleted_at = NULL, updated_at = $4, sync_status = 'LOCAL_UPDATE' WHERE id = $5",
+            [userData.name, userData.role, hash, now, targetId],
+          );
+        } else {
+          // INSERTAR USUARIO 100% NUEVO
+          const newId = crypto.randomUUID();
+          const deviceResult: any[] = await sqlite.select(
+            "SELECT id FROM dispositivos LIMIT 1",
+          );
+          const deviceId = deviceResult[0]?.id || "";
+
+          await sqlite.execute(
+            "INSERT INTO usuarios (id, username, password_hash, rol, nombre_completo, dispositivo_id, esta_activo, created_at, updated_at, sync_status) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'LOCAL_INSERT')",
+            [
+              newId,
+              userData.email,
+              hash,
+              userData.role,
+              userData.name,
+              deviceId,
+              1,
+              now,
+              now,
+            ],
+          );
+        }
       }
+
       await fetchUsers();
       window.dispatchEvent(
         new CustomEvent("valeska_request_sync", {
@@ -182,10 +210,10 @@ export function useUsuariosLogic() {
       return true;
     } catch (error: any) {
       console.error("Error al guardar usuario:", error);
+      const msg = typeof error === "string" ? error : error.message;
       sileo.error({
         title: "Error al guardar",
-        description:
-          error.message || "Error al guardar el usuario en la base de datos.",
+        description: msg || "Error al guardar el usuario en la base de datos.",
       });
       return false;
     }
@@ -200,7 +228,7 @@ export function useUsuariosLogic() {
       const hash = bcrypt.hashSync(tempPassword, salt);
 
       await sqlite.execute(
-        "UPDATE usuarios SET password_hash = $1, updated_at = $2 WHERE id = $3",
+        "UPDATE usuarios SET password_hash = $1, updated_at = $2, sync_status = 'LOCAL_UPDATE' WHERE id = $3",
         [hash, new Date().toISOString(), id],
       );
       window.dispatchEvent(
@@ -229,11 +257,11 @@ export function useUsuariosLogic() {
     try {
       const sqlite = await Database.load("sqlite:valeska.db");
       await sqlite.execute(
-        "UPDATE usuarios SET rol = 'OPERADOR' WHERE id = $1",
+        "UPDATE usuarios SET rol = 'OPERADOR', sync_status = 'LOCAL_UPDATE' WHERE id = $1",
         [currentAdminId],
       );
       await sqlite.execute(
-        "UPDATE usuarios SET rol = 'ADMIN_CENTRAL' WHERE id = $1",
+        "UPDATE usuarios SET rol = 'ADMIN_CENTRAL', sync_status = 'LOCAL_UPDATE' WHERE id = $1",
         [newAdminId],
       );
 
@@ -261,14 +289,10 @@ export function useUsuariosLogic() {
     }
   };
 
-  // =======================================================================
-  // NUEVO: GENERAR ARCHIVO .VALESKA ENCRIPTADO (VIA RUST)
-  // =======================================================================
   const exportProvisioningFile = async (userId: string) => {
     try {
       const sqlite = await Database.load("sqlite:valeska.db");
 
-      // 1. Obtener datos del usuario y sucursal
       const userResult: any[] = await sqlite.select(
         "SELECT * FROM usuarios WHERE id = $1",
         [userId],
@@ -288,7 +312,6 @@ export function useUsuariosLogic() {
       const sucursal = sucResult[0];
       if (!sucursal) throw new Error("Sucursal no encontrada.");
 
-      // 2. Armar el Payload (El contenido)
       const payload = {
         provision_id: crypto.randomUUID(),
         tipo_licencia: user.rol === "ADMIN_CENTRAL" ? "MASTER" : "OPERADOR",
@@ -306,20 +329,16 @@ export function useUsuariosLogic() {
 
       const fileContent = JSON.stringify(payload);
 
-      // 3. Abrir la ventana nativa de Windows/Mac para elegir dónde guardarlo
       const filePath = await save({
         filters: [{ name: "Licencia Valeska", extensions: ["valeska"] }],
         defaultPath: `${user.nombre_completo.replace(/\s+/g, "_")}_Licencia.valeska`,
       });
 
-      // Si el usuario no canceló la ventana de guardar...
       if (filePath) {
-        // Generamos 12 bytes aleatorios para la encriptación (Nonce) desde el navegador seguro
         const nonceArray = new Uint8Array(12);
         window.crypto.getRandomValues(nonceArray);
         const nonceBytes = Array.from(nonceArray);
 
-        // 4. Se lo pasamos a Rust para que lo encripte con la llave maestra y lo guarde
         await invoke("generate_provisioning_file", {
           payload: fileContent,
           filePath: filePath,
