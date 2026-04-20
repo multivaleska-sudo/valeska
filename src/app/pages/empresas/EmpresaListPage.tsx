@@ -18,6 +18,7 @@ export function EmpresaListPage() {
     representantes,
     presentantes,
     isLoading,
+    isSaving, // Recibimos el candado
     formPresentante,
     setFormPresentante,
     initialPresentante,
@@ -312,7 +313,6 @@ export function EmpresaListPage() {
                     }
                   />
 
-                  {/* Se eliminó la grilla, ahora cada dato usa una fila entera */}
                   <CopiableField
                     label="Primer Apellido (*)"
                     value={formRepresentante.primer_apellido}
@@ -346,7 +346,6 @@ export function EmpresaListPage() {
 
                   <div className="h-px bg-emerald-200/50 my-4" />
 
-                  {/* Se eliminó la grilla, ahora cada dato usa una fila entera */}
                   <CopiableField
                     label="Partida Registral"
                     value={formRepresentante.partida_registral}
@@ -429,14 +428,15 @@ export function EmpresaListPage() {
             )}
           </div>
 
-          {/* BOTONERA INFERIOR UNIFICADA */}
+          {/* BOTONERA INFERIOR UNIFICADA CON BLOQUEO ANTI-DOBLE CLIC */}
           <div className="p-5 bg-white border-t border-gray-200 flex flex-wrap items-center justify-center sm:justify-end gap-3 shrink-0">
             {activeTab === "representantes" && formRepresentante.id && (
               <button
                 onClick={() =>
                   deleteRecord("representantes_legales", formRepresentante.id)
                 }
-                className="bg-red-50 text-red-600 border border-red-200 px-5 py-2.5 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-red-100 transition-colors shadow-sm flex items-center justify-center gap-2 flex-1 sm:flex-none"
+                disabled={isSaving}
+                className="bg-red-50 text-red-600 border border-red-200 px-5 py-2.5 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-red-100 transition-colors shadow-sm flex items-center justify-center gap-2 flex-1 sm:flex-none disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Trash2 size={16} /> Eliminar
               </button>
@@ -444,7 +444,8 @@ export function EmpresaListPage() {
             {activeTab === "presentantes" && formPresentante.id && (
               <button
                 onClick={() => deleteRecord("presentantes", formPresentante.id)}
-                className="bg-red-50 text-red-600 border border-red-200 px-5 py-2.5 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-red-100 transition-colors shadow-sm flex items-center justify-center gap-2 flex-1 sm:flex-none"
+                disabled={isSaving}
+                className="bg-red-50 text-red-600 border border-red-200 px-5 py-2.5 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-red-100 transition-colors shadow-sm flex items-center justify-center gap-2 flex-1 sm:flex-none disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Trash2 size={16} /> Eliminar
               </button>
@@ -456,7 +457,8 @@ export function EmpresaListPage() {
                   setFormRepresentante(initialRepresentante);
                 else setFormPresentante(initialPresentante);
               }}
-              className="bg-gray-50 border border-gray-200 text-gray-600 hover:bg-gray-100 px-5 py-2.5 rounded-xl font-black text-xs uppercase tracking-widest transition-colors shadow-sm flex items-center justify-center gap-2 flex-1 sm:flex-none"
+              disabled={isSaving}
+              className="bg-gray-50 border border-gray-200 text-gray-600 hover:bg-gray-100 px-5 py-2.5 rounded-xl font-black text-xs uppercase tracking-widest transition-colors shadow-sm flex items-center justify-center gap-2 flex-1 sm:flex-none disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <X size={16} /> CANCELAR
             </button>
@@ -466,10 +468,17 @@ export function EmpresaListPage() {
                 if (activeTab === "representantes") saveRepresentante();
                 else savePresentante();
               }}
-              className="bg-[#2E7D32] hover:bg-[#166534] text-white px-8 py-2.5 rounded-xl font-black text-xs uppercase tracking-widest transition-all shadow-md flex items-center justify-center gap-2 flex-1 sm:flex-none w-full sm:w-auto"
+              disabled={isSaving}
+              className="bg-[#2E7D32] hover:bg-[#166534] text-white px-8 py-2.5 rounded-xl font-black text-xs uppercase tracking-widest transition-all shadow-md flex items-center justify-center gap-2 flex-1 sm:flex-none w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <Save size={16} /> GRABAR{" "}
-              {activeTab === "representantes" ? "REGISTRO" : "PRESENTANTE"}
+              {isSaving ? (
+                "GUARDANDO..."
+              ) : (
+                <>
+                  <Save size={16} /> GRABAR{" "}
+                  {activeTab === "representantes" ? "REGISTRO" : "PRESENTANTE"}
+                </>
+              )}
             </button>
           </div>
         </div>
