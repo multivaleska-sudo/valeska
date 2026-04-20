@@ -7,9 +7,8 @@ import { eq } from "drizzle-orm";
 import * as bcrypt from "bcryptjs";
 import * as schema from "../../db/schema";
 import { sileo } from "sileo";
-// Solo importamos formatDateForNest, ya no usamos buildPushPayload aquí
-import { formatDateForNest } from "../sync/pushActions";
-import { processPullSync } from "../sync/pullActions";
+import { executePush } from "../sync/pushActions";
+import { executePull } from "../sync/pullActions";
 
 const getDb = async () => {
   const sqlite = await Database.load("sqlite:valeska.db");
@@ -234,7 +233,7 @@ export function useAuthLogic() {
         const errData = await response.json().catch(() => ({}));
         throw new Error(
           errData.message ||
-            "Credenciales inválidas o conexión a la nube fallida.",
+          "Credenciales inválidas o conexión a la nube fallida.",
         );
       }
 
@@ -292,7 +291,7 @@ export function useAuthLogic() {
       console.error("Error en provisión por nube:", err);
       setError(
         err.message ||
-          "Error interno al configurar el dispositivo desde la nube.",
+        "Error interno al configurar el dispositivo desde la nube.",
       );
       sileo.error({
         title: "Error en Nube",
@@ -317,111 +316,23 @@ export function useAuthLogic() {
       let user = result[0];
 
       if (user) {
-        // ========================================================================
-        // 1. PUSH MINIMALISTA: SOLO SUBIMOS LA CONFIGURACIÓN BASE (USUARIO)
-        // ========================================================================
         try {
-          const sucursalesRaw: any[] = await sqlite.select(
-            "SELECT * FROM sucursales",
+          const config = { apiUrl: API_URL };
+
+          await executePush(config, user.id, sqlite);
+
+          localStorage.removeItem("valeska_last_sync");
+          await executePull(config, user.id, sqlite);
+
+          result = await sqlite.select(
+            "SELECT id, username, rol, nombre_completo, password_hash, esta_activo FROM usuarios WHERE username = $1",
+            [username],
           );
-          const dispositivosRaw: any[] = await sqlite.select(
-            "SELECT * FROM dispositivos",
-          );
-          const usuariosRaw: any[] = await sqlite.select(
-            "SELECT * FROM usuarios WHERE id = $1",
-            [user.id],
-          );
+          user = result[0];
 
-          // Payload ultra-ligero: SOLO manda las credenciales para que el backend te conozca
-          const minimalPayload = {
-            sucursales: sucursalesRaw.map((s) => ({
-              id: s.id,
-              nombre: s.nombre,
-              direccion: s.direccion,
-              esCentral: s.es_central === 1 || s.es_central === true,
-              createdAt: formatDateForNest(s.created_at),
-              updatedAt: formatDateForNest(s.updated_at),
-              deletedAt: formatDateForNest(s.deleted_at),
-            })),
-            dispositivos: dispositivosRaw.map((d) => ({
-              id: d.id,
-              macAddress: d.mac_address,
-              nombreEquipo: d.nombre_equipo,
-              autorizado: d.autorizado === 1 || d.autorizado === true,
-              provisionId: d.provision_id,
-              sucursalId: d.sucursal_id,
-              createdAt: formatDateForNest(d.created_at),
-              updatedAt: formatDateForNest(d.updated_at),
-              deletedAt: formatDateForNest(d.deleted_at),
-            })),
-            usuarios: usuariosRaw.map((u) => ({
-              id: u.id,
-              username: u.username,
-              passwordHash: u.password_hash,
-              rol: u.rol,
-              nombreCompleto: u.nombre_completo,
-              estaActivo: u.esta_activo === 1 || u.esta_activo === true,
-              dispositivoId: u.dispositivo_id,
-              createdAt: formatDateForNest(u.created_at),
-              updatedAt: formatDateForNest(u.updated_at),
-              deletedAt: formatDateForNest(u.deleted_at),
-            })),
-            // Todo lo demás va completamente vacío, el useSyncLogic se encargará de esto luego
-            catalogoTiposTramite: [],
-            catalogoSituaciones: [],
-            clientes: [],
-            vehiculos: [],
-            empresasGestoras: [],
-            representantesLegales: [],
-            presentantes: [],
-            plantillasDocumentos: [],
-            messageTemplates: [],
-            tramites: [],
-            tramiteDetalles: [],
-            conflictos: [],
-          };
-
-          const pushRes = await fetch(`${API_URL}/sync/push`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "x-user-id": user.id,
-              "ngrok-skip-browser-warning": "true",
-              Accept: "application/json",
-            },
-            body: JSON.stringify(minimalPayload),
-          });
-
-          if (!pushRes.ok) {
-            console.warn(
-              "La API central rechazó el registro inicial del usuario:",
-              pushRes.status,
-            );
-          }
-
-          // 2. PULL: Descargamos si el admin central nos bloqueó o cambió la contraseña
-          const pullRes = await fetch(`${API_URL}/sync/pull?lastSync=`, {
-            headers: {
-              "x-user-id": user.id,
-              "ngrok-skip-browser-warning": "true",
-              Accept: "application/json",
-            },
-          });
-
-          if (pullRes.ok) {
-            const pullData = await pullRes.json();
-            await processPullSync(sqlite, pullData);
-
-            // Refrescamos los datos locales del usuario tras el PULL
-            result = await sqlite.select(
-              "SELECT id, username, rol, nombre_completo, password_hash, esta_activo FROM usuarios WHERE username = $1",
-              [username],
-            );
-            user = result[0];
-          }
         } catch (e) {
           console.warn(
-            "Ignorando error de sincronización inicial (Modo Offline)",
+            "Ignorando error de sincronización inicial (Modo Offline)", e
           );
         }
       }
