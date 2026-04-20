@@ -161,7 +161,13 @@ pub fn run() {
             description: "agregar_tabla_para_plantillas_de_mensajes",
             sql: include_str!("../../src/app/db/migrations/0009_wonderful_cerise.sql"),
             kind: MigrationKind::Up,
-        }
+        },
+        Migration {
+            version: 11,
+            description: "agregar_tabla_para_representantes_legales_y_modificar_presentantes",
+            sql: include_str!("../../src/app/db/migrations/0010_slow_raider.sql"),
+            kind: MigrationKind::Up,
+        },
     ];
 
     tauri::Builder::default()
