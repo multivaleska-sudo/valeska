@@ -1,5 +1,4 @@
 export async function processPullSync(sqlite: any, pullData: any) {
-  // 1. Entidades Base y Seguridad
   for (const suc of pullData.sucursales || []) {
     const esCentral = suc.esCentral ?? suc.es_central ?? false;
     await sqlite.execute(
@@ -33,7 +32,6 @@ export async function processPullSync(sqlite: any, pullData: any) {
   }
 
   for (const usr of pullData.usuarios || []) {
-    // ¡SOLUCIÓN AQUÍ! Protección extrema contra el formato del Backend (camelCase vs snake_case)
     const isActivo = usr.estaActivo ?? usr.esta_activo ?? true;
     const pwdHash = usr.passwordHash ?? usr.password_hash;
     const nombreCompl = usr.nombreCompleto ?? usr.nombre_completo;
@@ -55,7 +53,6 @@ export async function processPullSync(sqlite: any, pullData: any) {
     );
   }
 
-  // 2. Catálogos Dinámicos
   for (const c of pullData.catalogoTiposTramite || []) {
     const isActivo = c.activo ?? true;
     await sqlite.execute(
@@ -272,7 +269,6 @@ export async function processPullSync(sqlite: any, pullData: any) {
     );
   }
 
-  // 5. Conflictos de Sincronización
   for (const conf of pullData.conflictos || []) {
     await sqlite.execute(
       "INSERT OR REPLACE INTO sync_conflictos (id, tabla_afectada, registro_id, identificador_visual, datos_locales, datos_remotos, resuelto, fecha_conflicto) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
@@ -293,3 +289,36 @@ export async function processPullSync(sqlite: any, pullData: any) {
     );
   }
 }
+
+export const executePull = async (config: { apiUrl: string }, userId: string, sqlite: any) => {
+  try {
+    const lastSyncIso = localStorage.getItem('valeska_last_sync') || '';
+
+    const response = await fetch(`${config.apiUrl}/api/sync/pull?lastSyncIso=${lastSyncIso}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-user-id': userId,
+        'ngrok-skip-browser-warning': 'true'
+      }
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => null);
+      throw new Error(errorData?.message || `HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    await processPullSync(sqlite, data);
+
+    if (data.serverTimestamp) {
+      localStorage.setItem('valeska_last_sync', data.serverTimestamp);
+    }
+
+    return { success: true, data };
+  } catch (error) {
+    console.error('Error en Pull Sync:', error);
+    throw error;
+  }
+};
