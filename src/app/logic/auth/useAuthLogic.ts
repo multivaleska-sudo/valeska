@@ -340,21 +340,28 @@ export function useAuthLogic() {
             );
 
             if (remoteUser) {
+              // PROTECCIÓN: Soportamos si NestJS nos envía esta_activo o estaActivo
+              const remoteActive =
+                remoteUser.estaActivo ?? remoteUser.esta_activo ?? true;
+              const remoteHash =
+                remoteUser.passwordHash ?? remoteUser.password_hash;
+              const remoteName =
+                remoteUser.nombreCompleto ?? remoteUser.nombre_completo;
+
               await sqlite.execute(
                 "UPDATE usuarios SET esta_activo = $1, password_hash = $2, rol = $3, nombre_completo = $4, updated_at = $5 WHERE id = $6",
                 [
-                  remoteUser.estaActivo ? 1 : 0,
-                  remoteUser.passwordHash,
+                  remoteActive ? 1 : 0,
+                  remoteHash,
                   remoteUser.rol,
-                  remoteUser.nombreCompleto,
+                  remoteName,
                   new Date().toISOString(),
                   user.id,
                 ],
               );
 
-              user.password_hash = remoteUser.passwordHash;
-              isActive =
-                remoteUser.estaActivo === true || remoteUser.estaActivo === 1;
+              user.password_hash = remoteHash;
+              isActive = remoteActive === true || remoteActive === 1;
               isMatch = bcrypt.compareSync(passwordPlain, user.password_hash);
 
               if (isActive) {

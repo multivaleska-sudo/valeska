@@ -20,7 +20,7 @@ export interface SyncLog {
 export interface SyncContext {
   title: string;
   details?: string;
-  forceFullSync?: boolean; // Novedad: para forzar descarga completa
+  forceFullSync?: boolean;
 }
 
 export function useSyncLogic() {
@@ -78,7 +78,6 @@ export function useSyncLogic() {
       );
       const machineName = dispResult[0]?.nombre_equipo || "PC-DESCONOCIDA";
 
-      // PARCHE DE RESTRUCTURACIÓN: Verificamos si la tabla nueva está vacía
       let isTableEmpty = false;
       try {
         const repsCheck: any[] = await sqlite.select(
@@ -86,11 +85,9 @@ export function useSyncLogic() {
         );
         if (repsCheck[0].count === 0) isTableEmpty = true;
       } catch (e) {
-        // Si la tabla ni siquiera existe en SQLite aún
         isTableEmpty = true;
       }
 
-      // Si forzamos sync o la tabla nueva está vacía, mandamos fecha en blanco para bajar TODO
       let lastSyncIso = localStorage.getItem("valeska_last_sync_iso") || "";
       if (context?.forceFullSync || isTableEmpty) {
         lastSyncIso = "";
@@ -110,18 +107,13 @@ export function useSyncLogic() {
       );
 
       if (pullRes.status === 401) {
-        await sqlite.execute(
-          "UPDATE usuarios SET esta_activo = 0 WHERE id = $1",
-          [session.id],
+        // ¡SOLUCIÓN APLICADA!
+        // Si Ngrok o el backend arrojan 401, NO cerramos la sesión local.
+        // Simplemente abortamos la sincronización lanzando un error que
+        // será atrapado en el catch de abajo. El usuario sigue trabajando normal.
+        throw new Error(
+          "El servidor en la nube rechazó la conexión (401). Modo Offline Activo.",
         );
-        localStorage.removeItem("valeska_session_user");
-        sileo.error({
-          title: "Sesión Expirada",
-          description:
-            "Tu sesión ha expirado o tu dispositivo ha sido desvinculado.",
-        });
-        window.location.href = "/auth/login";
-        return false;
       }
 
       if (!pullRes.ok) throw new Error(`Error en PULL: ${pullRes.statusText}`);
@@ -156,7 +148,7 @@ export function useSyncLogic() {
         "clientes",
         "vehiculos",
         "empresas_gestoras",
-        "representantes_legales", // <--- AÑADIDO
+        "representantes_legales",
         "presentantes",
         "plantillas_documentos",
         "tramites",
@@ -195,7 +187,7 @@ export function useSyncLogic() {
         payload.clientes.length +
         payload.vehiculos.length +
         payload.empresasGestoras.length +
-        payload.representantesLegales.length + // <--- AÑADIDO
+        payload.representantesLegales.length +
         payload.presentantes.length +
         payload.plantillasDocumentos.length +
         payload.messageTemplates.length;
@@ -257,7 +249,12 @@ export function useSyncLogic() {
       console.error("Error en sincronización:", error);
       const msg = error.message || "No se pudo conectar con la nube central.";
       setSyncError(msg);
-      sileo.error({ title: "Error de Sincronización", description: msg });
+
+      // Mostrar un mensaje silencioso o un aviso leve si falla la red,
+      // para no interrumpir al usuario a cada rato.
+      if (!msg.includes("Modo Offline")) {
+        sileo.error({ title: "Error de Sincronización", description: msg });
+      }
       return false;
     } finally {
       setIsSyncing(false);
