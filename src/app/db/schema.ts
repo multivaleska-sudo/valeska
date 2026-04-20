@@ -118,18 +118,31 @@ export const empresasGestoras = sqliteTable('empresas_gestoras', {
     rucIdx: uniqueIndex('empresa_ruc_idx').on(table.ruc),
 }));
 
-export const presentantes = sqliteTable('presentantes', {
+export const representantesLegales = sqliteTable('representantes_legales', {
     id: text('id').primaryKey(),
+    empresaGestoraId: text('empresa_gestora_id').references(() => empresasGestoras.id).notNull(),
+    dni: text('dni').notNull(),
+    nombres: text('nombres').notNull(),
+    primerApellido: text('primer_apellido').notNull(),
+    segundoApellido: text('segundo_apellido'),
     partidaRegistral: text('partida_registral'),
     oficinaRegistral: text('oficina_registral'),
     domicilio: text('domicilio'),
-    dni: text('dni').notNull(),
-    primerApellido: text('primer_apellido').notNull(),
-    segundoApellido: text('segundo_apellido'),
-    nombres: text('nombres').notNull(),
     ...syncColumns
 }, (table) => ({
-    dniIdx: uniqueIndex('presentante_dni_idx').on(table.dni),
+    dniRepIdx: uniqueIndex('representante_dni_idx').on(table.dni),
+    empresaRepIdx: index('rep_empresa_idx').on(table.empresaGestoraId),
+}));
+
+export const presentantes = sqliteTable('presentantes', {
+    id: text('id').primaryKey(),
+    dni: text('dni').notNull(),
+    nombres: text('nombres').notNull(),
+    primerApellido: text('primer_apellido').notNull(),
+    segundoApellido: text('segundo_apellido'),
+    ...syncColumns
+}, (table) => ({
+    dniPresIdx: uniqueIndex('presentante_trabajador_dni_idx').on(table.dni),
 }));
 
 
@@ -184,6 +197,8 @@ export const tramiteDetalles = sqliteTable('tramite_detalles', {
 
     empresaGestoraId: text('empresa_gestora_id').references(() => empresasGestoras.id),
 
+    representanteLegalId: text('representante_legal_id').references(() => representantesLegales.id),
+
     presentanteId: text('presentante_id').references(() => presentantes.id),
 
     tipoBoleta: text('tipo_boleta'),
@@ -234,3 +249,13 @@ export const syncConflictos = sqliteTable('sync_conflictos', {
     resueltoIdx: index('conflicto_resuelto_idx').on(table.resuelto),
     registroIdx: index('conflicto_registro_idx').on(table.registroId),
 }));
+
+// ============================================================================
+// 8. PLANTILLAS DE MENSAJES
+// ============================================================================
+export const messageTemplates = sqliteTable("message_templates", {
+    id: text("id").primaryKey(),
+    name: text("name"),
+    content: text("content"),
+    ...syncColumns
+});

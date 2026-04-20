@@ -50,7 +50,7 @@ CREATE TABLE `dispositivos` (
 CREATE UNIQUE INDEX `dispositivos_mac_address_unique` ON `dispositivos` (`mac_address`);
 CREATE TABLE `empresas_gestoras` (
 	`id` text PRIMARY KEY NOT NULL,
-	`ruc` text NOT NULL,
+	`ruc` text,
 	`razon_social` text NOT NULL,
 	`created_at` integer NOT NULL,
 	`updated_at` integer NOT NULL,
