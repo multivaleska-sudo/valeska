@@ -7,6 +7,9 @@ import { eq } from "drizzle-orm";
 import * as bcrypt from "bcryptjs";
 import * as schema from "../../db/schema";
 import { sileo } from "sileo";
+// Solo importamos formatDateForNest, ya no usamos buildPushPayload aquí
+import { formatDateForNest } from "../sync/pushActions";
+import { processPullSync } from "../sync/pullActions";
 
 const getDb = async () => {
   const sqlite = await Database.load("sqlite:valeska.db");
@@ -158,7 +161,11 @@ export function useAuthLogic() {
         updatedAt: now,
       });
 
-      const userId = crypto.randomUUID();
+      const userId =
+        provisionData.admin?.id ||
+        provisionData.usuario?.id ||
+        crypto.randomUUID();
+
       let finalHash = provisionData.admin.password_temporal_hash;
       if (!finalHash && provisionData.admin.password_temporal) {
         const salt = bcrypt.genSaltSync(10);
@@ -214,6 +221,7 @@ export function useAuthLogic() {
         headers: {
           "Content-Type": "application/json",
           "ngrok-skip-browser-warning": "true",
+          Accept: "application/json",
         },
         body: JSON.stringify({
           email,
@@ -301,12 +309,122 @@ export function useAuthLogic() {
     try {
       const sqlite = await Database.load("sqlite:valeska.db");
 
-      const result: any[] = await sqlite.select(
+      let result: any[] = await sqlite.select(
         "SELECT id, username, rol, nombre_completo, password_hash, esta_activo FROM usuarios WHERE username = $1",
         [username],
       );
 
-      const user = result[0];
+      let user = result[0];
+
+      if (user) {
+        // ========================================================================
+        // 1. PUSH MINIMALISTA: SOLO SUBIMOS LA CONFIGURACIÓN BASE (USUARIO)
+        // ========================================================================
+        try {
+          const sucursalesRaw: any[] = await sqlite.select(
+            "SELECT * FROM sucursales",
+          );
+          const dispositivosRaw: any[] = await sqlite.select(
+            "SELECT * FROM dispositivos",
+          );
+          const usuariosRaw: any[] = await sqlite.select(
+            "SELECT * FROM usuarios WHERE id = $1",
+            [user.id],
+          );
+
+          // Payload ultra-ligero: SOLO manda las credenciales para que el backend te conozca
+          const minimalPayload = {
+            sucursales: sucursalesRaw.map((s) => ({
+              id: s.id,
+              nombre: s.nombre,
+              direccion: s.direccion,
+              esCentral: s.es_central === 1 || s.es_central === true,
+              createdAt: formatDateForNest(s.created_at),
+              updatedAt: formatDateForNest(s.updated_at),
+              deletedAt: formatDateForNest(s.deleted_at),
+            })),
+            dispositivos: dispositivosRaw.map((d) => ({
+              id: d.id,
+              macAddress: d.mac_address,
+              nombreEquipo: d.nombre_equipo,
+              autorizado: d.autorizado === 1 || d.autorizado === true,
+              provisionId: d.provision_id,
+              sucursalId: d.sucursal_id,
+              createdAt: formatDateForNest(d.created_at),
+              updatedAt: formatDateForNest(d.updated_at),
+              deletedAt: formatDateForNest(d.deleted_at),
+            })),
+            usuarios: usuariosRaw.map((u) => ({
+              id: u.id,
+              username: u.username,
+              passwordHash: u.password_hash,
+              rol: u.rol,
+              nombreCompleto: u.nombre_completo,
+              estaActivo: u.esta_activo === 1 || u.esta_activo === true,
+              dispositivoId: u.dispositivo_id,
+              createdAt: formatDateForNest(u.created_at),
+              updatedAt: formatDateForNest(u.updated_at),
+              deletedAt: formatDateForNest(u.deleted_at),
+            })),
+            // Todo lo demás va completamente vacío, el useSyncLogic se encargará de esto luego
+            catalogoTiposTramite: [],
+            catalogoSituaciones: [],
+            clientes: [],
+            vehiculos: [],
+            empresasGestoras: [],
+            representantesLegales: [],
+            presentantes: [],
+            plantillasDocumentos: [],
+            messageTemplates: [],
+            tramites: [],
+            tramiteDetalles: [],
+            conflictos: [],
+          };
+
+          const pushRes = await fetch(`${API_URL}/sync/push`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "x-user-id": user.id,
+              "ngrok-skip-browser-warning": "true",
+              Accept: "application/json",
+            },
+            body: JSON.stringify(minimalPayload),
+          });
+
+          if (!pushRes.ok) {
+            console.warn(
+              "La API central rechazó el registro inicial del usuario:",
+              pushRes.status,
+            );
+          }
+
+          // 2. PULL: Descargamos si el admin central nos bloqueó o cambió la contraseña
+          const pullRes = await fetch(`${API_URL}/sync/pull?lastSync=`, {
+            headers: {
+              "x-user-id": user.id,
+              "ngrok-skip-browser-warning": "true",
+              Accept: "application/json",
+            },
+          });
+
+          if (pullRes.ok) {
+            const pullData = await pullRes.json();
+            await processPullSync(sqlite, pullData);
+
+            // Refrescamos los datos locales del usuario tras el PULL
+            result = await sqlite.select(
+              "SELECT id, username, rol, nombre_completo, password_hash, esta_activo FROM usuarios WHERE username = $1",
+              [username],
+            );
+            user = result[0];
+          }
+        } catch (e) {
+          console.warn(
+            "Ignorando error de sincronización inicial (Modo Offline)",
+          );
+        }
+      }
 
       if (!user) {
         setError("Usuario o correo no encontrado.");
@@ -317,66 +435,12 @@ export function useAuthLogic() {
         return false;
       }
 
-      let isActive =
+      const isActive =
         user.esta_activo === 1 ||
         user.esta_activo === true ||
         user.esta_activo === "1";
 
-      let isMatch = bcrypt.compareSync(passwordPlain, user.password_hash);
-
-      if (!isActive || !isMatch) {
-        try {
-          const pullRes = await fetch(`${API_URL}/sync/pull?lastSync=`, {
-            headers: {
-              "x-user-id": user.id,
-              "ngrok-skip-browser-warning": "true",
-            },
-          });
-
-          if (pullRes.ok) {
-            const pullData = await pullRes.json();
-            const remoteUser = (pullData.usuarios || []).find(
-              (u: any) => u.id === user.id,
-            );
-
-            if (remoteUser) {
-              // PROTECCIÓN: Soportamos si NestJS nos envía esta_activo o estaActivo
-              const remoteActive =
-                remoteUser.estaActivo ?? remoteUser.esta_activo ?? true;
-              const remoteHash =
-                remoteUser.passwordHash ?? remoteUser.password_hash;
-              const remoteName =
-                remoteUser.nombreCompleto ?? remoteUser.nombre_completo;
-
-              await sqlite.execute(
-                "UPDATE usuarios SET esta_activo = $1, password_hash = $2, rol = $3, nombre_completo = $4, updated_at = $5 WHERE id = $6",
-                [
-                  remoteActive ? 1 : 0,
-                  remoteHash,
-                  remoteUser.rol,
-                  remoteName,
-                  new Date().toISOString(),
-                  user.id,
-                ],
-              );
-
-              user.password_hash = remoteHash;
-              isActive = remoteActive === true || remoteActive === 1;
-              isMatch = bcrypt.compareSync(passwordPlain, user.password_hash);
-
-              if (isActive) {
-                sileo.success({
-                  title: "Sincronización Exitosa",
-                  description:
-                    "Tus datos de acceso han sido actualizados desde la central.",
-                });
-              }
-            }
-          }
-        } catch (e) {
-          console.log("Modo Offline: No se pudo verificar estado remoto.");
-        }
-      }
+      const isMatch = bcrypt.compareSync(passwordPlain, user.password_hash);
 
       if (!isActive) {
         setError("Su cuenta ha sido bloqueada por el Administrador.");

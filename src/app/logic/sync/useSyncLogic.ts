@@ -94,35 +94,7 @@ export function useSyncLogic() {
       }
 
       // =========================================================
-      // 1. EJECUTAR PULL (Descargar e Insertar)
-      // =========================================================
-      const pullRes = await fetch(
-        `${API_URL}/sync/pull?lastSync=${encodeURIComponent(lastSyncIso)}`,
-        {
-          headers: {
-            "x-user-id": session.id,
-            "ngrok-skip-browser-warning": "true",
-          },
-        },
-      );
-
-      if (pullRes.status === 401) {
-        // ¡SOLUCIÓN APLICADA!
-        // Si Ngrok o el backend arrojan 401, NO cerramos la sesión local.
-        // Simplemente abortamos la sincronización lanzando un error que
-        // será atrapado en el catch de abajo. El usuario sigue trabajando normal.
-        throw new Error(
-          "El servidor en la nube rechazó la conexión (401). Modo Offline Activo.",
-        );
-      }
-
-      if (!pullRes.ok) throw new Error(`Error en PULL: ${pullRes.statusText}`);
-
-      const pullData = await pullRes.json();
-      await processPullSync(sqlite, pullData);
-
-      // =========================================================
-      // 2. EJECUTAR PUSH (Recopilar y Enviar)
+      // 1. EJECUTAR PUSH PRIMERO (Sube datos y registra al nuevo usuario)
       // =========================================================
       const payload = await buildPushPayload(sqlite);
 
@@ -132,12 +104,51 @@ export function useSyncLogic() {
           "Content-Type": "application/json",
           "x-user-id": session.id,
           "ngrok-skip-browser-warning": "true",
+          Accept: "application/json",
         },
         body: JSON.stringify(payload),
       });
 
+      if (pushRes.status === 401) {
+        throw new Error(
+          "Modo Offline - El Servidor no autorizó el PUSH (401). Verifica Ngrok.",
+        );
+      }
+
       if (!pushRes.ok) throw new Error(`Error en PUSH: ${pushRes.statusText}`);
       const pushData = await pushRes.json();
+
+      // =========================================================
+      // 2. EJECUTAR PULL DESPUÉS (Descarga novedades ya siendo un usuario conocido)
+      // =========================================================
+      let pullData: any = null;
+
+      try {
+        const pullRes = await fetch(
+          `${API_URL}/sync/pull?lastSync=${encodeURIComponent(lastSyncIso)}`,
+          {
+            headers: {
+              "x-user-id": session.id,
+              "ngrok-skip-browser-warning": "true",
+              Accept: "application/json",
+            },
+          },
+        );
+
+        if (pullRes.ok) {
+          pullData = await pullRes.json();
+          await processPullSync(sqlite, pullData);
+        } else {
+          console.warn(
+            `Error en PULL desde el servidor: ${pullRes.statusText} (${pullRes.status})`,
+          );
+        }
+      } catch (pullError) {
+        console.warn(
+          "Fallo de conexión en PULL. Ignorando porque el PUSH fue exitoso...",
+          pullError,
+        );
+      }
 
       // =========================================================
       // 3. FINALIZAR Y LIMPIAR LOCAL DB
@@ -190,7 +201,7 @@ export function useSyncLogic() {
         payload.representantesLegales.length +
         payload.presentantes.length +
         payload.plantillasDocumentos.length +
-        payload.messageTemplates.length;
+        (payload.messageTemplates ? payload.messageTemplates.length : 0);
 
       const currentStats = {
         push: {
@@ -202,12 +213,12 @@ export function useSyncLogic() {
           conflictos: payload.conflictos.length,
         },
         pull: {
-          sucursales: pullData.sucursales?.length || 0,
-          dispositivos: pullData.dispositivos?.length || 0,
-          usuarios: pullData.usuarios?.length || 0,
-          tramites: pullData.tramites?.length || 0,
+          sucursales: pullData?.sucursales?.length || 0,
+          dispositivos: pullData?.dispositivos?.length || 0,
+          usuarios: pullData?.usuarios?.length || 0,
+          tramites: pullData?.tramites?.length || 0,
           otros: 0,
-          conflictos: pullData.conflictos?.length || 0,
+          conflictos: pullData?.conflictos?.length || 0,
         },
       };
       localStorage.setItem("valeska_sync_stats", JSON.stringify(currentStats));
@@ -239,22 +250,18 @@ export function useSyncLogic() {
       window.dispatchEvent(new Event("valeska_sync_completed"));
       window.dispatchEvent(new Event("valeska_reload_tramites"));
 
-      sileo.success({
-        title: logTitle,
-        description:
-          "La sincronización finalizó correctamente y sin problemas de conexión.",
-      });
+      console.log(logTitle + ": " + logDetails);
+
       return true;
     } catch (error: any) {
       console.error("Error en sincronización:", error);
       const msg = error.message || "No se pudo conectar con la nube central.";
       setSyncError(msg);
 
-      // Mostrar un mensaje silencioso o un aviso leve si falla la red,
-      // para no interrumpir al usuario a cada rato.
-      if (!msg.includes("Modo Offline")) {
-        sileo.error({ title: "Error de Sincronización", description: msg });
+      if (!msg.includes("Modo Offline") && !msg.includes("Failed to fetch")) {
+        sileo.error({ title: "Aviso de Sincronización", description: msg });
       }
+
       return false;
     } finally {
       setIsSyncing(false);
