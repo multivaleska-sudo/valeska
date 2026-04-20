@@ -3,13 +3,12 @@ use aes_gcm::{
     aead::{Aead, KeyInit},
     Aes256Gcm, Nonce,
 };
-use dotenvy_macro::dotenv; 
+use dotenvy_macro::dotenv;
 use log::LevelFilter;
 use mac_address::get_mac_address;
 use sha2::{Digest, Sha256};
 use std::fs;
 use tauri_plugin_sql::{Builder as SqlBuilder, Migration, MigrationKind};
-
 
 const VALESKA_SECRET: &str = dotenv!("VALESKA_SECRET");
 
@@ -157,6 +156,12 @@ pub fn run() {
             sql: include_str!("../../src/app/db/migrations/0008_aberrant_hellion.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 10,
+            description: "agregar_tabla_para_plantillas_de_mensajes",
+            sql: include_str!("../../src/app/db/migrations/0009_wonderful_cerise.sql"),
+            kind: MigrationKind::Up,
+        }
     ];
 
     tauri::Builder::default()
