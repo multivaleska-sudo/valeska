@@ -5,7 +5,7 @@ import { useTramiteDetail } from "../../logic/tramites/useTramiteDetail";
 
 export function TramiteDetailPage() {
   const { id } = useParams();
-  const { data, isLoading, error } = useTramiteDetail(id);
+  const { tramiteData, isLoading } = useTramiteDetail(id);
 
   if (isLoading)
     return (
@@ -14,12 +14,12 @@ export function TramiteDetailPage() {
       </div>
     );
 
-  if (error || !data)
+  if (!tramiteData)
     return (
       <div className="p-10 text-center font-bold text-red-500">
-        {error || "Trámite no encontrado."}
+        Trámite no encontrado.
       </div>
     );
 
-  return <TramiteForm mode="view" initialData={data} />;
+  return <TramiteForm mode="view" initialData={tramiteData} />;
 }

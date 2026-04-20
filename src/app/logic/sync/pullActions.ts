@@ -125,14 +125,32 @@ export async function processPullSync(sqlite: any, pullData: any) {
     );
   }
 
+  // AÑADIDO: Representantes Legales
+  for (const rep of pullData.representantesLegales || []) {
+    await sqlite.execute(
+      "INSERT OR REPLACE INTO representantes_legales (id, empresa_gestora_id, dni, nombres, primer_apellido, segundo_apellido, partida_registral, oficina_registral, domicilio, created_at, updated_at, deleted_at, sync_status) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'SYNCED')",
+      [
+        rep.id,
+        rep.empresaGestoraId,
+        rep.dni,
+        rep.nombres,
+        rep.primerApellido,
+        rep.segundoApellido,
+        rep.partidaRegistral,
+        rep.oficinaRegistral,
+        rep.domicilio,
+        rep.createdAt,
+        rep.updatedAt,
+        rep.deletedAt,
+      ],
+    );
+  }
+
   for (const pre of pullData.presentantes || []) {
     await sqlite.execute(
-      "INSERT OR REPLACE INTO presentantes (id, partida_registral, oficina_registral, domicilio, dni, primer_apellido, segundo_apellido, nombres, created_at, updated_at, deleted_at, sync_status) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'SYNCED')",
+      "INSERT OR REPLACE INTO presentantes (id, dni, primer_apellido, segundo_apellido, nombres, created_at, updated_at, deleted_at, sync_status) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'SYNCED')",
       [
         pre.id,
-        pre.partidaRegistral,
-        pre.oficinaRegistral,
-        pre.domicilio,
         pre.dni,
         pre.primerApellido,
         pre.segundoApellido,
@@ -160,7 +178,6 @@ export async function processPullSync(sqlite: any, pullData: any) {
     );
   }
 
-  // AÑADIDO: Plantillas de WhatsApp
   for (const msgTpl of pullData.messageTemplates || []) {
     await sqlite.execute(
       "INSERT OR REPLACE INTO message_templates (id, name, content, created_at, updated_at, deleted_at, sync_status) VALUES ($1, $2, $3, $4, $5, $6, 'SYNCED')",
@@ -213,11 +230,13 @@ export async function processPullSync(sqlite: any, pullData: any) {
 
   for (const td of pullData.tramiteDetalles || []) {
     await sqlite.execute(
-      "INSERT OR REPLACE INTO tramite_detalles (id, tramite_id, empresa_gestora_id, presentante_id, tipo_boleta, numero_boleta, fecha_boleta, dua, num_formato_inmatriculacion, numero_recibo_tramite, clausula_monto, clausula_forma_pago, clausula_pago_bancarizado, aclaracion_dice, aclaracion_debe_decir, created_at, updated_at, deleted_at, sync_status) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, 'SYNCED')",
+      // AÑADIDO: representante_legal_id a la consulta SQL
+      "INSERT OR REPLACE INTO tramite_detalles (id, tramite_id, empresa_gestora_id, representante_legal_id, presentante_id, tipo_boleta, numero_boleta, fecha_boleta, dua, num_formato_inmatriculacion, numero_recibo_tramite, clausula_monto, clausula_forma_pago, clausula_pago_bancarizado, aclaracion_dice, aclaracion_debe_decir, created_at, updated_at, deleted_at, sync_status) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, 'SYNCED')",
       [
         td.id,
         td.tramiteId,
         td.empresaGestoraId,
+        td.representanteLegalId, // <--- AÑADIDO A LOS PARÁMETROS
         td.presentanteId,
         td.tipoBoleta,
         td.numeroBoleta,

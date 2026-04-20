@@ -20,6 +20,7 @@ export interface SyncLog {
 export interface SyncContext {
   title: string;
   details?: string;
+  forceFullSync?: boolean; // Novedad: para forzar descarga completa
 }
 
 export function useSyncLogic() {
@@ -76,7 +77,24 @@ export function useSyncLogic() {
         "SELECT nombre_equipo FROM dispositivos LIMIT 1",
       );
       const machineName = dispResult[0]?.nombre_equipo || "PC-DESCONOCIDA";
-      const lastSyncIso = localStorage.getItem("valeska_last_sync_iso") || "";
+
+      // PARCHE DE RESTRUCTURACIÓN: Verificamos si la tabla nueva está vacía
+      let isTableEmpty = false;
+      try {
+        const repsCheck: any[] = await sqlite.select(
+          "SELECT count(id) as count FROM representantes_legales",
+        );
+        if (repsCheck[0].count === 0) isTableEmpty = true;
+      } catch (e) {
+        // Si la tabla ni siquiera existe en SQLite aún
+        isTableEmpty = true;
+      }
+
+      // Si forzamos sync o la tabla nueva está vacía, mandamos fecha en blanco para bajar TODO
+      let lastSyncIso = localStorage.getItem("valeska_last_sync_iso") || "";
+      if (context?.forceFullSync || isTableEmpty) {
+        lastSyncIso = "";
+      }
 
       // =========================================================
       // 1. EJECUTAR PULL (Descargar e Insertar)
@@ -138,11 +156,12 @@ export function useSyncLogic() {
         "clientes",
         "vehiculos",
         "empresas_gestoras",
+        "representantes_legales", // <--- AÑADIDO
         "presentantes",
         "plantillas_documentos",
         "tramites",
         "tramite_detalles",
-        "message_templates", // <--- AÑADIDO A LA LIMPIEZA
+        "message_templates",
       ];
 
       for (const table of tablesToMark) {
@@ -176,9 +195,10 @@ export function useSyncLogic() {
         payload.clientes.length +
         payload.vehiculos.length +
         payload.empresasGestoras.length +
+        payload.representantesLegales.length + // <--- AÑADIDO
         payload.presentantes.length +
         payload.plantillasDocumentos.length +
-        payload.messageTemplates.length; // <--- AÑADIDO A LAS ESTADÍSTICAS
+        payload.messageTemplates.length;
 
       const currentStats = {
         push: {

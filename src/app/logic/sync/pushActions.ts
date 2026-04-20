@@ -28,21 +28,24 @@ export async function buildPushPayload(sqlite: any) {
   const vehiculosRaw: any[] = await sqlite.select(
     "SELECT * FROM vehiculos WHERE sync_status != 'SYNCED'",
   );
+
+  // AÑADIDO: Empresas y sus Representantes Legales
   const empresasRaw: any[] = await sqlite.select(
     "SELECT * FROM empresas_gestoras WHERE sync_status != 'SYNCED'",
   );
+  const representantesRaw: any[] = await sqlite.select(
+    "SELECT * FROM representantes_legales WHERE sync_status != 'SYNCED'",
+  );
+
   const presentantesRaw: any[] = await sqlite.select(
     "SELECT * FROM presentantes WHERE sync_status != 'SYNCED'",
   );
   const plantillasRaw: any[] = await sqlite.select(
     "SELECT * FROM plantillas_documentos WHERE sync_status != 'SYNCED'",
   );
-
-  // AÑADIDO: Plantillas de WhatsApp
   const messageTemplatesRaw: any[] = await sqlite.select(
     "SELECT * FROM message_templates WHERE sync_status != 'SYNCED'",
   );
-
   const tramitesRaw: any[] = await sqlite.select(
     "SELECT * FROM tramites WHERE sync_status != 'SYNCED'",
   );
@@ -147,11 +150,24 @@ export async function buildPushPayload(sqlite: any) {
       deletedAt: formatDateForNest(e.deleted_at),
       syncStatus: e.sync_status,
     })),
+    // AÑADIDO: Representantes Legales al DTO
+    representantesLegales: representantesRaw.map((r) => ({
+      id: r.id,
+      empresaGestoraId: r.empresa_gestora_id,
+      dni: r.dni,
+      nombres: r.nombres,
+      primerApellido: r.primer_apellido,
+      segundoApellido: r.segundo_apellido,
+      partidaRegistral: r.partida_registral,
+      oficinaRegistral: r.oficina_registral,
+      domicilio: r.domicilio,
+      createdAt: formatDateForNest(r.created_at),
+      updatedAt: formatDateForNest(r.updated_at),
+      deletedAt: formatDateForNest(r.deleted_at),
+      syncStatus: r.sync_status,
+    })),
     presentantes: presentantesRaw.map((p) => ({
       id: p.id,
-      partidaRegistral: p.partida_registral,
-      oficinaRegistral: p.oficina_registral,
-      domicilio: p.domicilio,
       dni: p.dni,
       primerApellido: p.primer_apellido,
       segundoApellido: p.segundo_apellido,
@@ -172,8 +188,6 @@ export async function buildPushPayload(sqlite: any) {
       deletedAt: formatDateForNest(p.deleted_at),
       syncStatus: p.sync_status,
     })),
-
-    // AÑADIDO: Plantillas de WhatsApp al DTO de Nest
     messageTemplates: messageTemplatesRaw.map((m) => ({
       id: m.id,
       name: m.name,
@@ -183,7 +197,6 @@ export async function buildPushPayload(sqlite: any) {
       deletedAt: formatDateForNest(m.deleted_at),
       syncStatus: m.sync_status,
     })),
-
     tramites: tramitesRaw.map((t) => ({
       id: t.id,
       codigoVerificacion: t.codigo_verificacion,
@@ -219,6 +232,7 @@ export async function buildPushPayload(sqlite: any) {
       id: td.id,
       tramiteId: td.tramite_id,
       empresaGestoraId: td.empresa_gestora_id,
+      representanteLegalId: td.representante_legal_id, // <--- AÑADIDO AL PAYLOAD
       presentanteId: td.presentante_id,
       tipoBoleta: td.tipo_boleta,
       numeroBoleta: td.numero_boleta,

@@ -130,7 +130,7 @@ export function TramiteForm({ mode, initialData }: TramiteFormProps) {
             setEmpresaModalRuc(null);
             setFormData((prev) => ({
               ...prev,
-              presentante_empresa: empresaStr,
+              presentante_empresa: empresaStr.split(" - ")[0].trim(),
             }));
           }}
         />
@@ -650,13 +650,8 @@ export function TramiteForm({ mode, initialData }: TramiteFormProps) {
                       setShowEmpresaDropdown(true);
                     }}
                     readOnly={isViewOnly}
-                    placeholder="Ej. MULTISERVICIOS ABC - 2060..."
+                    placeholder="Ej. MULTISERVICIOS ABC..."
                     onAddClick={() => setEmpresaModalRuc("")}
-                    onEditClick={() => {
-                      const match =
-                        formData.presentante_empresa.match(/(\d{11})$/);
-                      if (match) setEmpresaModalRuc(match[1]);
-                    }}
                   />
 
                   {showEmpresaDropdown &&
@@ -691,7 +686,7 @@ export function TramiteForm({ mode, initialData }: TramiteFormProps) {
                       setShowPresentanteDropdown(true);
                     }}
                     readOnly={isViewOnly}
-                    placeholder="Ej. JUAN PEREZ GOMEZ - 12345678"
+                    placeholder="Ej. JUAN PEREZ GOMEZ..."
                   />
 
                   {showPresentanteDropdown &&
@@ -717,15 +712,15 @@ export function TramiteForm({ mode, initialData }: TramiteFormProps) {
                     )}
                 </div>
 
-                <ModernSelect
-                  label="Tipo de Boleta"
-                  name="tipo_boleta"
-                  value={formData.tipo_boleta}
-                  onChange={handleChange}
-                  disabled={isViewOnly}
-                  options={["Manual", "Electrónica"]}
-                />
-                <div className="grid grid-cols-2 gap-2">
+                <div className="col-span-1 md:col-span-2 grid grid-cols-2 lg:grid-cols-4 gap-4 mt-2">
+                  <ModernSelect
+                    label="Tipo de Boleta"
+                    name="tipo_boleta"
+                    value={formData.tipo_boleta}
+                    onChange={handleChange}
+                    disabled={isViewOnly}
+                    options={["Manual", "Electrónica"]}
+                  />
                   <CopiableField
                     label="Número Boleta"
                     value={formData.numero_boleta}
@@ -746,8 +741,6 @@ export function TramiteForm({ mode, initialData }: TramiteFormProps) {
                     onChange={handleChange}
                     readOnly={isViewOnly}
                   />
-                </div>
-                <div className="col-span-1 md:col-span-2">
                   <CopiableField
                     label="DUA"
                     value={formData.dua}
@@ -762,7 +755,7 @@ export function TramiteForm({ mode, initialData }: TramiteFormProps) {
                   />
                 </div>
 
-                <div className="col-span-1 md:col-span-2 grid grid-cols-2 gap-2">
+                <div className="col-span-1 md:col-span-2 grid grid-cols-2 gap-4">
                   <CopiableField
                     label="N° Formato Inmatriculación"
                     value={formData.num_formato_inmatriculacion}

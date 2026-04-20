@@ -68,6 +68,7 @@ export interface TramiteFormData {
   // DEL PRESENTANTE
   presentante_empresa: string;
   presentante_persona: string;
+
   tipo_boleta: string;
   numero_boleta: string;
   fecha_boleta: string;
