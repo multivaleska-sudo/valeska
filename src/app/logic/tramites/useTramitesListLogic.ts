@@ -7,6 +7,7 @@ export interface TramiteRow {
   n_titulo: string;
   cliente: string;
   dni: string;
+  placa: string; // <-- AÑADIDO
   tramite: string;
   situacion: string;
   fecha_presentacion: string;
@@ -21,6 +22,7 @@ export function useTramitesListLogic() {
   const [searchCliente, setSearchCliente] = useState("");
   const [searchTitulo, setSearchTitulo] = useState("");
   const [searchDNI, setSearchDNI] = useState("");
+  const [searchPlaca, setSearchPlaca] = useState(""); // <-- AÑADIDO
   const [filterSituacion, setFilterSituacion] = useState("");
   const [fechaInicio, setFechaInicio] = useState("");
   const [fechaFin, setFechaFin] = useState("");
@@ -49,18 +51,21 @@ export function useTramitesListLogic() {
     try {
       const sqlite = await Database.load("sqlite:valeska.db");
 
+      // <-- CONSULTA SQL ACTUALIZADA PARA TRAER LA PLACA
       const query = `
                 SELECT 
                     t.id,
                     t.n_titulo,
                     c.razon_social_nombres AS cliente,
                     c.numero_documento AS dni,
+                    v.placa AS placa,
                     ctt.nombre AS tramite,
                     cs.nombre AS situacion,
                     t.fecha_presentacion,
                     eg.razon_social AS empresa_gestiona
                 FROM tramites t
                 JOIN clientes c ON t.cliente_id = c.id
+                LEFT JOIN vehiculos v ON t.vehiculo_id = v.id
                 JOIN catalogo_tipos_tramite ctt ON t.tipo_tramite_id = ctt.id
                 JOIN catalogo_situaciones cs ON t.situacion_id = cs.id
                 LEFT JOIN tramite_detalles td ON t.id = td.tramite_id
@@ -76,6 +81,7 @@ export function useTramitesListLogic() {
         n_titulo: row.n_titulo || "SIN TÍTULO",
         cliente: row.cliente || "DESCONOCIDO",
         dni: row.dni || "",
+        placa: row.placa || "---", // <-- AÑADIDO
         tramite: row.tramite || "",
         situacion: row.situacion || "",
         fecha_presentacion: row.fecha_presentacion || "",
@@ -111,6 +117,9 @@ export function useTramitesListLogic() {
         .toLowerCase()
         .includes(searchTitulo.toLowerCase());
       const matchDNI = tramite.dni.includes(searchDNI);
+      const matchPlaca = tramite.placa
+        .toLowerCase()
+        .includes(searchPlaca.toLowerCase()); // <-- AÑADIDO
       const matchSituacion = filterSituacion
         ? tramite.situacion === filterSituacion
         : true;
@@ -124,7 +133,12 @@ export function useTramitesListLogic() {
       }
 
       return (
-        matchCliente && matchTitulo && matchDNI && matchSituacion && matchFecha
+        matchCliente &&
+        matchTitulo &&
+        matchDNI &&
+        matchPlaca && // <-- AÑADIDO
+        matchSituacion &&
+        matchFecha
       );
     });
   }, [
@@ -132,6 +146,7 @@ export function useTramitesListLogic() {
     searchCliente,
     searchTitulo,
     searchDNI,
+    searchPlaca, // <-- AÑADIDO
     filterSituacion,
     fechaInicio,
     fechaFin,
@@ -149,6 +164,7 @@ export function useTramitesListLogic() {
     searchCliente,
     searchTitulo,
     searchDNI,
+    searchPlaca, // <-- AÑADIDO
     filterSituacion,
     fechaInicio,
     fechaFin,
@@ -162,6 +178,8 @@ export function useTramitesListLogic() {
       setSearchTitulo,
       searchDNI,
       setSearchDNI,
+      searchPlaca, // <-- AÑADIDO
+      setSearchPlaca, // <-- AÑADIDO
       filterSituacion,
       setFilterSituacion,
       fechaInicio,
@@ -178,6 +196,6 @@ export function useTramitesListLogic() {
     },
     data: paginatedTramites,
     isLoading,
-    opcionesSituacion, // Exportamos las situaciones cargadas de la BD
+    opcionesSituacion,
   };
 }

@@ -3,7 +3,6 @@ export const mapPdfToFormData = (raw: any) => {
     cliente: raw.cliente || "",
     dni: raw.dni || "",
     num_formato_inmatriculacion: raw.form_inma || "",
-    n_titulo: raw.form_inma || "",
     dua: raw.dua || "",
     vehiculo_chasis: raw.vin || "",
     vehiculo_motor: raw.motor || "",

@@ -100,7 +100,21 @@ export function TramitesListPage() {
               />
             </div>
 
-            <div className="flex flex-col lg:col-span-6">
+            {/* NUEVO FILTRO DE PLACA */}
+            <div className="flex flex-col lg:col-span-2">
+              <label className="text-xs font-semibold text-gray-600 mb-1.5 uppercase">
+                N° Placa
+              </label>
+              <input
+                type="text"
+                value={filtros.searchPlaca}
+                onChange={(e) => filtros.setSearchPlaca(e.target.value)}
+                placeholder="Ej. ABC-123"
+                className="h-10 px-3 rounded-lg border border-gray-200 text-sm focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all uppercase"
+              />
+            </div>
+
+            <div className="flex flex-col lg:col-span-4">
               <label className="text-xs font-semibold text-gray-600 mb-1.5 uppercase">
                 Situación del Trámite
               </label>
@@ -129,6 +143,7 @@ export function TramitesListPage() {
                   <th className="p-4">N° Título</th>
                   <th className="p-4">Nombre del Cliente</th>
                   <th className="p-4">DNI</th>
+                  <th className="p-4">Placa</th> {/* <-- AÑADIDO EN LA TABLA */}
                   <th className="p-4">Trámite</th>
                   <th className="p-4">Situación</th>
                   <th className="p-4">Fecha Presentación</th>
@@ -154,6 +169,10 @@ export function TramitesListPage() {
                         {row.cliente}
                       </td>
                       <td className="p-4 text-sm text-gray-600">{row.dni}</td>
+                      <td className="p-4 text-sm font-bold text-gray-700 bg-gray-50 uppercase tracking-widest">
+                        {row.placa}
+                      </td>{" "}
+                      {/* <-- AÑADIDO EN LA TABLA */}
                       <td className="p-4 text-sm text-gray-600 uppercase">
                         {row.tramite}
                       </td>
@@ -185,7 +204,7 @@ export function TramitesListPage() {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={9} className="p-8 text-center text-gray-500">
+                    <td colSpan={10} className="p-8 text-center text-gray-500">
                       No se encontraron trámites con los filtros aplicados.
                     </td>
                   </tr>

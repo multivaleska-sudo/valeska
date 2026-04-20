@@ -27,8 +27,22 @@ export function useSyncLogic() {
   const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
   const [syncError, setSyncError] = useState<string | null>(null);
   const [syncStats, setSyncStats] = useState({
-    push: { sucursales: 0, dispositivos: 0, usuarios: 0, tramites: 0, otros: 0, conflictos: 0 },
-    pull: { sucursales: 0, dispositivos: 0, usuarios: 0, tramites: 0, otros: 0, conflictos: 0 },
+    push: {
+      sucursales: 0,
+      dispositivos: 0,
+      usuarios: 0,
+      tramites: 0,
+      otros: 0,
+      conflictos: 0,
+    },
+    pull: {
+      sucursales: 0,
+      dispositivos: 0,
+      usuarios: 0,
+      tramites: 0,
+      otros: 0,
+      conflictos: 0,
+    },
   });
   const [syncHistory, setSyncHistory] = useState<SyncLog[]>([]);
 
@@ -44,7 +58,8 @@ export function useSyncLogic() {
 
     handleUpdate();
     window.addEventListener("valeska_sync_completed", handleUpdate);
-    return () => window.removeEventListener("valeska_sync_completed", handleUpdate);
+    return () =>
+      window.removeEventListener("valeska_sync_completed", handleUpdate);
   }, []);
 
   const triggerSync = useCallback(async (context?: SyncContext) => {
@@ -57,7 +72,9 @@ export function useSyncLogic() {
       const session = JSON.parse(sessionStr);
 
       const sqlite = await Database.load("sqlite:valeska.db");
-      const dispResult: any[] = await sqlite.select("SELECT nombre_equipo FROM dispositivos LIMIT 1");
+      const dispResult: any[] = await sqlite.select(
+        "SELECT nombre_equipo FROM dispositivos LIMIT 1",
+      );
       const machineName = dispResult[0]?.nombre_equipo || "PC-DESCONOCIDA";
       const lastSyncIso = localStorage.getItem("valeska_last_sync_iso") || "";
 
@@ -66,15 +83,24 @@ export function useSyncLogic() {
       // =========================================================
       const pullRes = await fetch(
         `${API_URL}/sync/pull?lastSync=${encodeURIComponent(lastSyncIso)}`,
-        { headers: { "x-user-id": session.id } }
+        {
+          headers: {
+            "x-user-id": session.id,
+            "ngrok-skip-browser-warning": "true",
+          },
+        },
       );
 
       if (pullRes.status === 401) {
-        await sqlite.execute("UPDATE usuarios SET esta_activo = 0 WHERE id = $1", [session.id]);
+        await sqlite.execute(
+          "UPDATE usuarios SET esta_activo = 0 WHERE id = $1",
+          [session.id],
+        );
         localStorage.removeItem("valeska_session_user");
         sileo.error({
           title: "Sesión Expirada",
-          description: "Tu sesión ha expirado o tu dispositivo ha sido desvinculado.",
+          description:
+            "Tu sesión ha expirado o tu dispositivo ha sido desvinculado.",
         });
         window.location.href = "/auth/login";
         return false;
@@ -95,6 +121,7 @@ export function useSyncLogic() {
         headers: {
           "Content-Type": "application/json",
           "x-user-id": session.id,
+          "ngrok-skip-browser-warning": "true",
         },
         body: JSON.stringify(payload),
       });
@@ -105,15 +132,23 @@ export function useSyncLogic() {
       // =========================================================
       // 3. FINALIZAR Y LIMPIAR LOCAL DB
       // =========================================================
-      // Marcar TODAS las tablas como SYNCED para que no se reenvíen en el próximo push
       const tablesToMark = [
-        'catalogo_tipos_tramite', 'catalogo_situaciones', 'clientes',
-        'vehiculos', 'empresas_gestoras', 'presentantes',
-        'plantillas_documentos', 'tramites', 'tramite_detalles'
+        "catalogo_tipos_tramite",
+        "catalogo_situaciones",
+        "clientes",
+        "vehiculos",
+        "empresas_gestoras",
+        "presentantes",
+        "plantillas_documentos",
+        "tramites",
+        "tramite_detalles",
+        "message_templates", // <--- AÑADIDO A LA LIMPIEZA
       ];
 
       for (const table of tablesToMark) {
-        await sqlite.execute(`UPDATE ${table} SET sync_status = 'SYNCED' WHERE sync_status != 'SYNCED'`);
+        await sqlite.execute(
+          `UPDATE ${table} SET sync_status = 'SYNCED' WHERE sync_status != 'SYNCED'`,
+        );
       }
 
       // =========================================================
@@ -121,16 +156,29 @@ export function useSyncLogic() {
       // =========================================================
       const now = new Date();
       const displayTime = now.toLocaleString("es-PE", {
-        day: "2-digit", month: "short", year: "numeric",
-        hour: "2-digit", minute: "2-digit", second: "2-digit",
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
       });
 
-      localStorage.setItem("valeska_last_sync_iso", pushData.timestamp || now.toISOString());
+      localStorage.setItem(
+        "valeska_last_sync_iso",
+        pushData.timestamp || now.toISOString(),
+      );
       localStorage.setItem("valeska_last_sync_display", displayTime);
 
-      const totalPushOtros = payload.catalogoTiposTramite.length + payload.catalogoSituaciones.length +
-        payload.clientes.length + payload.vehiculos.length + payload.empresasGestoras.length +
-        payload.presentantes.length + payload.plantillasDocumentos.length;
+      const totalPushOtros =
+        payload.catalogoTiposTramite.length +
+        payload.catalogoSituaciones.length +
+        payload.clientes.length +
+        payload.vehiculos.length +
+        payload.empresasGestoras.length +
+        payload.presentantes.length +
+        payload.plantillasDocumentos.length +
+        payload.messageTemplates.length; // <--- AÑADIDO A LAS ESTADÍSTICAS
 
       const currentStats = {
         push: {
@@ -139,7 +187,7 @@ export function useSyncLogic() {
           usuarios: payload.usuarios.length,
           tramites: payload.tramites.length,
           otros: totalPushOtros,
-          conflictos: payload.conflictos.length
+          conflictos: payload.conflictos.length,
         },
         pull: {
           sucursales: pullData.sucursales?.length || 0,
@@ -147,7 +195,7 @@ export function useSyncLogic() {
           usuarios: pullData.usuarios?.length || 0,
           tramites: pullData.tramites?.length || 0,
           otros: 0,
-          conflictos: pullData.conflictos?.length || 0
+          conflictos: pullData.conflictos?.length || 0,
         },
       };
       localStorage.setItem("valeska_sync_stats", JSON.stringify(currentStats));
@@ -168,18 +216,23 @@ export function useSyncLogic() {
       };
 
       const prevHistoryRaw = localStorage.getItem("valeska_sync_history");
-      const prevHistory: SyncLog[] = prevHistoryRaw ? JSON.parse(prevHistoryRaw) : [];
-      localStorage.setItem("valeska_sync_history", JSON.stringify([newLog, ...prevHistory].slice(0, 50)));
+      const prevHistory: SyncLog[] = prevHistoryRaw
+        ? JSON.parse(prevHistoryRaw)
+        : [];
+      localStorage.setItem(
+        "valeska_sync_history",
+        JSON.stringify([newLog, ...prevHistory].slice(0, 50)),
+      );
 
       window.dispatchEvent(new Event("valeska_sync_completed"));
       window.dispatchEvent(new Event("valeska_reload_tramites"));
 
       sileo.success({
         title: logTitle,
-        description: "La sincronización finalizó correctamente y sin problemas de conexión.",
+        description:
+          "La sincronización finalizó correctamente y sin problemas de conexión.",
       });
       return true;
-
     } catch (error: any) {
       console.error("Error en sincronización:", error);
       const msg = error.message || "No se pudo conectar con la nube central.";

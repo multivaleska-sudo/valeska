@@ -25,7 +25,10 @@ export function useForgotPasswordLogic() {
     try {
       const res = await fetch(`${API_URL}/auth/forgot-password`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "ngrok-skip-browser-warning": "true",
+        },
         body: JSON.stringify({ email }),
       });
 
@@ -55,7 +58,10 @@ export function useForgotPasswordLogic() {
     try {
       const res = await fetch(`${API_URL}/auth/verify-code`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "ngrok-skip-browser-warning": "true",
+        },
         body: JSON.stringify({ email, code }),
       });
 

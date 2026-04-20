@@ -22,6 +22,7 @@ import CatalogosPage from "./pages/catalogos/CatalogosPage";
 import { TemplateEditorPage } from "./pages/documents/TemplateEditorPage";
 import { PrintDocumentPage } from "./pages/documents/PrintDocumentPage";
 import { DevicesPage } from "./pages/central/DevicesPage";
+import { WasapPage } from "./pages/wasap/WasapPage";
 
 export const router = createBrowserRouter([
   {
@@ -51,6 +52,7 @@ export const router = createBrowserRouter([
       { path: "xml", element: <XmlEditorPage /> },
       { path: "documentos", element: <DocumentCenterPage /> },
       { path: "sync", element: <SyncPage /> },
+      { path: "wasap", element: <WasapPage /> },
       { path: "usuarios", element: <UsuariosPage /> },
       { path: "central", element: <CentralPage /> },
       { path: "central/conflictos", element: <ConflictListPage /> },

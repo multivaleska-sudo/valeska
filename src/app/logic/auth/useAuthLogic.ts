@@ -37,9 +37,6 @@ export function useAuthLogic() {
   const [isFirstRun, setIsFirstRun] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // =======================================================================
-  // 1. EL GUARDIA DE SEGURIDAD (Validación Silenciosa SQLite)
-  // =======================================================================
   const checkInitialSetup = async () => {
     try {
       const sqlite = await Database.load("sqlite:valeska.db");
@@ -109,9 +106,6 @@ export function useAuthLogic() {
     }
   };
 
-  // =======================================================================
-  // 2. MÉTODO ESTRICTO: PROCESAR ARCHIVO .VALESKA FÍSICO
-  // =======================================================================
   const processProvisioningFile = async (filePath: string) => {
     setError(null);
     try {
@@ -205,9 +199,6 @@ export function useAuthLogic() {
     }
   };
 
-  // =======================================================================
-  // 3. MÉTODO NUBE: DESCARGAR CREDENCIALES DESDE NESTJS
-  // =======================================================================
   const cloudProvisioning = async (email: string, passwordPlain: string) => {
     setError(null);
     try {
@@ -220,7 +211,10 @@ export function useAuthLogic() {
 
       const response = await fetch(`${API_URL}/auth/provision-device`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "ngrok-skip-browser-warning": "true",
+        },
         body: JSON.stringify({
           email,
           password: passwordPlain,
@@ -302,9 +296,6 @@ export function useAuthLogic() {
     }
   };
 
-  // =======================================================================
-  // 4. LOGIN INTELIGENTE (VERIFICACIÓN LOCAL + RESCATE DE NUBE)
-  // =======================================================================
   const login = async (username: string, passwordPlain: string) => {
     setError(null);
     try {
@@ -326,7 +317,6 @@ export function useAuthLogic() {
         return false;
       }
 
-      // Verificamos el estado local primero
       let isActive =
         user.esta_activo === 1 ||
         user.esta_activo === true ||
@@ -334,12 +324,13 @@ export function useAuthLogic() {
 
       let isMatch = bcrypt.compareSync(passwordPlain, user.password_hash);
 
-      // MAGIA AQUI: Si está bloqueado localmente O la contraseña no cuadra
-      // (tal vez se la resetearon en la nube), hacemos una sincronización de rescate
       if (!isActive || !isMatch) {
         try {
           const pullRes = await fetch(`${API_URL}/sync/pull?lastSync=`, {
-            headers: { "x-user-id": user.id },
+            headers: {
+              "x-user-id": user.id,
+              "ngrok-skip-browser-warning": "true",
+            },
           });
 
           if (pullRes.ok) {
@@ -349,7 +340,6 @@ export function useAuthLogic() {
             );
 
             if (remoteUser) {
-              // Actualizamos SQLite silenciosamente con los datos frescos de la nube
               await sqlite.execute(
                 "UPDATE usuarios SET esta_activo = $1, password_hash = $2, rol = $3, nombre_completo = $4, updated_at = $5 WHERE id = $6",
                 [
@@ -362,7 +352,6 @@ export function useAuthLogic() {
                 ],
               );
 
-              // Refrescamos las variables de memoria para que el Login re-evalue
               user.password_hash = remoteUser.passwordHash;
               isActive =
                 remoteUser.estaActivo === true || remoteUser.estaActivo === 1;
@@ -382,9 +371,6 @@ export function useAuthLogic() {
         }
       }
 
-      // -----------------------------------------------------------
-      // Evaluacion Final despues del intento de rescate
-      // -----------------------------------------------------------
       if (!isActive) {
         setError("Su cuenta ha sido bloqueada por el Administrador.");
         sileo.error({
@@ -403,7 +389,6 @@ export function useAuthLogic() {
         return false;
       }
 
-      // Si todo sale bien, entra
       localStorage.setItem(
         "valeska_session_user",
         JSON.stringify({
