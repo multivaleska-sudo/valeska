@@ -290,22 +290,31 @@ export async function processPullSync(sqlite: any, pullData: any) {
   }
 }
 
-export const executePull = async (config: { apiUrl: string }, userId: string, sqlite: any) => {
+export const executePull = async (
+  config: { apiUrl: string },
+  userId: string,
+  sqlite: any,
+) => {
   try {
-    const lastSyncIso = localStorage.getItem('valeska_last_sync') || '';
+    const lastSyncIso = localStorage.getItem("valeska_last_sync") || "";
 
-    const response = await fetch(`${config.apiUrl}/api/sync/pull?lastSyncIso=${lastSyncIso}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-user-id': userId,
-        'ngrok-skip-browser-warning': 'true'
-      }
-    });
+    const response = await fetch(
+      `${config.apiUrl}/sync/pull?lastSyncIso=${lastSyncIso}`,
+      {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          "x-user-id": userId,
+          "ngrok-skip-browser-warning": "true",
+        },
+      },
+    );
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => null);
-      throw new Error(errorData?.message || `HTTP error! status: ${response.status}`);
+      throw new Error(
+        errorData?.message || `HTTP error! status: ${response.status}`,
+      );
     }
 
     const data = await response.json();
@@ -313,12 +322,12 @@ export const executePull = async (config: { apiUrl: string }, userId: string, sq
     await processPullSync(sqlite, data);
 
     if (data.serverTimestamp) {
-      localStorage.setItem('valeska_last_sync', data.serverTimestamp);
+      localStorage.setItem("valeska_last_sync", data.serverTimestamp);
     }
 
     return { success: true, data };
   } catch (error) {
-    console.error('Error en Pull Sync:', error);
+    console.error("Error en Pull Sync:", error);
     throw error;
   }
 };
