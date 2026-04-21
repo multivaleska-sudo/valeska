@@ -25,30 +25,89 @@ export function useXmlEditorLogic() {
   }>({ indices: [], current: -1 });
   const isNavigating = useRef(false);
 
-  const handleDescriptionChange = (index: number, newValue: string) => {
+  // Motor para modificar TODOS los campos UBL de forma global y segura
+  const handleGlobalFieldChange = (field: string, newValue: string, index: number = -1) => {
     if (!xmlContent) return;
 
     const parser = new DOMParser();
     const xmlDoc = parser.parseFromString(xmlContent, "text/xml");
-    const descriptions = Array.from(
-      xmlDoc.getElementsByTagNameNS("*", "Description"),
-    );
 
-    const lineDescriptions = descriptions.filter(
-      (node) =>
-        node.parentElement?.localName.includes("Line") ||
-        node.parentElement?.parentElement?.localName.includes("Line"),
-    );
+    // Helper para buscar etiquetas ignorando namespaces complejos
+    const getNS = (parent: Element | Document | null, localName: string): Element | null => {
+      if (!parent) return null;
+      const elements = parent.getElementsByTagNameNS("*", localName);
+      return elements.length > 0 ? elements[0] : null;
+    };
 
-    if (lineDescriptions[index]) {
-      lineDescriptions[index].textContent = newValue;
-      const serializer = new XMLSerializer();
-      const updatedXml = serializer.serializeToString(xmlDoc);
-
-      setXmlContent(updatedXml);
-      setHasChanges(true);
-      setSaveSuccess(false);
+    try {
+      if (index === -1) {
+        // Campos de Cabecera
+        if (field === "emisor_razon") {
+          const el = getNS(getNS(getNS(xmlDoc, "AccountingSupplierParty"), "PartyLegalEntity"), "RegistrationName");
+          if (el) el.textContent = newValue;
+        } else if (field === "emisor_ruc") {
+          const el = getNS(getNS(getNS(xmlDoc, "AccountingSupplierParty"), "PartyIdentification"), "ID");
+          if (el) el.textContent = newValue;
+        } else if (field === "emisor_direccion") {
+          const pa = getNS(getNS(xmlDoc, "AccountingSupplierParty"), "PostalAddress");
+          const el = getNS(pa, "StreetName") || getNS(pa, "Line");
+          if (el) el.textContent = newValue;
+        } else if (field === "receptor_razon") {
+          const el = getNS(getNS(getNS(xmlDoc, "AccountingCustomerParty"), "PartyLegalEntity"), "RegistrationName");
+          if (el) el.textContent = newValue;
+        } else if (field === "receptor_ruc") {
+          const el = getNS(getNS(getNS(xmlDoc, "AccountingCustomerParty"), "PartyIdentification"), "ID");
+          if (el) el.textContent = newValue;
+        } else if (field === "receptor_direccion") {
+          const pa = getNS(getNS(xmlDoc, "AccountingCustomerParty"), "PostalAddress");
+          const el = getNS(pa, "StreetName") || getNS(pa, "Line");
+          if (el) el.textContent = newValue;
+        } else if (field === "fecha_emision") {
+          const el = getNS(xmlDoc, "IssueDate");
+          if (el) el.textContent = newValue;
+        } else if (field === "moneda") {
+          const el = getNS(xmlDoc, "DocumentCurrencyCode");
+          if (el) el.textContent = newValue;
+        } else if (field === "documento_id") {
+          const el = getNS(xmlDoc, "ID");
+          if (el) el.textContent = newValue;
+        } else if (field === "importe_total") {
+          const el = getNS(getNS(xmlDoc, "LegalMonetaryTotal"), "PayableAmount");
+          if (el) el.textContent = newValue;
+        }
+      } else {
+        // Campos de Detalles (Items)
+        const lines = Array.from(xmlDoc.getElementsByTagNameNS("*", "InvoiceLine"));
+        if (lines[index]) {
+          const line = lines[index];
+          if (field === "descripcion") {
+            const el = getNS(getNS(line, "Item"), "Description");
+            if (el) el.textContent = newValue;
+          } else if (field === "codigo") {
+            const el = getNS(getNS(getNS(line, "Item"), "SellersItemIdentification"), "ID");
+            if (el) el.textContent = newValue;
+          } else if (field === "unidad") {
+            const el = getNS(line, "InvoicedQuantity");
+            if (el) el.setAttribute("unitCode", newValue);
+          } else if (field === "cantidad") {
+            const el = getNS(line, "InvoicedQuantity");
+            if (el) el.textContent = newValue;
+          } else if (field === "precio_total") {
+            const el = getNS(line, "LineExtensionAmount");
+            if (el) el.textContent = newValue;
+          }
+        }
+      }
+    } catch (err) {
+      console.warn("Hubo un problema actualizando el nodo en el DOM", err);
     }
+
+    const serializer = new XMLSerializer();
+    const updatedXml = serializer.serializeToString(xmlDoc);
+
+    setXmlContent(updatedXml);
+    setHasChanges(true);
+    setSaveSuccess(false);
   };
 
   useEffect(() => {
@@ -162,21 +221,14 @@ export function useXmlEditorLogic() {
     });
   };
 
+  // Re-procesar todo el XML ante cualquier cambio para reflejar modificaciones globales
   useEffect(() => {
     if (!xmlContent || !invoiceData) return;
     try {
       const updatedData = parseXMLToInvoiceData(xmlContent);
-      const currentDescriptions = invoiceData.items
-        .map((i: any) => i.descripcion)
-        .join("|");
-      const newDescriptions = updatedData.items
-        .map((i: any) => i.descripcion)
-        .join("|");
-
-      if (currentDescriptions !== newDescriptions) {
-        setInvoiceData((prev: any) => ({ ...prev, items: updatedData.items }));
-      }
-    } catch (e) {}
+      // Reemplazamos la data completa en lugar de solo los items
+      setInvoiceData(updatedData);
+    } catch (e) { }
   }, [xmlContent]);
 
   const handleOpenFile = async () => {
@@ -292,6 +344,6 @@ export function useXmlEditorLogic() {
     handleOpenFile,
     handleSaveFile,
     handleReset,
-    handleDescriptionChange,
+    handleGlobalFieldChange,
   };
 }

@@ -131,8 +131,8 @@ export function XmlEditorPage() {
               Editor Seguro de XML UBL 2.1
             </h2>
             <p className="text-slate-500 mt-2 max-w-sm">
-              Abra una factura para extraer sus datos automáticamente y corregir
-              manualmente las descripciones de los productos bidireccionalmente.
+              Abra una factura para extraer sus datos y editar libremente todos
+              sus campos.
             </p>
           </div>
         ) : (
@@ -167,7 +167,7 @@ export function XmlEditorPage() {
                 <div className="h-full w-full animate-in fade-in duration-300">
                   <InvoicePreview
                     invoiceData={logic.invoiceData}
-                    handleDescriptionChange={logic.handleDescriptionChange}
+                    handleGlobalFieldChange={logic.handleGlobalFieldChange}
                   />
                 </div>
               ) : (
