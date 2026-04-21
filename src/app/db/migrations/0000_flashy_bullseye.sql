@@ -24,8 +24,8 @@ CREATE UNIQUE INDEX `catalogo_tipos_tramite_nombre_unique` ON `catalogo_tipos_tr
 CREATE TABLE `clientes` (
 	`id` text PRIMARY KEY NOT NULL,
 	`tipo_documento` text NOT NULL,
-	`numero_documento` text NOT NULL,
-	`razon_social_nombres` text NOT NULL,
+	`numero_documento` text,
+	`razon_social_nombres` text,
 	`estado_civil` text DEFAULT 'SOLTERO(A)',
 	`domicilio` text,
 	`telefono` text,
@@ -86,7 +86,7 @@ CREATE TABLE `tramite_detalles` (
 CREATE UNIQUE INDEX `tramite_detalles_tramite_id_unique` ON `tramite_detalles` (`tramite_id`);
 CREATE TABLE `tramites` (
 	`id` text PRIMARY KEY NOT NULL,
-	`codigo_verificacion` text NOT NULL,
+	`codigo_verificacion` text,
 	`tramite_anio` text NOT NULL,
 	`cliente_id` text NOT NULL,
 	`vehiculo_id` text NOT NULL,
@@ -132,10 +132,10 @@ CREATE TABLE `usuarios` (
 CREATE UNIQUE INDEX `usuarios_username_unique` ON `usuarios` (`username`);
 CREATE TABLE `vehiculos` (
 	`id` text PRIMARY KEY NOT NULL,
-	`chasis_vin` text NOT NULL,
+	`chasis_vin` text,
 	`placa` text,
 	`motor` text,
-	`marca` text NOT NULL,
+	`marca` text,
 	`modelo` text,
 	`color` text,
 	`categoria` text DEFAULT 'L3 - B',
