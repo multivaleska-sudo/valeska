@@ -80,8 +80,8 @@ export const catalogoSituaciones = sqliteTable('catalogo_situaciones', {
 export const clientes = sqliteTable('clientes', {
     id: text('id').primaryKey(),
     tipoDocumento: text('tipo_documento').notNull(),
-    numeroDocumento: text('numero_documento').notNull(),
-    razonSocialNombres: text('razon_social_nombres').notNull(),
+    numeroDocumento: text('numero_documento'),
+    razonSocialNombres: text('razon_social_nombres'),
     estadoCivil: text('estado_civil').default('SOLTERO(A)'),
     domicilio: text('domicilio'),
     telefono: text('telefono'),
@@ -93,10 +93,10 @@ export const clientes = sqliteTable('clientes', {
 
 export const vehiculos = sqliteTable('vehiculos', {
     id: text('id').primaryKey(),
-    chasisVin: text('chasis_vin').notNull(),
+    chasisVin: text('chasis_vin'),
     placa: text('placa'),
     motor: text('motor'),
-    marca: text('marca').notNull(),
+    marca: text('marca'),
     modelo: text('modelo'),
     color: text('color'),
     categoria: text('categoria').default('L3 - B'),
@@ -121,9 +121,9 @@ export const empresasGestoras = sqliteTable('empresas_gestoras', {
 export const representantesLegales = sqliteTable('representantes_legales', {
     id: text('id').primaryKey(),
     empresaGestoraId: text('empresa_gestora_id').references(() => empresasGestoras.id).notNull(),
-    dni: text('dni').notNull(),
-    nombres: text('nombres').notNull(),
-    primerApellido: text('primer_apellido').notNull(),
+    dni: text('dni'),
+    nombres: text('nombres'),
+    primerApellido: text('primer_apellido'),
     segundoApellido: text('segundo_apellido'),
     partidaRegistral: text('partida_registral'),
     oficinaRegistral: text('oficina_registral'),
@@ -136,9 +136,9 @@ export const representantesLegales = sqliteTable('representantes_legales', {
 
 export const presentantes = sqliteTable('presentantes', {
     id: text('id').primaryKey(),
-    dni: text('dni').notNull(),
-    nombres: text('nombres').notNull(),
-    primerApellido: text('primer_apellido').notNull(),
+    dni: text('dni'),
+    nombres: text('nombres'),
+    primerApellido: text('primer_apellido'),
     segundoApellido: text('segundo_apellido'),
     ...syncColumns
 }, (table) => ({
@@ -152,7 +152,7 @@ export const presentantes = sqliteTable('presentantes', {
 export const tramites = sqliteTable('tramites', {
     id: text('id').primaryKey(),
 
-    codigoVerificacion: text('codigo_verificacion').notNull(),
+    codigoVerificacion: text('codigo_verificacion'),
     tramiteAnio: text('tramite_anio').notNull(),
     clienteId: text('cliente_id').references(() => clientes.id).notNull(),
     vehiculoId: text('vehiculo_id').references(() => vehiculos.id).notNull(),
