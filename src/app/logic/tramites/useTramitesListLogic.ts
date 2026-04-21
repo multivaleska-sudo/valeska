@@ -1,5 +1,8 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import Database from "@tauri-apps/plugin-sql";
+import { save } from "@tauri-apps/plugin-dialog";
+import { writeFile } from "@tauri-apps/plugin-fs";
+import * as XLSX from "xlsx";
 import { sileo } from "sileo";
 
 export interface TramiteRow {
@@ -7,7 +10,7 @@ export interface TramiteRow {
   n_titulo: string;
   cliente: string;
   dni: string;
-  placa: string; // <-- AÑADIDO
+  placa: string;
   tramite: string;
   situacion: string;
   fecha_presentacion: string;
@@ -17,15 +20,23 @@ export interface TramiteRow {
 export function useTramitesListLogic() {
   const [rawData, setRawData] = useState<TramiteRow[]>([]);
   const [opcionesSituacion, setOpcionesSituacion] = useState<string[]>([]);
+  const [opcionesEmpresas, setOpcionesEmpresas] = useState<string[]>([]); // Para el filtro
   const [isLoading, setIsLoading] = useState(true);
+  const [isExporting, setIsExporting] = useState(false);
 
+  // Filtros originales
   const [searchCliente, setSearchCliente] = useState("");
   const [searchTitulo, setSearchTitulo] = useState("");
   const [searchDNI, setSearchDNI] = useState("");
-  const [searchPlaca, setSearchPlaca] = useState(""); // <-- AÑADIDO
+  const [searchPlaca, setSearchPlaca] = useState("");
   const [filterSituacion, setFilterSituacion] = useState("");
   const [fechaInicio, setFechaInicio] = useState("");
   const [fechaFin, setFechaFin] = useState("");
+
+  // Nuevo Filtro de Empresa (Searchable)
+  const [filterEmpresa, setFilterEmpresa] = useState("");
+  const [inputEmpresa, setInputEmpresa] = useState("");
+  const [showEmpresaResults, setShowEmpresaResults] = useState(false);
 
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
@@ -33,16 +44,18 @@ export function useTramitesListLogic() {
   const fetchCatalogos = useCallback(async () => {
     try {
       const sqlite = await Database.load("sqlite:valeska.db");
+
       const resSits: any[] = await sqlite.select(
         "SELECT nombre FROM catalogo_situaciones WHERE activo = 1 ORDER BY nombre ASC",
       );
       setOpcionesSituacion(resSits.map((s) => s.nombre));
+
+      const resEmps: any[] = await sqlite.select(
+        "SELECT razon_social FROM empresas_gestoras WHERE deleted_at IS NULL ORDER BY razon_social ASC",
+      );
+      setOpcionesEmpresas(resEmps.map((e) => e.razon_social));
     } catch (error) {
-      console.error("Error al cargar catálogos para filtros:", error);
-      sileo.error({
-        title: "Error de Filtros",
-        description: "No se pudieron cargar los catálogos para los filtros.",
-      });
+      console.error("Error al cargar catálogos:", error);
     }
   }, []);
 
@@ -50,8 +63,6 @@ export function useTramitesListLogic() {
     setIsLoading(true);
     try {
       const sqlite = await Database.load("sqlite:valeska.db");
-
-      // <-- CONSULTA SQL ACTUALIZADA PARA TRAER LA PLACA
       const query = `
                 SELECT 
                     t.id,
@@ -73,28 +84,21 @@ export function useTramitesListLogic() {
                 WHERE t.deleted_at IS NULL
                 ORDER BY t.created_at DESC
             `;
-
       const result: any[] = await sqlite.select(query);
-
       const formattedData: TramiteRow[] = result.map((row) => ({
         id: row.id,
         n_titulo: row.n_titulo || "SIN TÍTULO",
         cliente: row.cliente || "DESCONOCIDO",
         dni: row.dni || "",
-        placa: row.placa || "---", // <-- AÑADIDO
+        placa: row.placa || "---",
         tramite: row.tramite || "",
         situacion: row.situacion || "",
         fecha_presentacion: row.fecha_presentacion || "",
         empresa_gestiona: row.empresa_gestiona || "--",
       }));
-
       setRawData(formattedData);
     } catch (error) {
-      console.error("Error al cargar trámites desde SQLite:", error);
-      sileo.error({
-        title: "Error",
-        description: "Ocurrió un error al cargar la lista de trámites.",
-      });
+      console.error("Error al cargar trámites:", error);
     } finally {
       setIsLoading(false);
     }
@@ -108,6 +112,14 @@ export function useTramitesListLogic() {
       window.removeEventListener("valeska_reload_tramites", fetchTramites);
   }, [fetchTramites, fetchCatalogos]);
 
+  // Lógica de Autocomplete para empresas
+  const empresasSugeridas = useMemo(() => {
+    if (!inputEmpresa.trim()) return opcionesEmpresas;
+    return opcionesEmpresas.filter((e) =>
+      e.toLowerCase().includes(inputEmpresa.toLowerCase()),
+    );
+  }, [opcionesEmpresas, inputEmpresa]);
+
   const filteredTramites = useMemo(() => {
     return rawData.filter((tramite) => {
       const matchCliente = tramite.cliente
@@ -119,25 +131,27 @@ export function useTramitesListLogic() {
       const matchDNI = tramite.dni.includes(searchDNI);
       const matchPlaca = tramite.placa
         .toLowerCase()
-        .includes(searchPlaca.toLowerCase()); // <-- AÑADIDO
+        .includes(searchPlaca.toLowerCase());
       const matchSituacion = filterSituacion
         ? tramite.situacion === filterSituacion
         : true;
+      const matchEmpresa = filterEmpresa
+        ? tramite.empresa_gestiona === filterEmpresa
+        : true;
 
       let matchFecha = true;
-      if (fechaInicio) {
+      if (fechaInicio)
         matchFecha = matchFecha && tramite.fecha_presentacion >= fechaInicio;
-      }
-      if (fechaFin) {
+      if (fechaFin)
         matchFecha = matchFecha && tramite.fecha_presentacion <= fechaFin;
-      }
 
       return (
         matchCliente &&
         matchTitulo &&
         matchDNI &&
-        matchPlaca && // <-- AÑADIDO
+        matchPlaca &&
         matchSituacion &&
+        matchEmpresa &&
         matchFecha
       );
     });
@@ -146,8 +160,9 @@ export function useTramitesListLogic() {
     searchCliente,
     searchTitulo,
     searchDNI,
-    searchPlaca, // <-- AÑADIDO
+    searchPlaca,
     filterSituacion,
+    filterEmpresa,
     fechaInicio,
     fechaFin,
   ]);
@@ -164,11 +179,46 @@ export function useTramitesListLogic() {
     searchCliente,
     searchTitulo,
     searchDNI,
-    searchPlaca, // <-- AÑADIDO
+    searchPlaca,
     filterSituacion,
+    filterEmpresa,
     fechaInicio,
     fechaFin,
   ]);
+
+  const handleExportExcel = async () => {
+    if (filteredTramites.length === 0) return;
+    setIsExporting(true);
+    try {
+      const dataToExport = filteredTramites.map((t, idx) => ({
+        "N°": idx + 1,
+        "N° TÍTULO": t.n_titulo,
+        CLIENTE: t.cliente,
+        "DNI / RUC": t.dni,
+        PLACA: t.placa,
+        TRAMITE: t.tramite,
+        SITUACIÓN: t.situacion,
+        FECHA: t.fecha_presentacion,
+        EMPRESA: t.empresa_gestiona,
+      }));
+      const ws = XLSX.utils.json_to_sheet(dataToExport);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Reporte");
+      const path = await save({
+        defaultPath: `Reporte_Valeska_${new Date().toISOString().split("T")[0]}.xlsx`,
+        filters: [{ name: "Excel", extensions: ["xlsx"] }],
+      });
+      if (path) {
+        const excelBuffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+        await writeFile(path, new Uint8Array(excelBuffer));
+        sileo.success({ title: "Éxito", description: "Excel guardado." });
+      }
+    } catch (e) {
+      sileo.error({ title: "Error", description: "No se pudo exportar." });
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   return {
     filtros: {
@@ -178,10 +228,17 @@ export function useTramitesListLogic() {
       setSearchTitulo,
       searchDNI,
       setSearchDNI,
-      searchPlaca, // <-- AÑADIDO
-      setSearchPlaca, // <-- AÑADIDO
+      searchPlaca,
+      setSearchPlaca,
       filterSituacion,
       setFilterSituacion,
+      filterEmpresa,
+      setFilterEmpresa,
+      inputEmpresa,
+      setInputEmpresa,
+      showEmpresaResults,
+      setShowEmpresaResults,
+      empresasSugeridas,
       fechaInicio,
       setFechaInicio,
       fechaFin,
@@ -196,6 +253,8 @@ export function useTramitesListLogic() {
     },
     data: paginatedTramites,
     isLoading,
+    isExporting,
     opcionesSituacion,
+    handleExportExcel,
   };
 }
