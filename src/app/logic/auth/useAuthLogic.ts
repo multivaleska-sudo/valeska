@@ -9,6 +9,7 @@ import * as schema from "../../db/schema";
 import { sileo } from "sileo";
 import { executePush } from "../sync/pushActions";
 import { executePull } from "../sync/pullActions";
+import { runSchemaUpdate } from "../../db/migrations";
 
 const getDb = async () => {
   const sqlite = await Database.load("sqlite:valeska.db");
@@ -33,14 +34,49 @@ const getDb = async () => {
 
 const API_URL = (import.meta as any).env.VITE_API_URL;
 
+/**
+ * IDENTIFICADOR DE VERSIÓN DE BASE DE DATOS
+ * Cambia este número cada vez que realices cambios estructurales importantes.
+ * Esto asegura que la migración solo corra una vez tras la actualización.
+ */
+const DB_VERSION_KEY = "valeska_migration_v2.0.0_done";
+
 export function useAuthLogic() {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(true);
   const [isFirstRun, setIsFirstRun] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  /**
+   * Función de inicio del sistema.
+   * Verifica la integridad de la BD y el estado de la sesión.
+   */
   const checkInitialSetup = async () => {
     try {
+      // =========================================================
+      // PASO 0: CONTROL DE MIGRACIÓN ÚNICA
+      // =========================================================
+      // Solo ejecutamos el script si no ha sido completado previamente
+      // en esta versión instalada.
+      const migrationDone = localStorage.getItem(DB_VERSION_KEY);
+
+      if (!migrationDone) {
+        console.log(
+          "⚡ Nueva versión detectada. Ejecutando migración de base de datos...",
+        );
+        try {
+          await runSchemaUpdate();
+          // Marcamos como completado para que no vuelva a correr hasta la siguiente versión
+          localStorage.setItem(DB_VERSION_KEY, "true");
+        } catch (migrationError) {
+          console.error(
+            "Error durante la migración automática:",
+            migrationError,
+          );
+          // No guardamos el flag para que intente re-ejecutar en el siguiente reinicio si falló
+        }
+      }
+
       const sqlite = await Database.load("sqlite:valeska.db");
       const allUsers: any[] = await sqlite.select(
         "SELECT id FROM usuarios LIMIT 1",
@@ -233,7 +269,7 @@ export function useAuthLogic() {
         const errData = await response.json().catch(() => ({}));
         throw new Error(
           errData.message ||
-          "Credenciales inválidas o conexión a la nube fallida.",
+            "Credenciales inválidas o conexión a la nube fallida.",
         );
       }
 
@@ -291,7 +327,7 @@ export function useAuthLogic() {
       console.error("Error en provisión por nube:", err);
       setError(
         err.message ||
-        "Error interno al configurar el dispositivo desde la nube.",
+          "Error interno al configurar el dispositivo desde la nube.",
       );
       sileo.error({
         title: "Error en Nube",
@@ -329,10 +365,10 @@ export function useAuthLogic() {
             [username],
           );
           user = result[0];
-
         } catch (e) {
           console.warn(
-            "Ignorando error de sincronización inicial (Modo Offline)", e
+            "Ignorando error de sincronización inicial (Modo Offline)",
+            e,
           );
         }
       }
