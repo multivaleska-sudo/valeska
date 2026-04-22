@@ -168,6 +168,12 @@ pub fn run() {
             sql: include_str!("../../src/app/db/migrations/0010_slow_raider.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 12,
+            description: "permitir_rucs_duplicados",
+            sql: include_str!("../../src/app/db/migrations/0011_allow_duplicates.sql"),
+            kind: MigrationKind::Up,
+        },
     ];
 
     tauri::Builder::default()

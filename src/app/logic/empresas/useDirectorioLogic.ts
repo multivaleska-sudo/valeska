@@ -26,9 +26,7 @@ export interface RepresentanteCombined {
 }
 
 export function useDirectorioLogic() {
-  const [representantes, setRepresentantes] = useState<RepresentanteCombined[]>(
-    [],
-  );
+  const [representantes, setRepresentantes] = useState<RepresentanteCombined[]>([]);
   const [presentantes, setPresentantes] = useState<Presentante[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -56,17 +54,14 @@ export function useDirectorioLogic() {
     domicilio: "",
   };
 
-  const [formPresentante, setFormPresentante] =
-    useState<Presentante>(initialPresentante);
-  const [formRepresentante, setFormRepresentante] =
-    useState<RepresentanteCombined>(initialRepresentante);
+  const [formPresentante, setFormPresentante] = useState<Presentante>(initialPresentante);
+  const [formRepresentante, setFormRepresentante] = useState<RepresentanteCombined>(initialRepresentante);
 
   const loadData = useCallback(async () => {
     setIsLoading(true);
     try {
       const db = await Database.load("sqlite:valeska.db");
 
-      // 1. CARGAMOS LA LISTA FUSIONADA (Solo los NO eliminados)
       const repRes = await db.select<RepresentanteCombined[]>(
         `SELECT 
           rl.id, 
@@ -84,12 +79,11 @@ export function useDirectorioLogic() {
         FROM representantes_legales rl 
         JOIN empresas_gestoras eg ON rl.empresa_gestora_id = eg.id 
         WHERE rl.deleted_at IS NULL 
-        ORDER BY eg.razon_social ASC, rl.primer_apellido ASC`,
+        ORDER BY eg.razon_social ASC, rl.primer_apellido ASC`
       );
 
-      // 2. CARGAMOS LOS TRABAJADORES INDEPENDIENTES (Solo los NO eliminados)
       const presRes = await db.select<Presentante[]>(
-        "SELECT id, dni, primer_apellido, segundo_apellido, nombres FROM presentantes WHERE deleted_at IS NULL ORDER BY primer_apellido ASC, nombres ASC",
+        "SELECT id, dni, primer_apellido, segundo_apellido, nombres FROM presentantes WHERE deleted_at IS NULL ORDER BY primer_apellido ASC, nombres ASC"
       );
 
       setRepresentantes(repRes || []);
@@ -109,16 +103,13 @@ export function useDirectorioLogic() {
     loadData();
   }, [loadData]);
 
-  // ============================================================================
-  // AUTOCOMPLETADO MAGICO DE RUC
-  // ============================================================================
   const buscarEmpresaPorRuc = async (ruc: string) => {
     if (ruc.length !== 11) return;
     try {
       const db = await Database.load("sqlite:valeska.db");
       const res: any[] = await db.select(
         "SELECT id, razon_social, direccion FROM empresas_gestoras WHERE ruc = $1",
-        [ruc],
+        [ruc]
       );
       if (res.length > 0) {
         setFormRepresentante((prev) => ({
@@ -140,17 +131,10 @@ export function useDirectorioLogic() {
     }
   };
 
-  // ============================================================================
-  // GUARDAR PRESENTANTE (Aplica tu idea de "Revivir" si ya existe oculto)
-  // ============================================================================
   const savePresentante = async () => {
     if (isSaving) return;
 
-    if (
-      !formPresentante.dni ||
-      !formPresentante.nombres ||
-      !formPresentante.primer_apellido
-    ) {
+    if (!formPresentante.dni || !formPresentante.nombres || !formPresentante.primer_apellido) {
       sileo.warning({
         title: "Campos incompletos",
         description: "DNI, Nombres y Primer Apellido son obligatorios.",
@@ -163,39 +147,22 @@ export function useDirectorioLogic() {
       const db = await Database.load("sqlite:valeska.db");
       const now = Date.now();
 
-      // TU IDEA AQUÍ: Buscar si el DNI ya existe (incluso si está oculto)
       const existing: any[] = await db.select(
         "SELECT id FROM presentantes WHERE dni = $1",
-        [formPresentante.dni],
+        [formPresentante.dni]
       );
 
       if (existing.length > 0) {
-        // Si existe, lo revivimos (deleted_at = NULL) y actualizamos sus datos
         const targetId = existing[0].id;
         await db.execute(
           "UPDATE presentantes SET primer_apellido=$1, segundo_apellido=$2, nombres=$3, deleted_at=NULL, updated_at=$4, sync_status='LOCAL_UPDATE' WHERE id=$5",
-          [
-            formPresentante.primer_apellido,
-            formPresentante.segundo_apellido,
-            formPresentante.nombres,
-            now,
-            targetId,
-          ],
+          [formPresentante.primer_apellido, formPresentante.segundo_apellido, formPresentante.nombres, now, targetId]
         );
       } else {
-        // Si no existe para nada, lo insertamos como nuevo
         const newId = formPresentante.id || crypto.randomUUID();
         await db.execute(
           "INSERT INTO presentantes (id, dni, primer_apellido, segundo_apellido, nombres, created_at, updated_at, sync_status) VALUES ($1, $2, $3, $4, $5, $6, $7, 'LOCAL_INSERT')",
-          [
-            newId,
-            formPresentante.dni,
-            formPresentante.primer_apellido,
-            formPresentante.segundo_apellido,
-            formPresentante.nombres,
-            now,
-            now,
-          ],
+          [newId, formPresentante.dni, formPresentante.primer_apellido, formPresentante.segundo_apellido, formPresentante.nombres, now, now]
         );
       }
 
@@ -213,14 +180,10 @@ export function useDirectorioLogic() {
     }
   };
 
-  // ============================================================================
-  // GUARDAR REPRESENTANTE LEGAL + EMPRESA (Aplica tu idea a ambos)
-  // ============================================================================
   const saveRepresentante = async () => {
     if (isSaving) return;
 
     if (
-      !formRepresentante.ruc ||
       !formRepresentante.razon_social ||
       !formRepresentante.dni ||
       !formRepresentante.nombres ||
@@ -228,8 +191,7 @@ export function useDirectorioLogic() {
     ) {
       sileo.warning({
         title: "Campos incompletos",
-        description:
-          "RUC, Razón Social, DNI, Nombres y Apellido son obligatorios.",
+        description: "Razón Social, DNI, Nombres y Apellido son obligatorios.",
       });
       return;
     }
@@ -239,43 +201,46 @@ export function useDirectorioLogic() {
       const db = await Database.load("sqlite:valeska.db");
       const now = Date.now();
 
-      // 1. UPSERT DE LA EMPRESA GESTORA (Revivimos si el RUC ya existía)
-      let empresaIdToUse = formRepresentante.empresa_id;
-      const empCheck: any[] = await db.select(
-        "SELECT id FROM empresas_gestoras WHERE ruc = $1",
-        [formRepresentante.ruc],
-      );
+      const finalRuc = formRepresentante.ruc.trim() === "" ? null : formRepresentante.ruc.trim();
 
-      if (empCheck.length > 0) {
-        empresaIdToUse = empCheck[0].id;
+      let empresaIdToUse = formRepresentante.empresa_id;
+
+      if (empresaIdToUse) {
         await db.execute(
-          "UPDATE empresas_gestoras SET razon_social=$1, direccion=$2, deleted_at=NULL, updated_at=$3, sync_status='LOCAL_UPDATE' WHERE id=$4",
-          [
-            formRepresentante.razon_social,
-            formRepresentante.direccion,
-            now,
-            empresaIdToUse,
-          ],
+          "UPDATE empresas_gestoras SET ruc=$1, razon_social=$2, direccion=$3, deleted_at=NULL, updated_at=$4, sync_status='LOCAL_UPDATE' WHERE id=$5",
+          [finalRuc, formRepresentante.razon_social, formRepresentante.direccion, now, empresaIdToUse]
         );
       } else {
-        empresaIdToUse = empresaIdToUse || crypto.randomUUID();
-        await db.execute(
-          "INSERT INTO empresas_gestoras (id, ruc, razon_social, direccion, created_at, updated_at, sync_status) VALUES ($1, $2, $3, $4, $5, $6, 'LOCAL_INSERT')",
-          [
-            empresaIdToUse,
-            formRepresentante.ruc,
-            formRepresentante.razon_social,
-            formRepresentante.direccion,
-            now,
-            now,
-          ],
-        );
+        let query = "SELECT id FROM empresas_gestoras WHERE razon_social = $1";
+        let params: any[] = [formRepresentante.razon_social];
+
+        if (finalRuc) {
+          query += " AND ruc = $2";
+          params.push(finalRuc);
+        } else {
+          query += " AND ruc IS NULL";
+        }
+
+        const empCheck: any[] = await db.select(query, params);
+
+        if (empCheck.length > 0) {
+          empresaIdToUse = empCheck[0].id;
+          await db.execute(
+            "UPDATE empresas_gestoras SET direccion=$1, deleted_at=NULL, updated_at=$2, sync_status='LOCAL_UPDATE' WHERE id=$3",
+            [formRepresentante.direccion, now, empresaIdToUse]
+          );
+        } else {
+          empresaIdToUse = crypto.randomUUID();
+          await db.execute(
+            "INSERT INTO empresas_gestoras (id, ruc, razon_social, direccion, created_at, updated_at, sync_status) VALUES ($1, $2, $3, $4, $5, $6, 'LOCAL_INSERT')",
+            [empresaIdToUse, finalRuc, formRepresentante.razon_social, formRepresentante.direccion, now, now]
+          );
+        }
       }
 
-      // 2. UPSERT DEL REPRESENTANTE LEGAL (Revivimos si el DNI ya existía)
       const repCheck: any[] = await db.select(
         "SELECT id FROM representantes_legales WHERE dni = $1",
-        [formRepresentante.dni],
+        [formRepresentante.dni]
       );
 
       if (repCheck.length > 0) {
@@ -292,7 +257,7 @@ export function useDirectorioLogic() {
             formRepresentante.domicilio,
             now,
             repIdToUse,
-          ],
+          ]
         );
       } else {
         const newRepId = formRepresentante.id || crypto.randomUUID();
@@ -310,14 +275,13 @@ export function useDirectorioLogic() {
             formRepresentante.domicilio,
             now,
             now,
-          ],
+          ]
         );
       }
 
       sileo.success({
         title: "Guardado exitoso",
-        description:
-          "El Representante de la Empresa ha sido guardado correctamente.",
+        description: "El Representante de la Empresa ha sido guardado correctamente.",
       });
       setFormRepresentante(initialRepresentante);
       window.dispatchEvent(new Event("valeska_request_sync"));
@@ -329,9 +293,6 @@ export function useDirectorioLogic() {
     }
   };
 
-  // ============================================================================
-  // ELIMINAR REGISTROS (Lógico)
-  // ============================================================================
   const deleteRecord = async (
     table: "presentantes" | "representantes_legales",
     id: string,

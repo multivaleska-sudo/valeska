@@ -18,7 +18,6 @@ interface InvoicePreviewProps {
   ) => void;
 }
 
-// Nuevo componente polimórfico que permite editar cualquier nodo
 const EditableField = ({
   initialValue,
   onValueChange,
@@ -63,7 +62,7 @@ const EditableField = ({
         }}
         onChange={handleChange}
         placeholder={placeholder}
-        className={`w-full resize-y bg-slate-50 border-2 border-transparent focus:border-blue-500 focus:bg-white rounded-xl p-4 text-base font-bold text-slate-800 uppercase leading-relaxed outline-none transition-all shadow-inner hover:border-slate-200 ${className}`}
+        className={`w-full resize-y bg-slate-50 border-2 border-transparent focus:border-blue-500 focus:bg-white rounded-xl p-4 text-base font-bold text-slate-800 leading-relaxed outline-none transition-all shadow-inner hover:border-slate-200 ${className}`}
       />
     );
   }
@@ -97,7 +96,7 @@ export function InvoicePreview({
             onValueChange={(val) =>
               handleGlobalFieldChange("emisor_razon", val)
             }
-            className="text-3xl font-black text-slate-900 uppercase leading-none w-full"
+            className="text-3xl font-black text-slate-900 leading-none w-full"
           />
           <div className="space-y-1">
             <p className="text-sm text-slate-500 flex items-center gap-2 font-medium italic mt-2">
@@ -124,7 +123,7 @@ export function InvoicePreview({
               className="w-36 text-center"
             />
           </p>
-          <p className="text-2xl font-black bg-slate-900 text-white my-3 py-2 px-4 uppercase tracking-wider">
+          <p className="text-2xl font-black bg-slate-900 text-white my-3 py-2 px-4 tracking-wider">
             <EditableField
               initialValue={invoiceData.tipo_documento}
               onValueChange={(val) =>
@@ -165,12 +164,12 @@ export function InvoicePreview({
           <label className="text-xs font-black text-slate-400 uppercase tracking-widest">
             Tipo de Moneda
           </label>
-          <div className="flex items-center gap-3 text-base font-bold text-slate-700 bg-white p-3 rounded-lg border border-slate-200 uppercase">
+          <div className="flex items-center gap-3 text-base font-bold text-slate-700 bg-white p-3 rounded-lg border border-slate-200">
             <Coins size={18} className="text-blue-500" />
             <EditableField
               initialValue={invoiceData.moneda}
               onValueChange={(val) => handleGlobalFieldChange("moneda", val)}
-              className="w-full uppercase"
+              className="w-full"
             />
           </div>
         </div>
@@ -178,14 +177,14 @@ export function InvoicePreview({
           <label className="text-xs font-black text-slate-400 uppercase tracking-widest">
             Señor(es)
           </label>
-          <div className="flex items-center gap-3 text-base font-bold text-slate-700 bg-white p-3 rounded-lg border border-slate-200 uppercase">
+          <div className="flex items-center gap-3 text-base font-bold text-slate-700 bg-white p-3 rounded-lg border border-slate-200">
             <User size={18} className="text-blue-500 shrink-0" />
             <EditableField
               initialValue={invoiceData.receptor_razon}
               onValueChange={(val) =>
                 handleGlobalFieldChange("receptor_razon", val)
               }
-              className="w-full uppercase"
+              className="w-full"
             />
           </div>
         </div>
