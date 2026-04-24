@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Database from "@tauri-apps/plugin-sql";
 import { TramiteFormData } from "../../types/tramites/tramite.types";
 import { handlePdfAutofillAction } from "./pdfActions";
@@ -20,7 +20,9 @@ export function useTramiteLogic(initialData?: Partial<TramiteFormData>) {
   const [presentanteResultados, setPresentanteResultados] = useState<any[]>([]);
   const [showPresentanteDropdown, setShowPresentanteDropdown] = useState(false);
 
-  // IDS OCULTOS PARA CONSERVAR LA RELACIÓN DE BASE DE DATOS
+  const skipEmpresaSearch = useRef(false);
+  const skipPresentanteSearch = useRef(false);
+
   const [selectedEmpresaId, setSelectedEmpresaId] = useState<string | null>(
     (initialData as any)?.empresa_gestora_id || null,
   );
@@ -133,8 +135,15 @@ export function useTramiteLogic(initialData?: Partial<TramiteFormData>) {
     loadCatalogos();
   }, [loadCatalogos]);
 
-  // BUSCADOR 1: EMPRESA
+  // ============================================================================
+  // BUSCADOR 1: EMPRESA GESTORA
+  // ============================================================================
   useEffect(() => {
+    if (skipEmpresaSearch.current) {
+      skipEmpresaSearch.current = false;
+      return;
+    }
+
     const buscarEmpresa = async () => {
       const val = formData.presentante_empresa;
       if (!val || val.trim().length < 2) {
@@ -158,17 +167,25 @@ export function useTramiteLogic(initialData?: Partial<TramiteFormData>) {
   }, [formData.presentante_empresa]);
 
   const seleccionarEmpresa = (emp: any) => {
+    skipEmpresaSearch.current = true;
     setFormData((prev) => ({
       ...prev,
-      presentante_empresa: emp.razon_social, // SÓLO EL NOMBRE
+      presentante_empresa: emp.razon_social,
     }));
-    setSelectedEmpresaId(emp.id); // GUARDAMOS EL ID OCULTO
+    setSelectedEmpresaId(emp.id);
     setEmpresaResultados([]);
     setShowEmpresaDropdown(false);
   };
 
+  // ============================================================================
   // BUSCADOR 2: PRESENTANTE LEGAL
+  // ============================================================================
   useEffect(() => {
+    if (skipPresentanteSearch.current) {
+      skipPresentanteSearch.current = false;
+      return;
+    }
+
     const buscarPresentante = async () => {
       const val = formData.presentante_persona;
       if (!val || val.trim().length < 2) {
@@ -192,15 +209,15 @@ export function useTramiteLogic(initialData?: Partial<TramiteFormData>) {
   }, [formData.presentante_persona]);
 
   const seleccionarPresentante = (p: any) => {
+    skipPresentanteSearch.current = true;
     setFormData((prev) => ({
       ...prev,
-      // SÓLO EL NOMBRE
       presentante_persona:
         `${p.primer_apellido} ${p.segundo_apellido || ""} ${p.nombres}`
           .replace(/\s+/g, " ")
           .trim(),
     }));
-    setSelectedPresentanteId(p.id); // GUARDAMOS EL ID OCULTO
+    setSelectedPresentanteId(p.id);
     setPresentanteResultados([]);
     setShowPresentanteDropdown(false);
   };
@@ -225,7 +242,6 @@ export function useTramiteLogic(initialData?: Partial<TramiteFormData>) {
               : value.toUpperCase(),
       };
 
-      // Si el usuario edita a mano, se borra el ID oculto y se creará uno nuevo
       if (name === "presentante_empresa") setSelectedEmpresaId(null);
       if (name === "presentante_persona") setSelectedPresentanteId(null);
 
@@ -389,10 +405,10 @@ export function useTramiteLogic(initialData?: Partial<TramiteFormData>) {
       } catch (e) { }
 
       // ==========================================
-      // 1. RESOLUCIÓN DE CLIENTE (Evita Error de Unique)
+      // 1. RESOLUCIÓN DE CLIENTE
       // ==========================================
       let finalClienteId = null;
-      const docCliente = formData.dni.trim() || `SN-${Date.now()}`; // Fallback si no pone DNI
+      const docCliente = formData.dni.trim() || `SN-${Date.now()}`;
       try {
         const cliRes: any[] = await sqlite.select(
           "SELECT id FROM clientes WHERE numero_documento = $1",
@@ -431,10 +447,10 @@ export function useTramiteLogic(initialData?: Partial<TramiteFormData>) {
       }
 
       // ==========================================
-      // 2. RESOLUCIÓN DE VEHÍCULO (Evita Error de Unique)
+      // 2. RESOLUCIÓN DE VEHÍCULO
       // ==========================================
       let finalVehiculoId = null;
-      const vinVehiculo = formData.vehiculo_chasis.trim() || `SN-${Date.now()}`; // Fallback si no pone VIN
+      const vinVehiculo = formData.vehiculo_chasis.trim() || `SN-${Date.now()}`;
       try {
         const vehRes: any[] = await sqlite.select(
           "SELECT id FROM vehiculos WHERE chasis_vin = $1",
@@ -501,7 +517,7 @@ export function useTramiteLogic(initialData?: Partial<TramiteFormData>) {
             finalEmpresaId = crypto.randomUUID();
             await sqlite.execute(
               "INSERT INTO empresas_gestoras (id, ruc, razon_social, created_at, updated_at, sync_status) VALUES ($1, $2, $3, $4, $5, 'LOCAL_INSERT')",
-              [finalEmpresaId, "S/N", rs, now, now],
+              [finalEmpresaId, null, rs, now, now],
             );
           }
         } catch (e) { }
