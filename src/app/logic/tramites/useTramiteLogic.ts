@@ -94,17 +94,17 @@ export function useTramiteLogic(initialData?: Partial<TramiteFormData>) {
         resTipos = await sqlite.select(
           "SELECT nombre FROM catalogo_tipos_tramite ORDER BY nombre ASC",
         );
-      } catch (e) {}
+      } catch (e) { }
       try {
         resSits = await sqlite.select(
           "SELECT nombre FROM catalogo_situaciones ORDER BY nombre ASC",
         );
-      } catch (e) {}
+      } catch (e) { }
       try {
         resTpl = await sqlite.select(
           "SELECT id, nombre_documento FROM plantillas_documentos WHERE deleted_at IS NULL AND activo = 1 ORDER BY nombre_documento ASC",
         );
-      } catch (e) {}
+      } catch (e) { }
 
       setOpcionesTipos(resTipos.map((t) => t.nombre));
       setOpcionesSituacion(resSits.map((s) => s.nombre));
@@ -151,7 +151,7 @@ export function useTramiteLogic(initialData?: Partial<TramiteFormData>) {
         );
         setEmpresaResultados(res);
         setShowEmpresaDropdown(res.length > 0);
-      } catch (error) {}
+      } catch (error) { }
     };
     const debounceTimer = setTimeout(buscarEmpresa, 250);
     return () => clearTimeout(debounceTimer);
@@ -185,7 +185,7 @@ export function useTramiteLogic(initialData?: Partial<TramiteFormData>) {
         );
         setPresentanteResultados(res);
         setShowPresentanteDropdown(res.length > 0);
-      } catch (error) {}
+      } catch (error) { }
     };
     const debounceTimer = setTimeout(buscarPresentante, 250);
     return () => clearTimeout(debounceTimer);
@@ -264,15 +264,62 @@ export function useTramiteLogic(initialData?: Partial<TramiteFormData>) {
 
   const autofillFromPdf = async () => {
     setIsFilling(true);
-    const pdfData = await handlePdfAutofillAction();
-    if (pdfData) {
-      setFormData((prev) => ({ ...prev, ...pdfData }));
-      sileo.success({
-        title: "Completado",
-        description: "Datos extraídos del PDF.",
-      });
+    try {
+      const pdfData = await handlePdfAutofillAction();
+
+      if (pdfData) {
+        setFormData((prev) => ({ ...prev, ...pdfData }));
+
+        const chasis = pdfData.vehiculo_chasis?.trim();
+        const motor = pdfData.vehiculo_motor?.trim();
+
+        let isDuplicate = false;
+        let duplicatedFields: string[] = [];
+
+        if (chasis || motor) {
+          const sqlite = await Database.load("sqlite:valeska.db");
+          const conditions = [];
+          const params = [];
+
+          if (chasis) {
+            conditions.push("chasis_vin = $1");
+            params.push(chasis);
+          }
+          if (motor) {
+            conditions.push("motor = $" + (params.length + 1));
+            params.push(motor);
+          }
+
+          if (conditions.length > 0) {
+            const query = `SELECT chasis_vin, motor FROM vehiculos WHERE ${conditions.join(" OR ")} LIMIT 1`;
+            const res: any[] = await sqlite.select(query, params);
+
+            if (res.length > 0) {
+              isDuplicate = true;
+              const dbVehiculo = res[0];
+              if (chasis && dbVehiculo.chasis_vin === chasis) duplicatedFields.push("Chasis / VIN");
+              if (motor && dbVehiculo.motor === motor) duplicatedFields.push("Motor");
+            }
+          }
+        }
+
+        if (isDuplicate) {
+          sileo.error({
+            title: "¡ALERTA: VEHÍCULO DUPLICADO!",
+            description: `El número de ${duplicatedFields.join(" y el número de ")} extraído del PDF ya se encuentra registrado en otro trámite. Verifique si es un ingreso doble.`,
+          });
+        } else {
+          sileo.success({
+            title: "Completado",
+            description: "Datos extraídos del PDF correctamente.",
+          });
+        }
+      }
+    } catch (error) {
+      console.error("Error validando PDF:", error);
+    } finally {
+      setIsFilling(false);
     }
-    setIsFilling(false);
   };
 
   const parseNames = (fullNombre: string) => {
@@ -322,7 +369,7 @@ export function useTramiteLogic(initialData?: Partial<TramiteFormData>) {
           [formData.tipo_tramite],
         );
         if (tipoRes.length > 0) tipoTramiteId = tipoRes[0].id;
-      } catch (e) {}
+      } catch (e) { }
 
       let situacionId = "SIT_001";
       try {
@@ -331,7 +378,7 @@ export function useTramiteLogic(initialData?: Partial<TramiteFormData>) {
           [formData.estado_tramite],
         );
         if (sitRes.length > 0) situacionId = sitRes[0].id;
-      } catch (e) {}
+      } catch (e) { }
 
       let sucursalId = null;
       try {
@@ -339,7 +386,7 @@ export function useTramiteLogic(initialData?: Partial<TramiteFormData>) {
           "SELECT sucursal_id FROM dispositivos LIMIT 1",
         );
         if (dispRes.length > 0) sucursalId = dispRes[0].sucursal_id;
-      } catch (e) {}
+      } catch (e) { }
 
       // ==========================================
       // 1. RESOLUCIÓN DE CLIENTE (Evita Error de Unique)
@@ -457,7 +504,7 @@ export function useTramiteLogic(initialData?: Partial<TramiteFormData>) {
               [finalEmpresaId, "S/N", rs, now, now],
             );
           }
-        } catch (e) {}
+        } catch (e) { }
       }
 
       // ==========================================
@@ -494,13 +541,12 @@ export function useTramiteLogic(initialData?: Partial<TramiteFormData>) {
               ],
             );
           }
-        } catch (e) {}
+        } catch (e) { }
       }
 
       let tramiteFinalId = formData.id;
 
       if (formData.id) {
-        // ACTUALIZAR TRAMITE
         await sqlite.execute(
           `UPDATE tramites SET cliente_id = $1, vehiculo_id = $2, codigo_verificacion = $3, n_titulo = $4, fecha_presentacion = $5, observaciones_generales = $6, entrego_tarjeta = $7, fecha_entrega_tarjeta = $8, entrego_placa = $9, fecha_entrega_placa = $10, tipo_tramite_id = $11, situacion_id = $12, tarjeta_en_oficina = $13, fecha_tarjeta_en_oficina = $14, placa_en_oficina = $15, fecha_placa_en_oficina = $16, metodo_entrega_tarjeta = $17, metodo_entrega_placa = $18, updated_at = $19, sync_status = 'LOCAL_UPDATE' WHERE id = $20`,
           [
@@ -548,7 +594,6 @@ export function useTramiteLogic(initialData?: Partial<TramiteFormData>) {
           ],
         );
       } else {
-        // CREAR TRAMITE NUEVO
         tramiteFinalId = crypto.randomUUID();
         const tramiteDetalleId = crypto.randomUUID();
 
@@ -659,12 +704,10 @@ export function useTramiteLogic(initialData?: Partial<TramiteFormData>) {
     opcionesSituacion,
     plantillas,
     loadCatalogos,
-    // Empresa
     empresaResultados,
     showEmpresaDropdown,
     setShowEmpresaDropdown,
     seleccionarEmpresa,
-    // Presentante
     presentanteResultados,
     showPresentanteDropdown,
     setShowPresentanteDropdown,
