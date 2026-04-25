@@ -174,6 +174,26 @@ pub fn run() {
             sql: include_str!("../../src/app/db/migrations/0011_allow_duplicates.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 13,
+            description: "permitir_codigos_de_verificacion_duplicados",
+            sql: include_str!(
+                "../../src/app/db/migrations/0012_allow_duplicates_codigo_verificacion.sql"
+            ),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 14,
+            description: "agregar_variable_carroceria",
+            sql: include_str!("../../src/app/db/migrations/0013_add_carroceria.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 15,
+            description: "cambiar_indices_para_representantes_y_presentantes",
+            sql: include_str!("../../src/app/db/migrations/0014_allow_duplicates_representantes_and_presentantes.sql"),
+            kind: MigrationKind::Up,
+        },
     ];
 
     tauri::Builder::default()

@@ -99,6 +99,7 @@ export const vehiculos = sqliteTable('vehiculos', {
     marca: text('marca'),
     modelo: text('modelo'),
     color: text('color'),
+    carroceria: text('carroceria'),
     categoria: text('categoria').default('L3 - B'),
     anioFabricacion: text('anio_fabricacion'),
     anioModelo: text('anio_modelo'),
@@ -130,7 +131,7 @@ export const representantesLegales = sqliteTable('representantes_legales', {
     domicilio: text('domicilio'),
     ...syncColumns
 }, (table) => ({
-    dniRepIdx: uniqueIndex('representante_dni_idx').on(table.dni),
+    dniRepIdx: index('representante_dni_idx').on(table.dni),
     empresaRepIdx: index('rep_empresa_idx').on(table.empresaGestoraId),
 }));
 
@@ -142,7 +143,7 @@ export const presentantes = sqliteTable('presentantes', {
     segundoApellido: text('segundo_apellido'),
     ...syncColumns
 }, (table) => ({
-    dniPresIdx: uniqueIndex('presentante_trabajador_dni_idx').on(table.dni),
+    dniPresIdx: index('presentante_trabajador_dni_idx').on(table.dni),
 }));
 
 
@@ -183,7 +184,7 @@ export const tramites = sqliteTable('tramites', {
 
     ...syncColumns
 }, (table) => ({
-    codigoVerifIdx: uniqueIndex('tramite_codigo_idx').on(table.codigoVerificacion),
+    codigoVerifIdx: index('tramite_codigo_idx').on(table.codigoVerificacion),
 
     clienteTrmIdx: index('trm_cliente_idx').on(table.clienteId),
     vehiculoTrmIdx: index('trm_vehiculo_idx').on(table.vehiculoId),
