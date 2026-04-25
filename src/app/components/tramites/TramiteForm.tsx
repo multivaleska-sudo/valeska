@@ -126,11 +126,13 @@ export function TramiteForm({ mode, initialData }: TramiteFormProps) {
         <EmpresaModal
           initialRuc={empresaModalRuc}
           onClose={() => setEmpresaModalRuc(null)}
-          onSuccess={(empresaStr) => {
+          onSuccess={(empresaStr, firstRepName) => {
             setEmpresaModalRuc(null);
+            const rS = empresaStr.split(" - ")[0].trim();
+            const comboName = firstRepName ? `${rS} - ${firstRepName}` : rS;
             setFormData((prev) => ({
               ...prev,
-              presentante_empresa: empresaStr.split(" - ")[0].trim(),
+              presentante_empresa: comboName,
             }));
           }}
         />
@@ -328,7 +330,6 @@ export function TramiteForm({ mode, initialData }: TramiteFormProps) {
                   <h3 className="text-gray-700 font-medium mb-3 border-b pb-1 text-xs uppercase tracking-wider">
                     1. Recepción en Oficina (Gestora)
                   </h3>
-
                   <div className="bg-gray-50 p-4 rounded-md border border-gray-100 flex flex-col gap-4">
                     <div className="flex items-center justify-between">
                       <label className="flex items-center gap-3 cursor-pointer">
@@ -353,7 +354,6 @@ export function TramiteForm({ mode, initialData }: TramiteFormProps) {
                         disabled={!formData.check_tarjeta_oficina}
                       />
                     </div>
-
                     <div className="flex items-center justify-between">
                       <label className="flex items-center gap-3 cursor-pointer">
                         <input
@@ -384,7 +384,6 @@ export function TramiteForm({ mode, initialData }: TramiteFormProps) {
                   <h3 className="text-gray-700 font-medium mb-3 border-b pb-1 text-xs uppercase tracking-wider">
                     2. Entrega al Cliente Final
                   </h3>
-
                   <div className="bg-blue-50/30 p-4 rounded-md border border-blue-100 flex flex-col gap-5">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                       <div className="flex items-center gap-3 w-1/3">
@@ -401,7 +400,6 @@ export function TramiteForm({ mode, initialData }: TramiteFormProps) {
                           Entregó Tarjeta
                         </span>
                       </div>
-
                       <div
                         className={`flex items-center gap-4 transition-opacity ${formData.check_entrega_tarjeta ? "opacity-100" : "opacity-40 pointer-events-none"}`}
                       >
@@ -439,7 +437,6 @@ export function TramiteForm({ mode, initialData }: TramiteFormProps) {
                           </span>
                         </label>
                       </div>
-
                       <input
                         type="date"
                         value={formData.fecha_entrega_tarjeta || ""}
@@ -466,7 +463,6 @@ export function TramiteForm({ mode, initialData }: TramiteFormProps) {
                           Entregó Placa
                         </span>
                       </div>
-
                       <div
                         className={`flex items-center gap-4 transition-opacity ${formData.check_entrega_placa ? "opacity-100" : "opacity-40 pointer-events-none"}`}
                       >
@@ -502,7 +498,6 @@ export function TramiteForm({ mode, initialData }: TramiteFormProps) {
                           </span>
                         </label>
                       </div>
-
                       <input
                         type="date"
                         value={formData.fecha_entrega_placa || ""}
@@ -522,7 +517,7 @@ export function TramiteForm({ mode, initialData }: TramiteFormProps) {
                     onChange={handleChange}
                     readOnly={isViewOnly}
                     rows={3}
-                    placeholder="Escriba aquí solo si hubo alguna eventualidad. Ya no es necesario escribir si se entregó con DNI o Recibo."
+                    placeholder="Escriba aquí solo si hubo alguna eventualidad."
                   />
                 </div>
               </div>
@@ -606,6 +601,17 @@ export function TramiteForm({ mode, initialData }: TramiteFormProps) {
                   }
                   readOnly={isViewOnly}
                 />
+                <CopiableField
+                  label="Carrocería"
+                  value={formData.vehiculo_carroceria}
+                  onChange={(val) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      vehiculo_carroceria: val.toUpperCase(),
+                    }))
+                  }
+                  readOnly={isViewOnly}
+                />
                 <div className="col-span-3 grid grid-cols-2 gap-4">
                   <CopiableField
                     label="Motor"
@@ -636,13 +642,13 @@ export function TramiteForm({ mode, initialData }: TramiteFormProps) {
             </SectionCard>
 
             <SectionCard
-              title="Datos del Presentante y Gestora"
+              title="Identificación del Origen"
               icon={<User size={18} />}
             >
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 relative">
                 <div className="col-span-1 md:col-span-2 relative">
                   <ModernSearchInput
-                    label="Empresa (Buscar por Razón Social o RUC)"
+                    label="Empresa y Representante Legal (Gerente)"
                     name="presentante_empresa"
                     value={formData.presentante_empresa}
                     onChange={(e: any) => {
@@ -650,7 +656,7 @@ export function TramiteForm({ mode, initialData }: TramiteFormProps) {
                       setShowEmpresaDropdown(true);
                     }}
                     readOnly={isViewOnly}
-                    placeholder="Ej. MULTISERVICIOS ABC..."
+                    placeholder="Ej. MULTISERVICIOS ABC - JUAN PEREZ..."
                     onAddClick={() => setEmpresaModalRuc("")}
                   />
 
@@ -658,27 +664,49 @@ export function TramiteForm({ mode, initialData }: TramiteFormProps) {
                     !isViewOnly &&
                     empresaResultados.length > 0 && (
                       <div className="absolute top-[calc(100%+4px)] left-0 w-full bg-white border border-blue-200 rounded-xl shadow-2xl z-50 overflow-hidden divide-y divide-gray-100 max-h-60 overflow-y-auto">
-                        {empresaResultados.map((emp, idx) => (
-                          <div
-                            key={idx}
-                            onClick={() => seleccionarEmpresa(emp)}
-                            className="p-3 hover:bg-blue-50 cursor-pointer transition-colors"
-                          >
-                            <div className="text-sm font-black text-gray-800">
-                              {emp.razon_social}
+                        {empresaResultados.map((emp, idx) => {
+                          const repName = emp.rep_id
+                            ? `${emp.primer_apellido} ${emp.segundo_apellido || ""} ${emp.nombres}`
+                                .replace(/\s+/g, " ")
+                                .trim()
+                            : "Sin representante asignado";
+                          const comboName = emp.rep_id
+                            ? `${emp.razon_social} - ${repName}`
+                            : emp.razon_social;
+
+                          return (
+                            <div
+                              key={idx}
+                              onClick={() => seleccionarEmpresa(emp)}
+                              className="p-3 hover:bg-blue-50 cursor-pointer transition-colors"
+                            >
+                              <div className="text-sm font-black text-gray-800">
+                                {comboName}
+                              </div>
+                              <div className="flex justify-between items-center mt-1">
+                                <div className="text-xs font-mono font-bold text-blue-600">
+                                  RUC: {emp.ruc || "S/N"}
+                                </div>
+                                {emp.rep_id ? (
+                                  <div className="text-[10px] font-bold text-gray-500 bg-gray-100 px-2 py-0.5 rounded uppercase">
+                                    DNI REP: {emp.rep_dni || "S/N"}
+                                  </div>
+                                ) : (
+                                  <div className="text-[10px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded uppercase">
+                                    Solo Empresa
+                                  </div>
+                                )}
+                              </div>
                             </div>
-                            <div className="text-xs font-mono font-bold text-blue-600 mt-1">
-                              RUC: {emp.ruc}
-                            </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
                 </div>
 
                 <div className="col-span-1 md:col-span-2 relative">
                   <ModernSearchInput
-                    label="Presentante Legal (Busca por Nombres, Apellidos o DNI)"
+                    label="Presentante Físico (Trabajador / Tramitador Asignado)"
                     name="presentante_persona"
                     value={formData.presentante_persona}
                     onChange={(e: any) => {
@@ -686,52 +714,54 @@ export function TramiteForm({ mode, initialData }: TramiteFormProps) {
                       setShowPresentanteDropdown(true);
                     }}
                     readOnly={isViewOnly}
-                    placeholder="Ej. JUAN PEREZ GOMEZ..."
+                    placeholder="Ej. MARIO GOMEZ..."
                   />
 
                   {showPresentanteDropdown &&
                     !isViewOnly &&
                     presentanteResultados.length > 0 && (
-                      <div className="absolute top-[calc(100%+4px)] left-0 w-full bg-white border border-blue-200 rounded-xl shadow-2xl z-50 overflow-hidden divide-y divide-gray-100 max-h-60 overflow-y-auto">
-                        {presentanteResultados.map((p, idx) => (
-                          <div
-                            key={idx}
-                            onClick={() => seleccionarPresentante(p)}
-                            className="p-3 hover:bg-blue-50 cursor-pointer transition-colors"
-                          >
-                            <div className="text-sm font-black text-gray-800">
-                              {p.nombres} {p.primer_apellido}{" "}
-                              {p.segundo_apellido || ""}
+                      <div className="absolute top-[calc(100%+4px)] left-0 w-full bg-white border border-emerald-200 rounded-xl shadow-2xl z-50 overflow-hidden divide-y divide-gray-100 max-h-60 overflow-y-auto">
+                        {presentanteResultados.map((p, idx) => {
+                          const nombreComp =
+                            `${p.primer_apellido} ${p.segundo_apellido || ""} ${p.nombres}`
+                              .replace(/\s+/g, " ")
+                              .trim();
+                          return (
+                            <div
+                              key={idx}
+                              onClick={() => seleccionarPresentante(p)}
+                              className="p-3 hover:bg-emerald-50 cursor-pointer transition-colors"
+                            >
+                              <div className="text-sm font-black text-gray-800">
+                                {nombreComp}
+                              </div>
+                              <div className="flex justify-between items-center mt-1">
+                                <div className="text-xs font-mono font-bold text-emerald-600">
+                                  DNI: {p.dni || "S/N"}
+                                </div>
+                              </div>
                             </div>
-                            <div className="text-xs font-mono font-bold text-blue-600 mt-1">
-                              DNI: {p.dni}
-                            </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
                 </div>
 
-                <div className="col-span-1 md:col-span-2 grid grid-cols-2 lg:grid-cols-4 gap-4 mt-2">
-                  <ModernSelect
-                    label="Tipo de Boleta"
-                    name="tipo_boleta"
-                    value={formData.tipo_boleta}
-                    onChange={handleChange}
-                    disabled={isViewOnly}
-                    options={["Manual", "Electrónica"]}
-                  />
-                  <CopiableField
+                <ModernSelect
+                  label="Tipo de Boleta"
+                  name="tipo_boleta"
+                  value={formData.tipo_boleta}
+                  onChange={handleChange}
+                  disabled={isViewOnly}
+                  options={["Manual", "Electrónica"]}
+                />
+                <div className="grid grid-cols-2 gap-2">
+                  <ModernInput
                     label="Número Boleta"
+                    name="numero_boleta"
                     value={formData.numero_boleta}
-                    onChange={(val) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        numero_boleta: val.toUpperCase(),
-                      }))
-                    }
+                    onChange={handleChange}
                     readOnly={isViewOnly}
-                    mono={true}
                   />
                   <ModernInput
                     label="Fecha Boleta"
@@ -741,46 +771,21 @@ export function TramiteForm({ mode, initialData }: TramiteFormProps) {
                     onChange={handleChange}
                     readOnly={isViewOnly}
                   />
-                  <CopiableField
-                    label="DUA"
-                    value={formData.dua}
-                    onChange={(val) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        dua: val.toUpperCase(),
-                      }))
-                    }
-                    readOnly={isViewOnly}
-                    mono={true}
-                  />
                 </div>
-
-                <div className="col-span-1 md:col-span-2 grid grid-cols-2 gap-4">
-                  <CopiableField
-                    label="N° Formato Inmatriculación"
-                    value={formData.num_formato_inmatriculacion}
-                    onChange={(val) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        num_formato_inmatriculacion: val.toUpperCase(),
-                      }))
-                    }
-                    readOnly={isViewOnly}
-                    mono={true}
-                  />
-                  <CopiableField
-                    label="N° Recibo de Trámite"
-                    value={formData.numero_recibo_tramite}
-                    onChange={(val) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        numero_recibo_tramite: val.toUpperCase(),
-                      }))
-                    }
-                    readOnly={isViewOnly}
-                    mono={true}
-                  />
-                </div>
+                <ModernInput
+                  label="DUA"
+                  name="dua"
+                  value={formData.dua}
+                  onChange={handleChange}
+                  readOnly={isViewOnly}
+                />
+                <ModernInput
+                  label="N° Formato Inmatriculación"
+                  name="num_formato_inmatriculacion"
+                  value={formData.num_formato_inmatriculacion}
+                  onChange={handleChange}
+                  readOnly={isViewOnly}
+                />
               </div>
             </SectionCard>
 

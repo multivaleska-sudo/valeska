@@ -27,7 +27,6 @@ export interface TramiteData {
 }
 
 export interface TramiteFormData {
-  // DEL TRAMITE
   id?: string;
   tramite_anio: string;
   cliente: string;
@@ -39,33 +38,30 @@ export interface TramiteFormData {
   observaciones: string;
   fecha_presentacion: string;
 
-  // --- Recepción en Oficina ---
   check_tarjeta_oficina: boolean;
   fecha_tarjeta_oficina: string;
   check_placa_oficina: boolean;
   fecha_placa_oficina: string;
 
-  // --- Entrega al Cliente ---
   check_entrega_tarjeta: boolean;
   fecha_entrega_tarjeta: string;
-  metodo_entrega_tarjeta: string; // 'RECIBO', 'DNI' o ''
+  metodo_entrega_tarjeta: string;
 
   check_entrega_placa: boolean;
   fecha_entrega_placa: string;
-  metodo_entrega_placa: string; // 'RECIBO', 'DNI' o ''
+  metodo_entrega_placa: string;
 
   codigo_verificacion: string;
 
-  // DEL VEHICULO
   vehiculo_marca: string;
   vehiculo_motor: string;
   vehiculo_chasis: string;
   vehiculo_anio: string;
   vehiculo_color: string;
+  vehiculo_carroceria: string;
   vehiculo_placa: string;
   vehiculo_modelo: string;
 
-  // DEL PRESENTANTE
   presentante_empresa: string;
   presentante_persona: string;
 
@@ -76,27 +72,23 @@ export interface TramiteFormData {
   num_formato_inmatriculacion: string;
   numero_recibo_tramite: string;
 
-  // CLAUSULA DE CANCELACIÓN
   clausula_monto: string;
   clausula_forma_pago: string;
   clausula_pago_bancarizado: string;
 
-  // ACLARACIÓN
   aclaracion_dice: string;
   aclaracion_debe_decir: string;
 
-  // SOLO PARA IMPRESION
   fecha_impresion: string;
 }
 
-// Props para componentes compartidos específicos de trámites
 export interface FormFieldProps {
   label: string;
   value: string;
   onChange: (val: string) => void;
   placeholder?: string;
   type?: "text" | "date" | "number";
-  mono?: boolean; // Para VIN/Motor/DUA
+  mono?: boolean;
 }
 
 export interface SelectFieldProps {

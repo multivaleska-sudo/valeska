@@ -4,8 +4,7 @@ import { TramiteFormData } from "../../types/tramites/tramite.types";
 import { sileo } from "sileo";
 
 export function useTramiteDetail(id: string | undefined) {
-  const [tramiteData, setTramiteData] =
-    useState<Partial<TramiteFormData> | null>(null);
+  const [tramiteData, setTramiteData] = useState<Partial<TramiteFormData> | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const loadTramite = async () => {
@@ -35,8 +34,10 @@ export function useTramiteDetail(id: string | undefined) {
           td.tipo_boleta, td.numero_boleta, td.fecha_boleta, td.dua, td.num_formato_inmatriculacion, 
           td.numero_recibo_tramite, td.clausula_monto, td.clausula_forma_pago, td.clausula_pago_bancarizado, td.aclaracion_dice, td.aclaracion_debe_decir,
           
-          td.empresa_gestora_id, td.presentante_id,
+          td.empresa_gestora_id, td.presentante_id, td.representante_legal_id,
           eg.razon_social as empresa_razon_social,
+          
+          rl.nombres as rl_nombres, rl.primer_apellido as rl_ape1, rl.segundo_apellido as rl_ape2,
           p.nombres as pres_nombres, p.primer_apellido as pres_ape1, p.segundo_apellido as pres_ape2
         FROM tramites t
         JOIN clientes c ON t.cliente_id = c.id
@@ -45,6 +46,7 @@ export function useTramiteDetail(id: string | undefined) {
         JOIN catalogo_situaciones cs ON t.situacion_id = cs.id
         LEFT JOIN tramite_detalles td ON t.id = td.tramite_id
         LEFT JOIN empresas_gestoras eg ON td.empresa_gestora_id = eg.id
+        LEFT JOIN representantes_legales rl ON td.representante_legal_id = rl.id
         LEFT JOIN presentantes p ON td.presentante_id = p.id
         WHERE t.id = $1
       `;
@@ -54,11 +56,14 @@ export function useTramiteDetail(id: string | undefined) {
       if (result.length > 0) {
         const row = result[0];
 
-        // Formateo de nombre puro para el presentante
+        let comboEmpresa = row.empresa_razon_social || "";
+        if (row.rl_nombres) {
+          const rlName = `${row.rl_ape1} ${row.rl_ape2 || ""} ${row.rl_nombres}`.replace(/\s+/g, " ").trim();
+          comboEmpresa = `${comboEmpresa} - ${rlName}`;
+        }
+
         const presName = row.pres_nombres
-          ? `${row.pres_ape1} ${row.pres_ape2 || ""} ${row.pres_nombres}`
-              .replace(/\s+/g, " ")
-              .trim()
+          ? `${row.pres_ape1} ${row.pres_ape2 || ""} ${row.pres_nombres}`.replace(/\s+/g, " ").trim()
           : "";
 
         const dataFormateada: any = {
@@ -95,18 +100,16 @@ export function useTramiteDetail(id: string | undefined) {
           vehiculo_placa: row.vehiculo_placa || "",
           vehiculo_modelo: row.vehiculo_modelo || "",
 
-          // SOLO NOMBRES PUROS PARA LA VISTA
-          presentante_empresa: row.empresa_razon_social || "",
+          presentante_empresa: comboEmpresa,
           presentante_persona: presName,
 
-          // IDS OCULTOS PARA LA LÓGICA DE GUARDADO
           empresa_gestora_id: row.empresa_gestora_id,
+          representante_legal_id: row.representante_legal_id,
           presentante_id: row.presentante_id,
 
           tipo_boleta: row.tipo_boleta || "Electrónica",
           numero_boleta: row.numero_boleta || "",
-          fecha_boleta:
-            row.fecha_boleta || new Date().toISOString().split("T")[0],
+          fecha_boleta: row.fecha_boleta || new Date().toISOString().split("T")[0],
           dua: row.dua || "",
           num_formato_inmatriculacion: row.num_formato_inmatriculacion || "",
           numero_recibo_tramite: row.numero_recibo_tramite || "",
@@ -120,25 +123,17 @@ export function useTramiteDetail(id: string | undefined) {
 
         setTramiteData(dataFormateada);
       } else {
-        sileo.error({
-          title: "No encontrado",
-          description: "Trámite no encontrado.",
-        });
+        sileo.error({ title: "No encontrado", description: "Trámite no encontrado." });
       }
     } catch (e: any) {
       console.error("Error cargando trámite:", e);
-      sileo.error({
-        title: "Error de lectura",
-        description: "Ocurrió un error al cargar la base de datos.",
-      });
+      sileo.error({ title: "Error de lectura", description: "Ocurrió un error al cargar la base de datos." });
     } finally {
       setIsLoading(false);
     }
   };
 
-  useEffect(() => {
-    loadTramite();
-  }, [id]);
+  useEffect(() => { loadTramite(); }, [id]);
 
   return { tramiteData, isLoading, loadTramite };
 }
