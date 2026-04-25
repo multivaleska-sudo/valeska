@@ -18,7 +18,7 @@ export function EmpresaListPage() {
     representantes,
     presentantes,
     isLoading,
-    isSaving, // Recibimos el candado
+    isSaving,
     formPresentante,
     setFormPresentante,
     initialPresentante,
@@ -188,7 +188,7 @@ export function EmpresaListPage() {
                       <td className="px-4 py-3 text-blue-800 font-black">
                         {r.razon_social} <br />{" "}
                         <span className="text-[10px] text-gray-500 font-medium">
-                          RUC: {r.ruc}
+                          RUC: {r.ruc || "S/N"}
                         </span>
                       </td>
                       <td className="px-4 py-3">
@@ -235,7 +235,7 @@ export function EmpresaListPage() {
             <h2 className="text-white font-black text-sm uppercase flex items-center gap-2">
               <FileText size={18} className="text-blue-200" />
               {activeTab === "representantes"
-                ? "FICHA DE REPRESENTANTE"
+                ? "FICHA DE EMPRESA Y REP."
                 : "FICHA DE PRESENTANTE"}
             </h2>
             <button
@@ -261,7 +261,7 @@ export function EmpresaListPage() {
                     1. Datos de la Empresa Gestora
                   </h4>
                   <CopiableField
-                    label="R.U.C. (*)"
+                    label="R.U.C. (Opcional)"
                     value={formRepresentante.ruc}
                     mono={true}
                     onChange={(val) => {
@@ -299,10 +299,10 @@ export function EmpresaListPage() {
                 {/* Caja de Datos del Representante Legal */}
                 <div className="bg-emerald-50/50 p-5 rounded-xl border border-emerald-100 space-y-4">
                   <h4 className="text-[10px] font-black text-emerald-800 uppercase tracking-widest flex items-center gap-2 border-b border-emerald-100 pb-2">
-                    2. Datos del Representante Legal
+                    2. Datos del Representante Legal (Opcional)
                   </h4>
                   <CopiableField
-                    label="D.N.I. (*)"
+                    label="D.N.I."
                     value={formRepresentante.dni}
                     mono={true}
                     onChange={(val) =>
@@ -314,7 +314,7 @@ export function EmpresaListPage() {
                   />
 
                   <CopiableField
-                    label="Primer Apellido (*)"
+                    label="Primer Apellido"
                     value={formRepresentante.primer_apellido}
                     onChange={(val) =>
                       setFormRepresentante({
@@ -334,7 +334,7 @@ export function EmpresaListPage() {
                     }
                   />
                   <CopiableField
-                    label="Nombres (*)"
+                    label="Nombres"
                     value={formRepresentante.nombres}
                     onChange={(val) =>
                       setFormRepresentante({
@@ -384,7 +384,7 @@ export function EmpresaListPage() {
             {activeTab === "presentantes" && (
               <div className="space-y-4 animate-in slide-in-from-right-4 duration-300">
                 <CopiableField
-                  label="D.N.I. (*)"
+                  label="D.N.I."
                   value={formPresentante.dni || ""}
                   mono={true}
                   onChange={(val) =>
@@ -395,7 +395,7 @@ export function EmpresaListPage() {
                   }
                 />
                 <CopiableField
-                  label="PRIMER APELLIDO (*)"
+                  label="PRIMER APELLIDO"
                   value={formPresentante.primer_apellido || ""}
                   onChange={(val) =>
                     setFormPresentante({
@@ -415,7 +415,7 @@ export function EmpresaListPage() {
                   }
                 />
                 <CopiableField
-                  label="NOMBRES (*)"
+                  label="NOMBRES"
                   value={formPresentante.nombres || ""}
                   onChange={(val) =>
                     setFormPresentante({
@@ -428,19 +428,43 @@ export function EmpresaListPage() {
             )}
           </div>
 
-          {/* BOTONERA INFERIOR UNIFICADA CON BLOQUEO ANTI-DOBLE CLIC */}
+          {/* BOTONERA INFERIOR UNIFICADA CON OPCIONES SEPARADAS PARA ELIMINAR */}
           <div className="p-5 bg-white border-t border-gray-200 flex flex-wrap items-center justify-center sm:justify-end gap-3 shrink-0">
-            {activeTab === "representantes" && formRepresentante.id && (
+            {/* BOTÓN PARA ELIMINAR EMPRESA ENTERA */}
+            {activeTab === "representantes" && formRepresentante.empresa_id && (
               <button
                 onClick={() =>
-                  deleteRecord("representantes_legales", formRepresentante.id)
+                  deleteRecord(
+                    "empresas_gestoras",
+                    formRepresentante.empresa_id,
+                  )
                 }
                 disabled={isSaving}
                 className="bg-red-50 text-red-600 border border-red-200 px-5 py-2.5 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-red-100 transition-colors shadow-sm flex items-center justify-center gap-2 flex-1 sm:flex-none disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Elimina la empresa y todos sus representantes"
               >
-                <Trash2 size={16} /> Eliminar
+                <Trash2 size={16} /> Eliminar Empresa
               </button>
             )}
+
+            {/* BOTÓN PARA ELIMINAR SOLO A ESTE REPRESENTANTE */}
+            {activeTab === "representantes" &&
+              formRepresentante.id &&
+              !formRepresentante.id.includes("empty") &&
+              !formRepresentante.id.includes("legacy") && (
+                <button
+                  onClick={() =>
+                    deleteRecord("representantes_legales", formRepresentante.id)
+                  }
+                  disabled={isSaving}
+                  className="bg-orange-50 text-orange-600 border border-orange-200 px-5 py-2.5 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-orange-100 transition-colors shadow-sm flex items-center justify-center gap-2 flex-1 sm:flex-none disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Elimina solo este representante"
+                >
+                  <Trash2 size={16} /> Eliminar Rep.
+                </button>
+              )}
+
+            {/* BOTÓN PARA ELIMINAR PRESENTANTES */}
             {activeTab === "presentantes" && formPresentante.id && (
               <button
                 onClick={() => deleteRecord("presentantes", formPresentante.id)}
