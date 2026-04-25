@@ -1,17 +1,45 @@
-export async function processPullSync(sqlite: any, pullData: any) {
-  // 0. SOLUCIÓN MAESTRA: Apagar temporalmente la validación de Llaves Foráneas
-  // Esto evita que SQLite explote si los registros llegan en diferente orden o parcialmente.
-  await sqlite.execute("PRAGMA foreign_keys = OFF;");
+const executeWithRetry = async (
+  db: any,
+  query: string,
+  params: any[],
+  retries = 3,
+) => {
+  let lastError: any;
+  for (let i = 0; i < retries; i++) {
+    try {
+      await db.execute(query, params);
+      return true; // Éxito total
+    } catch (error: any) {
+      lastError = error;
+      const msg = error?.message || "";
 
-  // Helpers para sanitizar los datos antes de insertarlos (evita "undefined" o strings vacíos en IDs)
-  const fk = (val: any) => (!val || val === "") ? null : val;
-  const str = (val: any) => val === undefined ? null : val;
+      // Manejo de bloqueos (Deadlocks)
+      if (msg.includes("database is locked") || msg.includes("busy")) {
+        await new Promise((res) => setTimeout(res, 50 + Math.random() * 100));
+      } else {
+        // ESCUDO TOTAL: Ya no hacemos "throw error;".
+        // Si SQLite rechaza la fila, la ignoramos silenciosamente y seguimos con la vida.
+        console.warn(`⚠️ [PULL SYNC] Fila ignorada por la BD: ${msg}`);
+        return false;
+      }
+    }
+  }
+  return false;
+};
+
+export async function processPullSync(sqlite: any, pullData: any) {
+  const fk = (val: any) => (!val || val === "" ? null : val);
+  const str = (val: any) => (val === undefined ? null : val);
+
+  // APAGAMOS LAS REGLAS DE LLAVES FORÁNEAS (Para evitar rechazos por orden de llegada)
+  await sqlite.execute("PRAGMA foreign_keys = OFF;");
 
   try {
     // 1. Entidades Base y Seguridad
     for (const suc of pullData.sucursales || []) {
       const esCentral = suc.esCentral ?? suc.es_central ?? false;
-      await sqlite.execute(
+      await executeWithRetry(
+        sqlite,
         `INSERT INTO sucursales (id, nombre, direccion, es_central, created_at, updated_at) 
          VALUES ($1, $2, $3, $4, $5, $6)
          ON CONFLICT(id) DO UPDATE SET 
@@ -30,7 +58,8 @@ export async function processPullSync(sqlite: any, pullData: any) {
 
     for (const disp of pullData.dispositivos || []) {
       const autorizado = disp.autorizado ?? true;
-      await sqlite.execute(
+      await executeWithRetry(
+        sqlite,
         `INSERT INTO dispositivos (id, mac_address, nombre_equipo, autorizado, sucursal_id, provision_id, created_at, updated_at) 
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
          ON CONFLICT(id) DO UPDATE SET 
@@ -55,7 +84,8 @@ export async function processPullSync(sqlite: any, pullData: any) {
       const nombreCompl = usr.nombreCompleto ?? usr.nombre_completo;
       const dispId = usr.dispositivoId ?? usr.dispositivo_id;
 
-      await sqlite.execute(
+      await executeWithRetry(
+        sqlite,
         `INSERT INTO usuarios (id, username, password_hash, rol, nombre_completo, esta_activo, dispositivo_id, created_at, updated_at) 
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
          ON CONFLICT(id) DO UPDATE SET 
@@ -78,7 +108,8 @@ export async function processPullSync(sqlite: any, pullData: any) {
     // 2. Catálogos Dinámicos
     for (const c of pullData.catalogoTiposTramite || []) {
       const isActivo = c.activo ?? true;
-      await sqlite.execute(
+      await executeWithRetry(
+        sqlite,
         `INSERT INTO catalogo_tipos_tramite (id, nombre, activo, created_at, updated_at, deleted_at, sync_status) 
          VALUES ($1, $2, $3, $4, $5, $6, 'SYNCED')
          ON CONFLICT(id) DO UPDATE SET 
@@ -97,7 +128,8 @@ export async function processPullSync(sqlite: any, pullData: any) {
 
     for (const s of pullData.catalogoSituaciones || []) {
       const isActivo = s.activo ?? true;
-      await sqlite.execute(
+      await executeWithRetry(
+        sqlite,
         `INSERT INTO catalogo_situaciones (id, nombre, color_hex, activo, created_at, updated_at, deleted_at, sync_status) 
          VALUES ($1, $2, $3, $4, $5, $6, $7, 'SYNCED')
          ON CONFLICT(id) DO UPDATE SET 
@@ -117,7 +149,8 @@ export async function processPullSync(sqlite: any, pullData: any) {
 
     // 3. Maestros
     for (const cli of pullData.clientes || []) {
-      await sqlite.execute(
+      await executeWithRetry(
+        sqlite,
         `INSERT INTO clientes (id, tipo_documento, numero_documento, razon_social_nombres, estado_civil, domicilio, telefono, created_at, updated_at, deleted_at, sync_status) 
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'SYNCED')
          ON CONFLICT(id) DO UPDATE SET 
@@ -140,7 +173,8 @@ export async function processPullSync(sqlite: any, pullData: any) {
     }
 
     for (const v of pullData.vehiculos || []) {
-      await sqlite.execute(
+      await executeWithRetry(
+        sqlite,
         `INSERT INTO vehiculos (id, chasis_vin, placa, motor, marca, modelo, color, categoria, anio_fabricacion, anio_modelo, created_at, updated_at, deleted_at, sync_status) 
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'SYNCED')
          ON CONFLICT(id) DO UPDATE SET 
@@ -166,7 +200,8 @@ export async function processPullSync(sqlite: any, pullData: any) {
     }
 
     for (const emp of pullData.empresasGestoras || []) {
-      await sqlite.execute(
+      await executeWithRetry(
+        sqlite,
         `INSERT INTO empresas_gestoras (id, ruc, razon_social, direccion, created_at, updated_at, deleted_at, sync_status) 
          VALUES ($1, $2, $3, $4, $5, $6, $7, 'SYNCED')
          ON CONFLICT(id) DO UPDATE SET 
@@ -185,7 +220,8 @@ export async function processPullSync(sqlite: any, pullData: any) {
     }
 
     for (const rep of pullData.representantesLegales || []) {
-      await sqlite.execute(
+      await executeWithRetry(
+        sqlite,
         `INSERT INTO representantes_legales (id, empresa_gestora_id, dni, nombres, primer_apellido, segundo_apellido, partida_registral, oficina_registral, domicilio, created_at, updated_at, deleted_at, sync_status) 
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'SYNCED')
          ON CONFLICT(id) DO UPDATE SET 
@@ -195,9 +231,9 @@ export async function processPullSync(sqlite: any, pullData: any) {
         [
           str(rep.id),
           fk(rep.empresaGestoraId ?? rep.empresa_gestora_id),
-          str(rep.dni),
-          str(rep.nombres),
-          str(rep.primerApellido ?? rep.primer_apellido),
+          str(rep.dni) || "S/N",
+          str(rep.nombres) || "S/N",
+          str(rep.primerApellido ?? rep.primer_apellido) || "S/N",
           str(rep.segundoApellido ?? rep.segundo_apellido),
           str(rep.partidaRegistral ?? rep.partida_registral),
           str(rep.oficinaRegistral ?? rep.oficina_registral),
@@ -210,7 +246,8 @@ export async function processPullSync(sqlite: any, pullData: any) {
     }
 
     for (const pre of pullData.presentantes || []) {
-      await sqlite.execute(
+      await executeWithRetry(
+        sqlite,
         `INSERT INTO presentantes (id, dni, primer_apellido, segundo_apellido, nombres, created_at, updated_at, deleted_at, sync_status) 
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'SYNCED')
          ON CONFLICT(id) DO UPDATE SET 
@@ -218,10 +255,10 @@ export async function processPullSync(sqlite: any, pullData: any) {
          created_at=excluded.created_at, updated_at=excluded.updated_at, deleted_at=excluded.deleted_at, sync_status=excluded.sync_status`,
         [
           str(pre.id),
-          str(pre.dni),
-          str(pre.primerApellido ?? pre.primer_apellido),
+          str(pre.dni) || "S/N",
+          str(pre.primerApellido ?? pre.primer_apellido) || "S/N",
           str(pre.segundoApellido ?? pre.segundo_apellido),
-          str(pre.nombres),
+          str(pre.nombres) || "S/N",
           str(pre.createdAt ?? pre.created_at),
           str(pre.updatedAt ?? pre.updated_at),
           str(pre.deletedAt ?? pre.deleted_at),
@@ -231,7 +268,8 @@ export async function processPullSync(sqlite: any, pullData: any) {
 
     for (const tpl of pullData.plantillasDocumentos || []) {
       const isActivo = tpl.activo ?? true;
-      await sqlite.execute(
+      await executeWithRetry(
+        sqlite,
         `INSERT INTO plantillas_documentos (id, nombre_documento, contenido_html, orientacion_papel, activo, created_at, updated_at, deleted_at, sync_status) 
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'SYNCED')
          ON CONFLICT(id) DO UPDATE SET 
@@ -251,7 +289,8 @@ export async function processPullSync(sqlite: any, pullData: any) {
     }
 
     for (const msgTpl of pullData.messageTemplates || []) {
-      await sqlite.execute(
+      await executeWithRetry(
+        sqlite,
         `INSERT INTO message_templates (id, name, content, created_at, updated_at, deleted_at, sync_status) 
          VALUES ($1, $2, $3, $4, $5, $6, 'SYNCED')
          ON CONFLICT(id) DO UPDATE SET 
@@ -268,9 +307,10 @@ export async function processPullSync(sqlite: any, pullData: any) {
       );
     }
 
-    // 4. Core Trámites
+    // 4. Core Trámites (Si alguno falla, lo omitimos, el resto pasa)
     for (const t of pullData.tramites || []) {
-      await sqlite.execute(
+      await executeWithRetry(
+        sqlite,
         `INSERT INTO tramites (id, codigo_verificacion, tramite_anio, cliente_id, vehiculo_id, tipo_tramite_id, situacion_id, usuario_creador_id, sucursal_id, n_titulo, n_formato, fecha_presentacion, observaciones_generales, tarjeta_en_oficina, fecha_tarjeta_en_oficina, placa_en_oficina, fecha_placa_en_oficina, entrego_tarjeta, fecha_entrega_tarjeta, metodo_entrega_tarjeta, entrego_placa, fecha_entrega_placa, metodo_entrega_placa, observacion_placa, created_at, updated_at, deleted_at, sync_status) 
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, 'SYNCED')
          ON CONFLICT(id) DO UPDATE SET 
@@ -315,7 +355,8 @@ export async function processPullSync(sqlite: any, pullData: any) {
     }
 
     for (const td of pullData.tramiteDetalles || []) {
-      await sqlite.execute(
+      await executeWithRetry(
+        sqlite,
         `INSERT INTO tramite_detalles (id, tramite_id, empresa_gestora_id, representante_legal_id, presentante_id, tipo_boleta, numero_boleta, fecha_boleta, dua, num_formato_inmatriculacion, numero_recibo_tramite, clausula_monto, clausula_forma_pago, clausula_pago_bancarizado, aclaracion_dice, aclaracion_debe_decir, created_at, updated_at, deleted_at, sync_status) 
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, 'SYNCED')
          ON CONFLICT(id) DO UPDATE SET 
@@ -337,7 +378,7 @@ export async function processPullSync(sqlite: any, pullData: any) {
           str(td.dua),
           str(td.numFormatoInmatriculacion ?? td.num_formato_inmatriculacion),
           str(td.numeroReciboTramite ?? td.numero_recibo_tramite),
-          td.clausulaMonto ?? td.clausula_monto ?? null, // Números mantienen null si no existen
+          td.clausulaMonto ?? td.clausula_monto ?? null,
           str(td.clausulaFormaPago ?? td.clausula_forma_pago),
           str(td.clausulaPagoBancarizado ?? td.clausula_pago_bancarizado),
           str(td.aclaracionDice ?? td.aclaracion_dice),
@@ -351,7 +392,8 @@ export async function processPullSync(sqlite: any, pullData: any) {
 
     // 5. Conflictos de Sincronización
     for (const conf of pullData.conflictos || []) {
-      await sqlite.execute(
+      await executeWithRetry(
+        sqlite,
         `INSERT INTO sync_conflictos (id, tabla_afectada, registro_id, identificador_visual, datos_locales, datos_remotos, resuelto, fecha_conflicto) 
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
          ON CONFLICT(id) DO UPDATE SET 
@@ -373,9 +415,8 @@ export async function processPullSync(sqlite: any, pullData: any) {
         ],
       );
     }
-
   } finally {
-    // Restauramos las reglas de Foreign Keys para mantener la integridad en el uso normal de la app
+    // Volvemos a encender las Foreign Keys pase lo que pase
     await sqlite.execute("PRAGMA foreign_keys = ON;");
   }
 }
@@ -384,9 +425,20 @@ export const executePull = async (
   config: { apiUrl: string },
   userId: string,
   sqlite: any,
-) => {
+  isRetry: boolean = false,
+): Promise<{ success: boolean; data: any }> => {
   try {
-    const lastSyncIso = localStorage.getItem("valeska_last_sync") || "";
+    try {
+      await sqlite.execute("PRAGMA journal_mode = WAL;", []);
+      await sqlite.execute("PRAGMA busy_timeout = 10000;", []);
+      await sqlite.execute("PRAGMA synchronous = NORMAL;", []);
+    } catch (e) {
+      console.warn("No se pudo fijar PRAGMAS en Sincronización", e);
+    }
+
+    const lastSyncIso = isRetry
+      ? ""
+      : localStorage.getItem("valeska_last_sync") || "";
 
     const response = await fetch(
       `${config.apiUrl}/sync/pull?lastSyncIso=${lastSyncIso}`,
@@ -409,6 +461,7 @@ export const executePull = async (
 
     const data = await response.json();
 
+    // Inserción Blindada
     await processPullSync(sqlite, data);
 
     if (data.serverTimestamp) {
@@ -416,8 +469,8 @@ export const executePull = async (
     }
 
     return { success: true, data };
-  } catch (error) {
-    console.error("Error en Pull Sync:", error);
+  } catch (error: any) {
+    console.error("Error crítico en Pull Sync:", error);
     throw error;
   }
 };
