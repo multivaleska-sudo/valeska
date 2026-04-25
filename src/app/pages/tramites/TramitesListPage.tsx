@@ -151,8 +151,10 @@ export function TramitesListPage() {
               />
             </div>
 
-            {/* FILTRO EMPRESA (SEARCHABLE) */}
-            <div className="flex flex-col lg:col-span-2 relative">
+            <div
+              ref={filtros.dropdownRef}
+              className="flex flex-col lg:col-span-2 relative"
+            >
               <label className="text-xs font-semibold text-gray-600 mb-1.5 uppercase flex justify-between">
                 <span>Empresa Gestora</span>
                 {filtros.filterEmpresa && (
