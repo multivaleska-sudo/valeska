@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import Database from "@tauri-apps/plugin-sql";
 import { save } from "@tauri-apps/plugin-dialog";
 import { writeFile } from "@tauri-apps/plugin-fs";
@@ -15,6 +15,7 @@ export interface TramiteRow {
   situacion: string;
   fecha_presentacion: string;
   empresa_gestiona: string;
+  timestamp: number;
 }
 
 export function useTramitesListLogic() {
@@ -24,7 +25,6 @@ export function useTramitesListLogic() {
   const [isLoading, setIsLoading] = useState(true);
   const [isExporting, setIsExporting] = useState(false);
 
-  // Filtros originales
   const [searchCliente, setSearchCliente] = useState("");
   const [searchTitulo, setSearchTitulo] = useState("");
   const [searchDNI, setSearchDNI] = useState("");
@@ -33,13 +33,23 @@ export function useTramitesListLogic() {
   const [fechaInicio, setFechaInicio] = useState("");
   const [fechaFin, setFechaFin] = useState("");
 
-  // Nuevo Filtro de Empresa (Searchable)
   const [filterEmpresa, setFilterEmpresa] = useState("");
   const [inputEmpresa, setInputEmpresa] = useState("");
   const [showEmpresaResults, setShowEmpresaResults] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null); // Referencia para cerrar el dropdown al hacer clic fuera
 
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowEmpresaResults(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const fetchCatalogos = useCallback(async () => {
     try {
@@ -73,7 +83,9 @@ export function useTramitesListLogic() {
                     ctt.nombre AS tramite,
                     cs.nombre AS situacion,
                     t.fecha_presentacion,
-                    eg.razon_social AS empresa_gestiona
+                    eg.razon_social AS empresa_gestiona,
+                    t.updated_at,
+                    t.created_at
                 FROM tramites t
                 JOIN clientes c ON t.cliente_id = c.id
                 LEFT JOIN vehiculos v ON t.vehiculo_id = v.id
@@ -82,9 +94,10 @@ export function useTramitesListLogic() {
                 LEFT JOIN tramite_detalles td ON t.id = td.tramite_id
                 LEFT JOIN empresas_gestoras eg ON td.empresa_gestora_id = eg.id
                 WHERE t.deleted_at IS NULL
-                ORDER BY t.created_at DESC
+                ORDER BY t.updated_at DESC
             `;
       const result: any[] = await sqlite.select(query);
+
       const formattedData: TramiteRow[] = result.map((row) => ({
         id: row.id,
         n_titulo: row.n_titulo || "SIN TÍTULO",
@@ -95,7 +108,11 @@ export function useTramitesListLogic() {
         situacion: row.situacion || "",
         fecha_presentacion: row.fecha_presentacion || "",
         empresa_gestiona: row.empresa_gestiona || "--",
+        timestamp: row.updated_at || row.created_at || 0,
       }));
+
+      formattedData.sort((a, b) => b.timestamp - a.timestamp);
+
       setRawData(formattedData);
     } catch (error) {
       console.error("Error al cargar trámites:", error);
@@ -239,6 +256,7 @@ export function useTramitesListLogic() {
       showEmpresaResults,
       setShowEmpresaResults,
       empresasSugeridas,
+      dropdownRef,
       fechaInicio,
       setFechaInicio,
       fechaFin,
