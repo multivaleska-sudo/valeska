@@ -9,7 +9,6 @@ import * as schema from "../../db/schema";
 import { sileo } from "sileo";
 import { executePush } from "../sync/pushActions";
 import { executePull } from "../sync/pullActions";
-import { runSchemaUpdate } from "../../db/migrations";
 
 const getDb = async () => {
   const sqlite = await Database.load("sqlite:valeska.db");
@@ -34,13 +33,6 @@ const getDb = async () => {
 
 const API_URL = (import.meta as any).env.VITE_API_URL;
 
-/**
- * IDENTIFICADOR DE VERSIÓN DE BASE DE DATOS
- * Cambia este número cada vez que realices cambios estructurales importantes.
- * Esto asegura que la migración solo corra una vez tras la actualización.
- */
-const DB_VERSION_KEY = "valeska_migration_v2.0.0_done";
-
 export function useAuthLogic() {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(true);
@@ -53,30 +45,6 @@ export function useAuthLogic() {
    */
   const checkInitialSetup = async () => {
     try {
-      // =========================================================
-      // PASO 0: CONTROL DE MIGRACIÓN ÚNICA
-      // =========================================================
-      // Solo ejecutamos el script si no ha sido completado previamente
-      // en esta versión instalada.
-      const migrationDone = localStorage.getItem(DB_VERSION_KEY);
-
-      if (!migrationDone) {
-        console.log(
-          "⚡ Nueva versión detectada. Ejecutando migración de base de datos...",
-        );
-        try {
-          await runSchemaUpdate();
-          // Marcamos como completado para que no vuelva a correr hasta la siguiente versión
-          localStorage.setItem(DB_VERSION_KEY, "true");
-        } catch (migrationError) {
-          console.error(
-            "Error durante la migración automática:",
-            migrationError,
-          );
-          // No guardamos el flag para que intente re-ejecutar en el siguiente reinicio si falló
-        }
-      }
-
       const sqlite = await Database.load("sqlite:valeska.db");
       const allUsers: any[] = await sqlite.select(
         "SELECT id FROM usuarios LIMIT 1",
