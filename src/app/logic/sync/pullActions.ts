@@ -17,8 +17,7 @@ const executeWithRetry = async (
       if (msg.includes("database is locked") || msg.includes("busy")) {
         await new Promise((res) => setTimeout(res, 50 + Math.random() * 100));
       } else {
-        // ESCUDO TOTAL: Ya no hacemos "throw error;".
-        // Si SQLite rechaza la fila, la ignoramos silenciosamente y seguimos con la vida.
+        // ESCUDO TOTAL: Si SQLite rechaza la fila (ej. huérfana), la ignoramos y seguimos.
         console.warn(`⚠️ [PULL SYNC] Fila ignorada por la BD: ${msg}`);
         return false;
       }
@@ -36,6 +35,9 @@ export async function processPullSync(sqlite: any, pullData: any) {
 
   try {
     // 1. Entidades Base y Seguridad
+    // NOTA MAESTRA: Todo tiene "WHERE <tabla>.sync_status = 'SYNCED'"
+    // Esto es el ESCUDO para que la nube NO aplaste tus ediciones locales.
+
     for (const suc of pullData.sucursales || []) {
       const esCentral = suc.esCentral ?? suc.es_central ?? false;
       await executeWithRetry(
@@ -44,7 +46,8 @@ export async function processPullSync(sqlite: any, pullData: any) {
          VALUES ($1, $2, $3, $4, $5, $6)
          ON CONFLICT(id) DO UPDATE SET 
          nombre=excluded.nombre, direccion=excluded.direccion, es_central=excluded.es_central, 
-         created_at=excluded.created_at, updated_at=excluded.updated_at`,
+         created_at=excluded.created_at, updated_at=excluded.updated_at
+         WHERE sucursales.sync_status = 'SYNCED'`,
         [
           str(suc.id),
           str(suc.nombre),
@@ -64,7 +67,8 @@ export async function processPullSync(sqlite: any, pullData: any) {
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
          ON CONFLICT(id) DO UPDATE SET 
          mac_address=excluded.mac_address, nombre_equipo=excluded.nombre_equipo, autorizado=excluded.autorizado, 
-         sucursal_id=excluded.sucursal_id, provision_id=excluded.provision_id, created_at=excluded.created_at, updated_at=excluded.updated_at`,
+         sucursal_id=excluded.sucursal_id, provision_id=excluded.provision_id, created_at=excluded.created_at, updated_at=excluded.updated_at
+         WHERE dispositivos.sync_status = 'SYNCED'`,
         [
           str(disp.id),
           str(disp.macAddress ?? disp.mac_address),
@@ -90,7 +94,8 @@ export async function processPullSync(sqlite: any, pullData: any) {
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
          ON CONFLICT(id) DO UPDATE SET 
          username=excluded.username, password_hash=excluded.password_hash, rol=excluded.rol, nombre_completo=excluded.nombre_completo, 
-         esta_activo=excluded.esta_activo, dispositivo_id=excluded.dispositivo_id, created_at=excluded.created_at, updated_at=excluded.updated_at`,
+         esta_activo=excluded.esta_activo, dispositivo_id=excluded.dispositivo_id, created_at=excluded.created_at, updated_at=excluded.updated_at
+         WHERE usuarios.sync_status = 'SYNCED'`,
         [
           str(usr.id),
           str(usr.username),
@@ -114,7 +119,8 @@ export async function processPullSync(sqlite: any, pullData: any) {
          VALUES ($1, $2, $3, $4, $5, $6, 'SYNCED')
          ON CONFLICT(id) DO UPDATE SET 
          nombre=excluded.nombre, activo=excluded.activo, created_at=excluded.created_at, 
-         updated_at=excluded.updated_at, deleted_at=excluded.deleted_at, sync_status=excluded.sync_status`,
+         updated_at=excluded.updated_at, deleted_at=excluded.deleted_at, sync_status=excluded.sync_status
+         WHERE catalogo_tipos_tramite.sync_status = 'SYNCED'`,
         [
           str(c.id),
           str(c.nombre),
@@ -134,7 +140,8 @@ export async function processPullSync(sqlite: any, pullData: any) {
          VALUES ($1, $2, $3, $4, $5, $6, $7, 'SYNCED')
          ON CONFLICT(id) DO UPDATE SET 
          nombre=excluded.nombre, color_hex=excluded.color_hex, activo=excluded.activo, created_at=excluded.created_at, 
-         updated_at=excluded.updated_at, deleted_at=excluded.deleted_at, sync_status=excluded.sync_status`,
+         updated_at=excluded.updated_at, deleted_at=excluded.deleted_at, sync_status=excluded.sync_status
+         WHERE catalogo_situaciones.sync_status = 'SYNCED'`,
         [
           str(s.id),
           str(s.nombre),
@@ -156,7 +163,8 @@ export async function processPullSync(sqlite: any, pullData: any) {
          ON CONFLICT(id) DO UPDATE SET 
          tipo_documento=excluded.tipo_documento, numero_documento=excluded.numero_documento, razon_social_nombres=excluded.razon_social_nombres, 
          estado_civil=excluded.estado_civil, domicilio=excluded.domicilio, telefono=excluded.telefono, created_at=excluded.created_at, 
-         updated_at=excluded.updated_at, deleted_at=excluded.deleted_at, sync_status=excluded.sync_status`,
+         updated_at=excluded.updated_at, deleted_at=excluded.deleted_at, sync_status=excluded.sync_status
+         WHERE clientes.sync_status = 'SYNCED'`,
         [
           str(cli.id),
           str(cli.tipoDocumento ?? cli.tipo_documento),
@@ -180,7 +188,8 @@ export async function processPullSync(sqlite: any, pullData: any) {
          ON CONFLICT(id) DO UPDATE SET 
          chasis_vin=excluded.chasis_vin, placa=excluded.placa, motor=excluded.motor, marca=excluded.marca, modelo=excluded.modelo, 
          color=excluded.color, categoria=excluded.categoria, anio_fabricacion=excluded.anio_fabricacion, anio_modelo=excluded.anio_modelo, 
-         created_at=excluded.created_at, updated_at=excluded.updated_at, deleted_at=excluded.deleted_at, sync_status=excluded.sync_status`,
+         created_at=excluded.created_at, updated_at=excluded.updated_at, deleted_at=excluded.deleted_at, sync_status=excluded.sync_status
+         WHERE vehiculos.sync_status = 'SYNCED'`,
         [
           str(v.id),
           str(v.chasisVin ?? v.chasis_vin),
@@ -206,7 +215,8 @@ export async function processPullSync(sqlite: any, pullData: any) {
          VALUES ($1, $2, $3, $4, $5, $6, $7, 'SYNCED')
          ON CONFLICT(id) DO UPDATE SET 
          ruc=excluded.ruc, razon_social=excluded.razon_social, direccion=excluded.direccion, 
-         created_at=excluded.created_at, updated_at=excluded.updated_at, deleted_at=excluded.deleted_at, sync_status=excluded.sync_status`,
+         created_at=excluded.created_at, updated_at=excluded.updated_at, deleted_at=excluded.deleted_at, sync_status=excluded.sync_status
+         WHERE empresas_gestoras.sync_status = 'SYNCED'`,
         [
           str(emp.id),
           str(emp.ruc),
@@ -227,7 +237,8 @@ export async function processPullSync(sqlite: any, pullData: any) {
          ON CONFLICT(id) DO UPDATE SET 
          empresa_gestora_id=excluded.empresa_gestora_id, dni=excluded.dni, nombres=excluded.nombres, primer_apellido=excluded.primer_apellido, 
          segundo_apellido=excluded.segundo_apellido, partida_registral=excluded.partida_registral, oficina_registral=excluded.oficina_registral, 
-         domicilio=excluded.domicilio, created_at=excluded.created_at, updated_at=excluded.updated_at, deleted_at=excluded.deleted_at, sync_status=excluded.sync_status`,
+         domicilio=excluded.domicilio, created_at=excluded.created_at, updated_at=excluded.updated_at, deleted_at=excluded.deleted_at, sync_status=excluded.sync_status
+         WHERE representantes_legales.sync_status = 'SYNCED'`,
         [
           str(rep.id),
           fk(rep.empresaGestoraId ?? rep.empresa_gestora_id),
@@ -252,7 +263,8 @@ export async function processPullSync(sqlite: any, pullData: any) {
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'SYNCED')
          ON CONFLICT(id) DO UPDATE SET 
          dni=excluded.dni, primer_apellido=excluded.primer_apellido, segundo_apellido=excluded.segundo_apellido, nombres=excluded.nombres, 
-         created_at=excluded.created_at, updated_at=excluded.updated_at, deleted_at=excluded.deleted_at, sync_status=excluded.sync_status`,
+         created_at=excluded.created_at, updated_at=excluded.updated_at, deleted_at=excluded.deleted_at, sync_status=excluded.sync_status
+         WHERE presentantes.sync_status = 'SYNCED'`,
         [
           str(pre.id),
           str(pre.dni) || "S/N",
@@ -274,7 +286,8 @@ export async function processPullSync(sqlite: any, pullData: any) {
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'SYNCED')
          ON CONFLICT(id) DO UPDATE SET 
          nombre_documento=excluded.nombre_documento, contenido_html=excluded.contenido_html, orientacion_papel=excluded.orientacion_papel, 
-         activo=excluded.activo, created_at=excluded.created_at, updated_at=excluded.updated_at, deleted_at=excluded.deleted_at, sync_status=excluded.sync_status`,
+         activo=excluded.activo, created_at=excluded.created_at, updated_at=excluded.updated_at, deleted_at=excluded.deleted_at, sync_status=excluded.sync_status
+         WHERE plantillas_documentos.sync_status = 'SYNCED'`,
         [
           str(tpl.id),
           str(tpl.nombreDocumento ?? tpl.nombre_documento),
@@ -295,7 +308,8 @@ export async function processPullSync(sqlite: any, pullData: any) {
          VALUES ($1, $2, $3, $4, $5, $6, 'SYNCED')
          ON CONFLICT(id) DO UPDATE SET 
          name=excluded.name, content=excluded.content, created_at=excluded.created_at, 
-         updated_at=excluded.updated_at, deleted_at=excluded.deleted_at, sync_status=excluded.sync_status`,
+         updated_at=excluded.updated_at, deleted_at=excluded.deleted_at, sync_status=excluded.sync_status
+         WHERE message_templates.sync_status = 'SYNCED'`,
         [
           str(msgTpl.id),
           str(msgTpl.name),
@@ -321,7 +335,8 @@ export async function processPullSync(sqlite: any, pullData: any) {
          fecha_placa_en_oficina=excluded.fecha_placa_en_oficina, entrego_tarjeta=excluded.entrego_tarjeta, fecha_entrega_tarjeta=excluded.fecha_entrega_tarjeta, 
          metodo_entrega_tarjeta=excluded.metodo_entrega_tarjeta, entrego_placa=excluded.entrego_placa, fecha_entrega_placa=excluded.fecha_entrega_placa, 
          metodo_entrega_placa=excluded.metodo_entrega_placa, observacion_placa=excluded.observacion_placa, created_at=excluded.created_at, 
-         updated_at=excluded.updated_at, deleted_at=excluded.deleted_at, sync_status=excluded.sync_status`,
+         updated_at=excluded.updated_at, deleted_at=excluded.deleted_at, sync_status=excluded.sync_status
+         WHERE tramites.sync_status = 'SYNCED'`,
         [
           str(t.id),
           str(t.codigoVerificacion ?? t.codigo_verificacion),
@@ -365,7 +380,8 @@ export async function processPullSync(sqlite: any, pullData: any) {
          dua=excluded.dua, num_formato_inmatriculacion=excluded.num_formato_inmatriculacion, numero_recibo_tramite=excluded.numero_recibo_tramite, 
          clausula_monto=excluded.clausula_monto, clausula_forma_pago=excluded.clausula_forma_pago, clausula_pago_bancarizado=excluded.clausula_pago_bancarizado, 
          aclaracion_dice=excluded.aclaracion_dice, aclaracion_debe_decir=excluded.aclaracion_debe_decir, created_at=excluded.created_at, 
-         updated_at=excluded.updated_at, deleted_at=excluded.deleted_at, sync_status=excluded.sync_status`,
+         updated_at=excluded.updated_at, deleted_at=excluded.deleted_at, sync_status=excluded.sync_status
+         WHERE tramite_detalles.sync_status = 'SYNCED'`,
         [
           str(td.id),
           fk(td.tramiteId ?? td.tramite_id),

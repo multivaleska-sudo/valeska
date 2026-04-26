@@ -117,17 +117,19 @@ export function useTemplateEditorLogic() {
 
     try {
       const sqlite = await Database.load("sqlite:valeska.db");
-      const now = new Date().toISOString();
+      const now = Date.now(); // Usamos entero para evitar choques de compatibilidad con timestamps
 
       if (id === "new") {
         const newId = `TPL_${crypto.randomUUID().split("-")[0]}`;
         await sqlite.execute(
-          `INSERT INTO plantillas_documentos (id, nombre_documento, contenido_html, orientacion_papel, activo, created_at, updated_at) VALUES ($1, $2, $3, $4, 1, $5, $6)`,
+          // Agregado el LOCAL_INSERT explícito por si acaso se entra por esta ruta
+          `INSERT INTO plantillas_documentos (id, nombre_documento, contenido_html, orientacion_papel, activo, created_at, updated_at, sync_status) VALUES ($1, $2, $3, $4, 1, $5, $6, 'LOCAL_INSERT')`,
           [newId, templateName, htmlContent, orientation, now, now],
         );
       } else {
+        // EL ARREGLO MAESTRO: Se añadió sync_status = 'LOCAL_UPDATE' para que la nube sepa que lo editaste
         await sqlite.execute(
-          `UPDATE plantillas_documentos SET nombre_documento = $1, contenido_html = $2, orientacion_papel = $3, updated_at = $4 WHERE id = $5`,
+          `UPDATE plantillas_documentos SET nombre_documento = $1, contenido_html = $2, orientacion_papel = $3, updated_at = $4, sync_status = 'LOCAL_UPDATE' WHERE id = $5`,
           [templateName, htmlContent, orientation, now, id],
         );
       }
@@ -176,6 +178,7 @@ export function useTemplateEditorLogic() {
         title: "Guardado exitoso",
         description: "La plantilla se ha guardado correctamente.",
       });
+      // Cambié la ruta a donde corresponde en V3, al centro de tramites general o al modal de print si existiera.
       navigate("/tramites");
     }
   };
