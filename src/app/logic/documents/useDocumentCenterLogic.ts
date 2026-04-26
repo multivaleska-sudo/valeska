@@ -13,9 +13,7 @@ export function useDocumentCenterLogic() {
     null,
   );
 
-  // NUEVO: Estados para el buscador
   const [searchTerm, setSearchTerm] = useState("");
-
   const [isGenerating, setIsGenerating] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -35,6 +33,7 @@ export function useDocumentCenterLogic() {
       const formattedData: TemplateData[] = result.map((row) => {
         const variablesCount = (row.contenido_html.match(/\{\{/g) || []).length;
 
+        // Ahora row.updated_at es un número seguro (Date.now())
         const fecha = new Date(row.updated_at).toLocaleDateString("es-PE", {
           year: "numeric",
           month: "short",
@@ -54,9 +53,18 @@ export function useDocumentCenterLogic() {
 
       setTemplates(formattedData);
 
-      if (formattedData.length > 0 && !selectedTemplate) {
-        setSelectedTemplate(formattedData[0]);
-      }
+      // Usamos callback form de setState para NO depender de selectedTemplate en el useCallback
+      setSelectedTemplate((prevSelected) => {
+        if (!prevSelected && formattedData.length > 0) {
+          return formattedData[0];
+        }
+        // Si teníamos una seleccionada pero ya no existe (ej. fue borrada), seleccionamos la primera
+        if (prevSelected && !formattedData.some(t => t.id === prevSelected.id)) {
+          return formattedData.length > 0 ? formattedData[0] : null;
+        }
+        return prevSelected;
+      });
+
     } catch (error) {
       console.error("Error al cargar plantillas desde SQLite:", error);
       sileo.error({
@@ -66,13 +74,12 @@ export function useDocumentCenterLogic() {
     } finally {
       setIsLoading(false);
     }
-  }, [selectedTemplate]);
+  }, []); // <-- Se quitó selectedTemplate de las dependencias para evitar carreras al eliminar
 
   useEffect(() => {
     fetchTemplates();
   }, [fetchTemplates]);
 
-  // NUEVO: Filtramos las plantillas basándonos en lo que se escribe en el buscador
   const filteredTemplates = templates.filter((tpl) =>
     tpl.nombre.toLowerCase().includes(searchTerm.toLowerCase()),
   );
@@ -97,17 +104,20 @@ export function useDocumentCenterLogic() {
     try {
       const sqlite = await Database.load("sqlite:valeska.db");
       const newId = crypto.randomUUID();
+      const now = Date.now(); // Estandarizado a milisegundos
 
       const insertQuery = `
-        INSERT INTO plantillas_documentos (id, nombre_documento, contenido_html, orientacion_papel, activo, created_at, updated_at)
-        VALUES ($1, $2, $3, 'PORTRAIT', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        INSERT INTO plantillas_documentos (id, nombre_documento, contenido_html, orientacion_papel, activo, created_at, updated_at, sync_status)
+        VALUES ($1, $2, $3, 'PORTRAIT', 1, $4, $5, 'LOCAL_INSERT')
       `;
 
-      await sqlite.execute(insertQuery, [newId, nombre, htmlBase]);
+      await sqlite.execute(insertQuery, [newId, nombre, htmlBase, now, now]);
       sileo.success({
         title: "Plantilla Creada",
         description: "La plantilla se ha creado correctamente.",
       });
+
+      window.dispatchEvent(new Event("valeska_request_sync"));
       navigate(`/plantillas/${newId}/edit`);
     } catch (error) {
       console.error("Error al crear la nueva plantilla:", error);
@@ -119,21 +129,21 @@ export function useDocumentCenterLogic() {
     }
   };
 
-  // NUEVO: Función para eliminar de manera segura (Soft Delete)
   const handleDeleteTemplate = async (templateId: string) => {
     try {
       const sqlite = await Database.load("sqlite:valeska.db");
+      const now = Date.now(); // Formato compatible con tu schema.ts
 
+      // Actualizamos a milisegundos y disparamos sync_status
       await sqlite.execute(
-        `UPDATE plantillas_documentos SET deleted_at = CURRENT_TIMESTAMP WHERE id = $1`,
-        [templateId],
+        `UPDATE plantillas_documentos SET deleted_at = $1, sync_status = 'LOCAL_UPDATE' WHERE id = $2`,
+        [now, templateId],
       );
 
-      // Actualizar el estado local de forma inmediata
+      // Actualizar el estado local de forma inmediata para que desaparezca en tiempo real
       const remainingTemplates = templates.filter((t) => t.id !== templateId);
       setTemplates(remainingTemplates);
 
-      // Si borramos la que estaba seleccionada, elegimos la primera que quede (o null)
       if (selectedTemplate?.id === templateId) {
         setSelectedTemplate(
           remainingTemplates.length > 0 ? remainingTemplates[0] : null,
@@ -142,8 +152,12 @@ export function useDocumentCenterLogic() {
 
       sileo.success({
         title: "Plantilla Eliminada",
-        description: "La plantilla ha sido eliminada correctamente.",
+        description: "La plantilla ha sido eliminada permanentemente.",
       });
+
+      // Disparar sincronización para la nube
+      window.dispatchEvent(new Event("valeska_request_sync"));
+
     } catch (error) {
       console.error("Error al eliminar la plantilla:", error);
       sileo.error({

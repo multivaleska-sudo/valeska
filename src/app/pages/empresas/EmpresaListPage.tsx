@@ -280,7 +280,7 @@ export function EmpresaListPage() {
                     onChange={(val) =>
                       setFormRepresentante({
                         ...formRepresentante,
-                        razon_social: val.toUpperCase(),
+                        razon_social: val,
                       })
                     }
                   />
@@ -290,7 +290,7 @@ export function EmpresaListPage() {
                     onChange={(val) =>
                       setFormRepresentante({
                         ...formRepresentante,
-                        direccion: val.toUpperCase(),
+                        direccion: val,
                       })
                     }
                   />
@@ -319,7 +319,7 @@ export function EmpresaListPage() {
                     onChange={(val) =>
                       setFormRepresentante({
                         ...formRepresentante,
-                        primer_apellido: val.toUpperCase(),
+                        primer_apellido: val,
                       })
                     }
                   />
@@ -329,7 +329,7 @@ export function EmpresaListPage() {
                     onChange={(val) =>
                       setFormRepresentante({
                         ...formRepresentante,
-                        segundo_apellido: val.toUpperCase(),
+                        segundo_apellido: val,
                       })
                     }
                   />
@@ -339,7 +339,7 @@ export function EmpresaListPage() {
                     onChange={(val) =>
                       setFormRepresentante({
                         ...formRepresentante,
-                        nombres: val.toUpperCase(),
+                        nombres: val,
                       })
                     }
                   />
@@ -352,7 +352,7 @@ export function EmpresaListPage() {
                     onChange={(val) =>
                       setFormRepresentante({
                         ...formRepresentante,
-                        partida_registral: val.toUpperCase(),
+                        partida_registral: val,
                       })
                     }
                   />
@@ -362,7 +362,7 @@ export function EmpresaListPage() {
                     onChange={(val) =>
                       setFormRepresentante({
                         ...formRepresentante,
-                        oficina_registral: val.toUpperCase(),
+                        oficina_registral: val,
                       })
                     }
                   />
@@ -372,7 +372,7 @@ export function EmpresaListPage() {
                     onChange={(val) =>
                       setFormRepresentante({
                         ...formRepresentante,
-                        domicilio: val.toUpperCase(),
+                        domicilio: val,
                       })
                     }
                   />
@@ -400,7 +400,7 @@ export function EmpresaListPage() {
                   onChange={(val) =>
                     setFormPresentante({
                       ...formPresentante,
-                      primer_apellido: val.toUpperCase(),
+                      primer_apellido: val,
                     })
                   }
                 />
@@ -410,7 +410,7 @@ export function EmpresaListPage() {
                   onChange={(val) =>
                     setFormPresentante({
                       ...formPresentante,
-                      segundo_apellido: val.toUpperCase(),
+                      segundo_apellido: val,
                     })
                   }
                 />
@@ -420,7 +420,7 @@ export function EmpresaListPage() {
                   onChange={(val) =>
                     setFormPresentante({
                       ...formPresentante,
-                      nombres: val.toUpperCase(),
+                      nombres: val,
                     })
                   }
                 />

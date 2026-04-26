@@ -175,12 +175,13 @@ export function useDirectorioLogic() {
   const savePresentante = async () => {
     if (isSaving) return;
 
-    // Validación Relajada: Al menos que ponga un nombre, apellido o DNI.
-    if (
-      !formPresentante.dni &&
-      !formPresentante.nombres &&
-      !formPresentante.primer_apellido
-    ) {
+    // Convertimos a mayúsculas justo antes de guardar para evitar que el cursor salte en el formulario
+    const dniToSave = formPresentante.dni?.trim() || "";
+    const paToSave = formPresentante.primer_apellido?.trim().toUpperCase() || "";
+    const saToSave = formPresentante.segundo_apellido?.trim().toUpperCase() || "";
+    const nomToSave = formPresentante.nombres?.trim().toUpperCase() || "";
+
+    if (!dniToSave && !nomToSave && !paToSave) {
       sileo.warning({
         title: "Campos incompletos",
         description: "Debe ingresar al menos un Nombre, Apellido o DNI.",
@@ -193,36 +194,18 @@ export function useDirectorioLogic() {
       const db = await Database.load("sqlite:valeska.db");
       const now = Date.now();
 
-      const existing: any[] = await db.select(
-        "SELECT id FROM presentantes WHERE dni = $1 AND dni != '' AND dni != 'S/N'",
-        [formPresentante.dni],
-      );
-
-      if (existing.length > 0 && formPresentante.dni) {
-        const targetId = existing[0].id;
+      if (formPresentante.id) {
+        // ACTUALIZAR (UPDATE)
         await db.execute(
-          "UPDATE presentantes SET primer_apellido=$1, segundo_apellido=$2, nombres=$3, deleted_at=NULL, updated_at=$4, sync_status='LOCAL_UPDATE' WHERE id=$5",
-          [
-            formPresentante.primer_apellido,
-            formPresentante.segundo_apellido,
-            formPresentante.nombres,
-            now,
-            targetId,
-          ],
+          "UPDATE presentantes SET dni=$1, primer_apellido=$2, segundo_apellido=$3, nombres=$4, deleted_at=NULL, updated_at=$5, sync_status='LOCAL_UPDATE' WHERE id=$6",
+          [dniToSave, paToSave, saToSave, nomToSave, now, formPresentante.id],
         );
       } else {
-        const newId = formPresentante.id || crypto.randomUUID();
+        // INSERTAR NUEVO
+        const newId = crypto.randomUUID();
         await db.execute(
           "INSERT INTO presentantes (id, dni, primer_apellido, segundo_apellido, nombres, created_at, updated_at, sync_status) VALUES ($1, $2, $3, $4, $5, $6, $7, 'LOCAL_INSERT')",
-          [
-            newId,
-            formPresentante.dni,
-            formPresentante.primer_apellido,
-            formPresentante.segundo_apellido,
-            formPresentante.nombres,
-            now,
-            now,
-          ],
+          [newId, dniToSave, paToSave, saToSave, nomToSave, now, now],
         );
       }
 
@@ -243,8 +226,7 @@ export function useDirectorioLogic() {
   const saveRepresentante = async () => {
     if (isSaving) return;
 
-    // Validación Relajada: SOLO la Razón Social es estricta.
-    if (!formRepresentante.razon_social) {
+    if (!formRepresentante.razon_social?.trim()) {
       sileo.warning({
         title: "Campos incompletos",
         description: "La Razón Social de la Empresa es obligatoria.",
@@ -257,71 +239,75 @@ export function useDirectorioLogic() {
       const db = await Database.load("sqlite:valeska.db");
       const now = Date.now();
 
-      const finalRuc = formRepresentante.ruc.trim() === "" ? null : formRepresentante.ruc.trim();
+      // Convertir a mayúsculas antes de ir a BD
+      const finalRuc = formRepresentante.ruc?.trim() === "" ? null : formRepresentante.ruc?.trim();
+      const razonSocialToSave = formRepresentante.razon_social?.trim().toUpperCase();
+      const direccionToSave = formRepresentante.direccion?.trim().toUpperCase() || "";
 
       // 1. UPSERT DE LA EMPRESA GESTORA
       let empresaIdToUse = formRepresentante.empresa_id;
 
-      let queryEmp = "SELECT id FROM empresas_gestoras WHERE razon_social = $1";
-      let paramsEmp: any[] = [formRepresentante.razon_social];
-      if (finalRuc) { queryEmp += " AND ruc = $2"; paramsEmp.push(finalRuc); }
-
-      const empCheck: any[] = await db.select(queryEmp, paramsEmp);
-
-      if (empCheck.length > 0) {
-        empresaIdToUse = empCheck[0].id;
+      if (empresaIdToUse) {
+        // ACTUALIZAR EMPRESA EXISTENTE
         await db.execute(
-          "UPDATE empresas_gestoras SET direccion=$1, deleted_at=NULL, updated_at=$2, sync_status='LOCAL_UPDATE' WHERE id=$3",
-          [formRepresentante.direccion, now, empresaIdToUse],
+          "UPDATE empresas_gestoras SET ruc=$1, razon_social=$2, direccion=$3, deleted_at=NULL, updated_at=$4, sync_status='LOCAL_UPDATE' WHERE id=$5",
+          [finalRuc, razonSocialToSave, direccionToSave, now, empresaIdToUse],
         );
       } else {
-        empresaIdToUse = empresaIdToUse || crypto.randomUUID();
+        // INSERTAR NUEVA EMPRESA
+        empresaIdToUse = crypto.randomUUID();
         await db.execute(
           "INSERT INTO empresas_gestoras (id, ruc, razon_social, direccion, created_at, updated_at, sync_status) VALUES ($1, $2, $3, $4, $5, $6, 'LOCAL_INSERT')",
-          [empresaIdToUse, finalRuc, formRepresentante.razon_social, formRepresentante.direccion, now, now],
+          [empresaIdToUse, finalRuc, razonSocialToSave, direccionToSave, now, now],
         );
       }
 
-      // 2. UPSERT DEL REPRESENTANTE LEGAL (Solo si escribieron algún dato del representante)
-      const hasRepData = formRepresentante.dni?.trim() || formRepresentante.nombres?.trim() || formRepresentante.primer_apellido?.trim();
+      // 2. UPSERT DEL REPRESENTANTE LEGAL
+      const dniToSave = formRepresentante.dni?.trim() || 'S/N';
+      const paToSave = formRepresentante.primer_apellido?.trim().toUpperCase() || "";
+      const saToSave = formRepresentante.segundo_apellido?.trim().toUpperCase() || "";
+      const nomToSave = formRepresentante.nombres?.trim().toUpperCase() || "";
+      const prToSave = formRepresentante.partida_registral?.trim().toUpperCase() || "";
+      const orToSave = formRepresentante.oficina_registral?.trim().toUpperCase() || "";
+      const domToSave = formRepresentante.domicilio?.trim().toUpperCase() || "";
+
+      const hasRepData = dniToSave !== 'S/N' || nomToSave !== "" || paToSave !== "";
 
       if (hasRepData) {
-        const repCheck: any[] = await db.select(
-          "SELECT id FROM representantes_legales WHERE dni = $1 AND empresa_gestora_id = $2",
-          [formRepresentante.dni || 'S/N', empresaIdToUse],
-        );
+        // Verificamos si es un ID válido para actualizar, o si es un slot vacío ("empty_emp_...")
+        const isFakeId = !formRepresentante.id || formRepresentante.id.includes('empty');
 
-        const isFakeId = formRepresentante.id && (formRepresentante.id.includes('empty'));
-
-        if (repCheck.length > 0 && !isFakeId) {
-          const repIdToUse = repCheck[0].id;
+        if (!isFakeId) {
+          // ACTUALIZAR REPRESENTANTE EXISTENTE
           await db.execute(
-            "UPDATE representantes_legales SET primer_apellido=$1, segundo_apellido=$2, nombres=$3, partida_registral=$4, oficina_registral=$5, domicilio=$6, deleted_at=NULL, updated_at=$7, sync_status='LOCAL_UPDATE' WHERE id=$8",
+            "UPDATE representantes_legales SET dni=$1, primer_apellido=$2, segundo_apellido=$3, nombres=$4, partida_registral=$5, oficina_registral=$6, domicilio=$7, deleted_at=NULL, updated_at=$8, sync_status='LOCAL_UPDATE' WHERE id=$9",
             [
-              formRepresentante.primer_apellido,
-              formRepresentante.segundo_apellido,
-              formRepresentante.nombres,
-              formRepresentante.partida_registral,
-              formRepresentante.oficina_registral,
-              formRepresentante.domicilio,
+              dniToSave,
+              paToSave,
+              saToSave,
+              nomToSave,
+              prToSave,
+              orToSave,
+              domToSave,
               now,
-              repIdToUse,
+              formRepresentante.id,
             ],
           );
         } else {
-          const newRepId = (!isFakeId && formRepresentante.id) ? formRepresentante.id : crypto.randomUUID();
+          // INSERTAR NUEVO REPRESENTANTE
+          const newRepId = crypto.randomUUID();
           await db.execute(
             "INSERT INTO representantes_legales (id, empresa_gestora_id, dni, primer_apellido, segundo_apellido, nombres, partida_registral, oficina_registral, domicilio, created_at, updated_at, sync_status) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'LOCAL_INSERT')",
             [
               newRepId,
               empresaIdToUse,
-              formRepresentante.dni || 'S/N',
-              formRepresentante.primer_apellido,
-              formRepresentante.segundo_apellido,
-              formRepresentante.nombres,
-              formRepresentante.partida_registral,
-              formRepresentante.oficina_registral,
-              formRepresentante.domicilio,
+              dniToSave,
+              paToSave,
+              saToSave,
+              nomToSave,
+              prToSave,
+              orToSave,
+              domToSave,
               now,
               now,
             ],
@@ -337,18 +323,14 @@ export function useDirectorioLogic() {
       window.dispatchEvent(new Event("valeska_request_sync"));
       loadData();
     } catch (error: any) {
+      console.error(error);
       sileo.error({ title: "Error al guardar", description: error.message });
     } finally {
       setIsSaving(false);
     }
   };
 
-  // ============================================================================
-  // ELIMINAR REGISTROS (Lógico) - MEJORADO PARA ELIMINAR EMPRESAS Y REPS
-  // ============================================================================
   const deleteRecord = async (table: "presentantes" | "representantes_legales" | "empresas_gestoras", id: string) => {
-
-    // Si intentan borrar el representante de un slot vacío, les avisamos amablemente.
     if (table === "representantes_legales" && id.includes('empty')) {
       sileo.warning({ title: "Atención", description: "No hay representante que eliminar aquí. Utilice el botón 'Eliminar Empresa' si desea borrar la empresa entera." });
       return;
@@ -369,7 +351,6 @@ export function useDirectorioLogic() {
         [now, id],
       );
 
-      // Si se eliminó la Empresa, eliminamos en cascada sus representantes lógicamente
       if (table === "empresas_gestoras") {
         await db.execute(
           `UPDATE representantes_legales SET deleted_at=$1, sync_status='LOCAL_UPDATE' WHERE empresa_gestora_id=$2`,
