@@ -4,7 +4,7 @@ import { TramiteFormData } from "../../types/tramites/tramite.types";
 import { sileo } from "sileo";
 
 export function useTramiteDetail(id: string | undefined) {
-  const [tramiteData, setTramiteData] = useState<Partial<TramiteFormData> | null>(null);
+  const [tramiteData, setTramiteData] = useState<Partial<TramiteFormData> & { creador?: string } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const loadTramite = async () => {
@@ -38,7 +38,9 @@ export function useTramiteDetail(id: string | undefined) {
           eg.razon_social as empresa_razon_social,
           
           rl.nombres as rl_nombres, rl.primer_apellido as rl_ape1, rl.segundo_apellido as rl_ape2,
-          p.nombres as pres_nombres, p.primer_apellido as pres_ape1, p.segundo_apellido as pres_ape2
+          p.nombres as pres_nombres, p.primer_apellido as pres_ape1, p.segundo_apellido as pres_ape2,
+          
+          u.nombre_completo as creador
         FROM tramites t
         JOIN clientes c ON t.cliente_id = c.id
         JOIN vehiculos v ON t.vehiculo_id = v.id
@@ -48,6 +50,7 @@ export function useTramiteDetail(id: string | undefined) {
         LEFT JOIN empresas_gestoras eg ON td.empresa_gestora_id = eg.id
         LEFT JOIN representantes_legales rl ON td.representante_legal_id = rl.id
         LEFT JOIN presentantes p ON td.presentante_id = p.id
+        LEFT JOIN usuarios u ON t.usuario_creador_id = u.id
         WHERE t.id = $1
       `;
 
@@ -119,6 +122,8 @@ export function useTramiteDetail(id: string | undefined) {
           aclaracion_dice: row.aclaracion_dice || "",
           aclaracion_debe_decir: row.aclaracion_debe_decir || "",
           fecha_impresion: new Date().toISOString().split("T")[0],
+
+          creador: row.creador || "Desconocido"
         };
 
         setTramiteData(dataFormateada);

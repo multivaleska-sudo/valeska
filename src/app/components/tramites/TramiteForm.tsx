@@ -33,7 +33,7 @@ import { WebcamScannerModal } from "./WebcamScannerModal";
 
 interface TramiteFormProps {
   mode: "create" | "edit" | "view";
-  initialData?: Partial<TramiteFormData>;
+  initialData?: Partial<TramiteFormData> & { creador?: string };
 }
 
 export function TramiteForm({ mode, initialData }: TramiteFormProps) {
@@ -153,9 +153,16 @@ export function TramiteForm({ mode, initialData }: TramiteFormProps) {
                 : mode === "edit"
                   ? "EDICIÓN DE TRÁMITE"
                   : "DETALLE DE TRÁMITE"}
-              <span className="bg-blue-100 text-blue-700 text-sm py-1 px-3 rounded-full font-bold">
-                Cód: {formData.codigo_verificacion}
-              </span>
+              {formData.codigo_verificacion && (
+                <span className="bg-blue-100 text-blue-700 text-sm py-1 px-3 rounded-full font-bold">
+                  Cód: {formData.codigo_verificacion}
+                </span>
+              )}
+              {formData.creador && (
+                <span className="bg-indigo-50 border border-indigo-200 text-indigo-700 text-sm py-1 px-3 rounded-full font-bold flex items-center gap-2">
+                  <User size={14} /> Creado por: {formData.creador}
+                </span>
+              )}
             </h1>
             <p className="text-sm text-gray-500 mt-1 flex items-center gap-2">
               Gestión detallada del expediente vehicular.

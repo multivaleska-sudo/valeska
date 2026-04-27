@@ -11,6 +11,7 @@ import {
   Building2,
   Search,
   X,
+  Trash2,
 } from "lucide-react";
 import { useTramitesListLogic } from "../../logic/tramites/useTramitesListLogic";
 
@@ -24,12 +25,12 @@ export function TramitesListPage() {
     handleExportExcel,
     isExporting,
     isLoading,
+    deleteTramite,
   } = useTramitesListLogic();
 
   return (
     <div className="min-h-screen bg-slate-50 p-6 font-sans">
       <div className="max-w-[1400px] mx-auto space-y-6">
-        {/* CABECERA CON ACCIONES */}
         <div className="flex justify-between items-center bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
           <div>
             <h1 className="text-2xl font-black text-gray-800">
@@ -41,7 +42,6 @@ export function TramitesListPage() {
           </div>
 
           <div className="flex items-center gap-3">
-            {/* BOTÓN EXCEL */}
             <button
               onClick={handleExportExcel}
               disabled={isExporting || data.length === 0}
@@ -64,7 +64,6 @@ export function TramitesListPage() {
           </div>
         </div>
 
-        {/* FILTROS ACTUALIZADOS */}
         <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
           <div className="flex items-center gap-2 mb-4 text-gray-800">
             <Filter size={18} className="text-blue-600" />
@@ -137,7 +136,6 @@ export function TramitesListPage() {
               />
             </div>
 
-            {/* FILTRO PLACA */}
             <div className="flex flex-col lg:col-span-2">
               <label className="text-xs font-semibold text-gray-600 mb-1.5 uppercase">
                 N° Placa
@@ -226,28 +224,26 @@ export function TramitesListPage() {
           </div>
         </div>
 
-        {/* TABLA: EXACTAMENTE COMO LA TENÍAS */}
+        {/* TABLA DE RESULTADOS */}
         <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden flex flex-col">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead className="bg-gray-50/80 border-b border-gray-100">
                 <tr className="text-xs font-bold text-gray-500 uppercase tracking-wider">
-                  <th className="p-4">ID</th>
                   <th className="p-4">N° Título</th>
-                  <th className="p-4">Nombre del Cliente</th>
-                  <th className="p-4">DNI</th>
+                  <th className="p-4">Cliente</th>
                   <th className="p-4">Placa</th>
                   <th className="p-4">Trámite</th>
                   <th className="p-4">Situación</th>
-                  <th className="p-4">Fecha Presentación</th>
-                  <th className="p-4">Empresa que Gestiona</th>
-                  <th className="p-4 text-center">Vista</th>
+                  <th className="p-4">Empresa</th>
+                  <th className="p-4">Creador</th>
+                  <th className="p-4 text-center">Acciones</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {isLoading ? (
                   <tr>
-                    <td colSpan={10} className="p-10 text-center">
+                    <td colSpan={8} className="p-10 text-center">
                       <Loader2 className="animate-spin mx-auto text-blue-600" />
                     </td>
                   </tr>
@@ -258,25 +254,28 @@ export function TramitesListPage() {
                       onClick={() => navigate(`/tramites/${row.id}`)}
                       className="hover:bg-blue-50/50 cursor-pointer transition-colors group"
                     >
-                      <td className="p-4 font-bold text-gray-500 text-xs">
-                        #{row.id.substring(0, 8)}
-                      </td>
                       <td className="p-4 font-bold text-blue-600 text-sm">
                         {row.n_titulo}
                       </td>
-                      <td className="p-4 text-sm font-semibold text-gray-800">
-                        {row.cliente}
+                      <td className="p-4">
+                        <div className="text-sm font-semibold text-gray-800">
+                          {row.cliente}
+                        </div>
+                        <div className="text-xs text-gray-500">{row.dni}</div>
                       </td>
-                      <td className="p-4 text-sm text-gray-600">{row.dni}</td>
-                      <td className="p-4 text-sm font-bold text-gray-700 bg-gray-50 uppercase tracking-widest">
+                      <td className="p-4 text-sm font-bold text-gray-700 bg-gray-50 uppercase tracking-widest text-center">
                         {row.placa}
                       </td>
-                      <td className="p-4 text-sm text-gray-600 uppercase">
+                      <td className="p-4 text-xs text-gray-600 uppercase font-medium">
                         {row.tramite}
+                        <br />
+                        <span className="text-gray-400 text-[10px]">
+                          {row.fecha_presentacion}
+                        </span>
                       </td>
                       <td className="p-4">
                         <span
-                          className={`px-3 py-1 rounded-full text-xs font-bold uppercase
+                          className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase
                           ${row.situacion === "En calificación" ? "bg-amber-100 text-amber-700" : ""}
                           ${row.situacion === "Inscrito" || row.situacion === "Concluido" ? "bg-green-100 text-green-700" : ""}
                           ${row.situacion === "Observado" ? "bg-red-100 text-red-700" : ""}
@@ -287,23 +286,38 @@ export function TramitesListPage() {
                           {row.situacion}
                         </span>
                       </td>
-                      <td className="p-4 text-sm text-gray-600">
-                        {row.fecha_presentacion}
-                      </td>
-                      <td className="p-4 text-sm text-gray-600 font-medium">
+                      <td className="p-4 text-[11px] text-gray-600 font-medium max-w-[150px] truncate">
                         {row.empresa_gestiona}
                       </td>
+                      <td className="p-4 text-[11px] text-gray-600 font-bold uppercase">
+                        {row.creador}
+                      </td>
                       <td className="p-4 text-center">
-                        <button className="p-2 text-gray-400 group-hover:text-blue-600 hover:bg-blue-100 rounded-lg transition-colors">
-                          <Eye size={18} />
-                        </button>
+                        <div className="flex justify-center gap-1">
+                          <button
+                            title="Ver expediente"
+                            className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-100 rounded-lg transition-colors"
+                          >
+                            <Eye size={18} />
+                          </button>
+                          <button
+                            title="Eliminar trámite"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              deleteTramite(row.id);
+                            }}
+                            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-100 rounded-lg transition-colors"
+                          >
+                            <Trash2 size={18} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))
                 ) : (
                   <tr>
                     <td
-                      colSpan={10}
+                      colSpan={8}
                       className="p-8 text-center text-gray-500 font-bold uppercase"
                     >
                       No se encontraron trámites.

@@ -25,9 +25,7 @@ export function useTramiteLogic(initialData?: Partial<TramiteFormData>) {
   const [selectedRepresentanteLegalId, setSelectedRepresentanteLegalId] = useState<string | null>((initialData as any)?.representante_legal_id || null);
   const [selectedPresentanteId, setSelectedPresentanteId] = useState<string | null>((initialData as any)?.presentante_id || null);
 
-  const [tipoPresentanteSeleccionado, setTipoPresentanteSeleccionado] = useState<'presentante' | 'representante_legal' | null>((initialData as any)?.representante_legal_id ? 'representante_legal' : ((initialData as any)?.presentante_id ? 'presentante' : null));
-
-  const [formData, setFormData] = useState<TramiteFormData>(() => {
+  const [formData, setFormData] = useState<TramiteFormData & { creador?: string }>(() => {
     const today = new Date().toISOString().split("T")[0];
     const randomCode = ``;
 
@@ -43,7 +41,7 @@ export function useTramiteLogic(initialData?: Partial<TramiteFormData>) {
       numero_boleta: "", fecha_boleta: today, dua: "", num_formato_inmatriculacion: "", numero_recibo_tramite: "",
       clausula_monto: "", clausula_forma_pago: "", clausula_pago_bancarizado: "", aclaracion_dice: "", aclaracion_debe_decir: "",
       fecha_impresion: today, ...(initialData || {}),
-    } as TramiteFormData;
+    } as TramiteFormData & { creador?: string };
   });
 
   const loadCatalogos = useCallback(async () => {
@@ -180,12 +178,8 @@ export function useTramiteLogic(initialData?: Partial<TramiteFormData>) {
     return { nombres, primerApellido, segundoApellido };
   };
 
-  // Función para generar DNIs falsos seguros para evitar error UNIQUE de la BD
   const getSafeDni = () => `SN-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
-  // ============================================================================
-  // AUTOCOMPLETADO DE PDF: EXTRACCIÓN Y REPARTO PRECISO A LAS TABLAS
-  // ============================================================================
   const autofillFromPdf = async () => {
     setIsFilling(true);
     try {
@@ -200,36 +194,17 @@ export function useTramiteLogic(initialData?: Partial<TramiteFormData>) {
         const pdfDomicilio = (pdfData.pdf_empresa_domicilio || "").toUpperCase();
         const pdfPartida = (pdfData.pdf_partida || "").toUpperCase();
         const pdfOficina = (pdfData.pdf_oficina || "").toUpperCase();
-
-        // Si el DNI vino vacío en el PDF, asignamos uno falso pero ÚNICO
         const pdfDniGerente = (pdfData.pdf_rep_dni || "").trim() || getSafeDni();
 
         const cleanedFormData = { ...pdfData };
         cleanedFormData.presentante_persona = formData.presentante_persona;
 
-        let isDuplicate = false;
-        let duplicatedFields: string[] = [];
-
-        const sqlite = await Database.load("sqlite:valeska.db");
-        const now = Date.now();
-
-        if (chasis || motor) {
-          const conditions = []; const params = [];
-          if (chasis) { conditions.push("chasis_vin = $1"); params.push(chasis); }
-          if (motor) { conditions.push("motor = $" + (params.length + 1)); params.push(motor); }
-          if (conditions.length > 0) {
-            const res: any[] = await sqlite.select(`SELECT chasis_vin, motor FROM vehiculos WHERE ${conditions.join(" OR ")} LIMIT 1`, params);
-            if (res.length > 0) {
-              isDuplicate = true;
-              if (chasis && res[0].chasis_vin === chasis) duplicatedFields.push("Chasis / VIN");
-              if (motor && res[0].motor === motor) duplicatedFields.push("Motor");
-            }
-          }
-        }
-
         let finalEmpresaId = null;
         let finalRepLegalId = null;
         let finalComboEmpresa = empresaRaw || "";
+
+        const sqlite = await Database.load("sqlite:valeska.db");
+        const now = Date.now();
 
         if (empresaRaw) {
           const empCheck: any[] = await sqlite.select("SELECT id FROM empresas_gestoras WHERE razon_social = $1 LIMIT 1", [empresaRaw]);
@@ -277,8 +252,7 @@ export function useTramiteLogic(initialData?: Partial<TramiteFormData>) {
         setSelectedRepresentanteLegalId(finalRepLegalId);
         skipEmpresaSearch.current = true;
 
-        if (isDuplicate) sileo.error({ title: "¡ALERTA: VEHÍCULO DUPLICADO!", description: `El número de ${duplicatedFields.join(" y el número de ")} extraído del PDF ya se encuentra registrado.` });
-        else sileo.success({ title: "Completado", description: "Todos los datos de la empresa y representante fueron extraídos exitosamente." });
+        sileo.success({ title: "Completado", description: "Todos los datos extraídos exitosamente. Verifique el Motor y Chasis." });
       }
     } catch (error) {
       console.error("Error validando PDF:", error);
@@ -290,10 +264,50 @@ export function useTramiteLogic(initialData?: Partial<TramiteFormData>) {
   const saveTramite = async () => {
     setIsSaving(true);
     try {
+      const sqlite = await Database.load("sqlite:valeska.db");
+
+      const chasisToCheck = (formData.vehiculo_chasis || "").trim().toUpperCase();
+      const motorToCheck = (formData.vehiculo_motor || "").trim().toUpperCase();
+
+      const tieneChasis = chasisToCheck && chasisToCheck !== "S/N";
+      const tieneMotor = motorToCheck && motorToCheck !== "S/N";
+
+      if (tieneChasis || tieneMotor) {
+        let dupQuery = "SELECT t.id, t.n_titulo FROM tramites t JOIN vehiculos v ON t.vehiculo_id = v.id WHERE t.deleted_at IS NULL AND (";
+        const dupConditions = [];
+        const dupParams: any[] = [];
+
+        if (tieneChasis) {
+          dupConditions.push(`v.chasis_vin = $${dupParams.length + 1}`);
+          dupParams.push(chasisToCheck);
+        }
+        if (tieneMotor) {
+          dupConditions.push(`v.motor = $${dupParams.length + 1}`);
+          dupParams.push(motorToCheck);
+        }
+
+        dupQuery += dupConditions.join(" OR ") + ")";
+
+        if (formData.id) {
+          dupQuery += ` AND t.id != $${dupParams.length + 1}`;
+          dupParams.push(formData.id);
+        }
+
+        const duplicados: any[] = await sqlite.select(dupQuery, dupParams);
+
+        if (duplicados.length > 0) {
+          sileo.error({
+            title: "Trámite Duplicado Bloqueado",
+            description: `Ya existe un trámite activo en el sistema utilizando este mismo Motor o Chasis.`
+          });
+          setIsSaving(false);
+          return null;
+        }
+      }
+
       const sessionStr = localStorage.getItem("valeska_session_user");
       if (!sessionStr) throw new Error("No hay sesión activa.");
       const session = JSON.parse(sessionStr);
-      const sqlite = await Database.load("sqlite:valeska.db");
       const now = Date.now();
 
       let tipoTramiteId = "TIPO_001", situacionId = "SIT_001", sucursalId = null;
@@ -302,7 +316,6 @@ export function useTramiteLogic(initialData?: Partial<TramiteFormData>) {
       try { const dispRes: any[] = await sqlite.select("SELECT sucursal_id FROM dispositivos LIMIT 1"); if (dispRes.length > 0) sucursalId = dispRes[0].sucursal_id; } catch (e) { }
 
       let finalClienteId = null;
-      // DNI SEGURO CONTRA CRASHEOS
       const docCliente = (formData.dni || "").trim() || getSafeDni();
       try {
         const cliRes: any[] = await sqlite.select("SELECT id FROM clientes WHERE numero_documento = $1", [docCliente]);
@@ -316,7 +329,6 @@ export function useTramiteLogic(initialData?: Partial<TramiteFormData>) {
       } catch (e) { throw new Error("No se pudo registrar el Cliente. Revise el DNI/RUC."); }
 
       let finalVehiculoId = null;
-      // VIN SEGURO CONTRA CRASHEOS
       const vinVehiculo = (formData.vehiculo_chasis || "").trim() || getSafeDni();
       try {
         const vehRes: any[] = await sqlite.select("SELECT id FROM vehiculos WHERE chasis_vin = $1", [vinVehiculo]);
