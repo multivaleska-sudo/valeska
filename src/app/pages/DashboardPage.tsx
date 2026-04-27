@@ -12,6 +12,7 @@ import {
   CheckCircle,
   XCircle,
   Loader2,
+  CloudUpload,
 } from "lucide-react";
 import { useNavigate } from "react-router";
 import { useDashboardLogic } from "../logic/dashboard/useDashboardLogic";
@@ -38,7 +39,6 @@ export function DashboardPage() {
   >("loading");
   const [injectionLogs, setInjectionLogs] = useState<string[]>([]);
 
-  // Guardamos el desglose de errores completo para mostrarlo en el UI
   const [injectionSummary, setInjectionSummary] = useState<{
     exitosos: number;
     totalErrores: number;
@@ -143,19 +143,19 @@ export function DashboardPage() {
       color: "bg-[#2563EB]",
     },
     {
-      label: "Clientes",
+      label: "Clientes Registrados",
       value: dbStats.clientes.toString(),
       icon: Users,
       color: "bg-[#16A34A]",
     },
     {
-      label: "Pendientes",
-      value: dbStats.pendientes.toString(),
+      label: "Observados / Tacha", // Cambiado el nombre para no confundir
+      value: dbStats.observados.toString(),
       icon: AlertCircle,
       color: "bg-[#F59E0B]",
     },
     {
-      label: "Completados (mes)",
+      label: "Completados (Mes)",
       value: dbStats.completadosMes.toString(),
       icon: TrendingUp,
       color: "bg-[#0284C7]",
@@ -176,7 +176,7 @@ export function DashboardPage() {
         <div>
           <h1 className="text-2xl font-semibold text-[#111827]">Dashboard</h1>
           <p className="text-sm text-[#6B7280] mt-1">
-            Resumen general del sistema
+            Resumen general del sistema y sincronización
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -198,15 +198,12 @@ export function DashboardPage() {
 
           <button
             onClick={() => {
-              refreshData();
               navigate("/sync");
             }}
             className="px-4 py-2 bg-white border border-[#E5E7EB] text-[#111827] rounded-md hover:bg-gray-50 transition-colors flex items-center gap-2 shadow-sm"
           >
-            <RefreshCw
-              className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`}
-            />
-            <span className="hidden sm:inline">Sincronizar</span>
+            <CloudUpload className="w-4 h-4 text-blue-600" />
+            <span className="hidden sm:inline">Panel Nube</span>
           </button>
 
           <button
@@ -219,51 +216,68 @@ export function DashboardPage() {
         </div>
       </div>
 
+      {/* PANEL DE SINCRONIZACIÓN MEJORADO Y CON ETIQUETAS CLARAS */}
       <div className="bg-white rounded-lg border border-[#E5E7EB] p-6 shadow-sm">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
-            <h3 className="text-sm font-medium text-[#111827]">
-              Estado de Sincronización
+            <h3 className="text-sm font-bold text-[#111827] flex items-center gap-2">
+              Estado de la Nube Local
+              {syncStats.pendientes === 0 && syncStats.conflictos === 0 && (
+                <span className="relative flex h-3 w-3">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+                </span>
+              )}
             </h3>
             <p className="text-xs text-[#6B7280] mt-1">
-              Última revisión: {syncStats.lastSync}
+              Última conexión exitosa:{" "}
+              <span className="font-bold">{syncStats.lastSync}</span>
             </p>
           </div>
           <div className="flex items-center gap-6">
             <div className="text-right">
-              <div className="text-xs text-[#6B7280]">Pendientes</div>
-              <div className="text-lg font-semibold text-[#111827]">
+              <div className="text-xs font-bold text-gray-400 uppercase">
+                Sin Subir a Nube
+              </div>
+              <div
+                className={`text-xl font-black ${syncStats.pendientes > 0 ? "text-blue-600" : "text-gray-800"}`}
+              >
                 {syncStats.pendientes}
               </div>
             </div>
             <div className="text-right">
-              <div className="text-xs text-[#6B7280]">Conflictos</div>
+              <div className="text-xs font-bold text-gray-400 uppercase">
+                Conflictos
+              </div>
               <div
-                className={`text-lg font-semibold ${syncStats.conflictos > 0 ? "text-[#DC2626]" : "text-[#111827]"}`}
+                className={`text-xl font-black ${syncStats.conflictos > 0 ? "text-[#DC2626]" : "text-[#111827]"}`}
               >
                 {syncStats.conflictos}
               </div>
             </div>
 
             {syncStats.pendientes === 0 && syncStats.conflictos === 0 ? (
-              <button className="px-4 py-2 bg-[#16A34A] text-white rounded-md hover:bg-[#15803D] transition-colors text-sm font-medium shadow-sm">
-                Todo sincronizado
+              <button
+                disabled
+                className="px-5 py-2.5 bg-[#16A34A] text-white rounded-md transition-colors text-sm font-bold shadow-sm flex items-center gap-2 cursor-default"
+              >
+                <CheckCircle size={18} /> Todo Sincronizado
               </button>
             ) : syncStats.conflictos > 0 ? (
               <button
                 onClick={() => navigate("/central/conflictos")}
-                className="px-4 py-2 bg-[#DC2626] text-white rounded-md hover:bg-[#B91C1C] transition-colors text-sm font-medium flex items-center gap-2 shadow-sm"
+                className="px-5 py-2.5 bg-[#DC2626] text-white rounded-md hover:bg-[#B91C1C] transition-colors text-sm font-bold flex items-center gap-2 shadow-sm animate-pulse"
               >
-                <AlertTriangle className="w-4 h-4" />
+                <AlertTriangle size={18} />
                 Resolver Conflictos
               </button>
             ) : (
               <button
                 onClick={() => navigate("/sync")}
-                className="px-4 py-2 bg-[#F59E0B] text-white rounded-md hover:bg-[#D97706] transition-colors text-sm font-medium flex items-center gap-2 shadow-sm"
+                className="px-5 py-2.5 bg-[#2563EB] text-white rounded-md hover:bg-blue-700 transition-colors text-sm font-bold flex items-center gap-2 shadow-sm"
               >
-                <RefreshCw className="w-4 h-4" />
-                Sincronizar Pendientes
+                <RefreshCw size={16} />
+                Subir Cambios ({syncStats.pendientes})
               </button>
             )}
           </div>
@@ -278,13 +292,19 @@ export function DashboardPage() {
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-[#6B7280]">{stat.label}</p>
-                <p className="text-3xl font-semibold text-[#111827] mt-2">
-                  {isLoading ? "-" : stat.value}
+                <p className="text-xs font-bold text-[#6B7280] uppercase tracking-wide">
+                  {stat.label}
+                </p>
+                <p className="text-3xl font-black text-[#111827] mt-2">
+                  {isLoading ? (
+                    <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+                  ) : (
+                    stat.value
+                  )}
                 </p>
               </div>
               <div
-                className={`${stat.color} w-12 h-12 rounded-lg flex items-center justify-center shadow-inner`}
+                className={`${stat.color} w-12 h-12 rounded-xl flex items-center justify-center shadow-inner`}
               >
                 <stat.icon className="w-6 h-6 text-white" />
               </div>
@@ -297,13 +317,13 @@ export function DashboardPage() {
         <div className="p-6 border-b border-[#E5E7EB]">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold text-[#111827]">
-              Trámites Recientes
+              Trámites Agregados Recientemente
             </h2>
             <button
               onClick={() => navigate("/tramites")}
-              className="text-sm text-[#2563EB] hover:underline font-medium"
+              className="text-sm text-[#2563EB] hover:underline font-bold"
             >
-              Ver todos
+              Ver directorio completo
             </button>
           </div>
         </div>
@@ -311,19 +331,19 @@ export function DashboardPage() {
           <table className="w-full">
             <thead className="bg-[#F9FAFB] border-b border-[#E5E7EB]">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-[#6B7280] uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-bold text-[#6B7280] uppercase tracking-wider">
                   Código
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-[#6B7280] uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-bold text-[#6B7280] uppercase tracking-wider">
                   Cliente
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-[#6B7280] uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-bold text-[#6B7280] uppercase tracking-wider">
                   Situación
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-[#6B7280] uppercase tracking-wider">
-                  Fecha
+                <th className="px-6 py-3 text-left text-xs font-bold text-[#6B7280] uppercase tracking-wider">
+                  Última Actualización
                 </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-[#6B7280] uppercase tracking-wider">
+                <th className="px-6 py-3 text-right text-xs font-bold text-[#6B7280] uppercase tracking-wider">
                   Acciones
                 </th>
               </tr>
@@ -333,27 +353,27 @@ export function DashboardPage() {
                 <tr>
                   <td
                     colSpan={5}
-                    className="px-6 py-8 text-center text-sm text-[#6B7280]"
+                    className="px-6 py-8 text-center text-sm text-[#6B7280] font-medium"
                   >
-                    No hay trámites registrados.
+                    Aún no hay expedientes recientes listados.
                   </td>
                 </tr>
               ) : (
                 recentTramites.map((tramite) => (
                   <tr
                     key={tramite.id}
-                    className="hover:bg-[#F9FAFB] cursor-pointer transition-colors"
+                    className="hover:bg-blue-50/50 cursor-pointer transition-colors"
                     onClick={() => navigate(`/tramites/${tramite.id}`)}
                   >
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-[#111827]">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-blue-600">
                       {tramite.codigo}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-[#111827]">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-[#111827]">
                       {tramite.cliente}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span
-                        className={`px-2.5 py-1 text-xs font-medium rounded-full ${
+                        className={`px-3 py-1 text-[10px] font-bold uppercase rounded-full tracking-widest ${
                           tramite.status === "success"
                             ? "bg-[#DCFCE7] text-[#16A34A]"
                             : tramite.status === "conflict"
@@ -364,13 +384,11 @@ export function DashboardPage() {
                         {tramite.situacion}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-[#6B7280]">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-[#6B7280]">
                       {tramite.fecha}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-[#2563EB] text-right">
-                      <button className="hover:underline font-medium">
-                        Ver detalles
-                      </button>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-[#2563EB] text-right font-bold hover:underline">
+                      Abrir
                     </td>
                   </tr>
                 ))
