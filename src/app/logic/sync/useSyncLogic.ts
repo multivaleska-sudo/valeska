@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Database from "@tauri-apps/plugin-sql";
 import { sileo } from "sileo";
 import { executePush } from "./pushActions";
@@ -30,24 +30,16 @@ export function useSyncLogic() {
   const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
   const [syncError, setSyncError] = useState<string | null>(null);
   const [syncStats, setSyncStats] = useState({
-    push: {
-      sucursales: 0,
-      dispositivos: 0,
-      usuarios: 0,
-      tramites: 0,
-      otros: 0,
-      conflictos: 0,
-    },
-    pull: {
-      sucursales: 0,
-      dispositivos: 0,
-      usuarios: 0,
-      tramites: 0,
-      otros: 0,
-      conflictos: 0,
-    },
+    push: { sucursales: 0, dispositivos: 0, usuarios: 0, tramites: 0, otros: 0, conflictos: 0 },
+    pull: { sucursales: 0, dispositivos: 0, usuarios: 0, tramites: 0, otros: 0, conflictos: 0 },
   });
   const [syncHistory, setSyncHistory] = useState<SyncLog[]>([]);
+
+  const isSyncingRef = useRef(false);
+
+  useEffect(() => {
+    isSyncingRef.current = isSyncing;
+  }, [isSyncing]);
 
   useEffect(() => {
     const handleUpdate = () => {
@@ -69,8 +61,9 @@ export function useSyncLogic() {
     setIsSyncing(true);
     setSyncError(null);
 
+    const isAutoSync = context?.title === "Sincronización Automática";
+
     try {
-      // 1. GESTIÓN DE SESIÓN PARA EL PRIMER USUARIO
       let userId = context?.overrideUserId || "";
       let userName = context?.overrideUserName || "Sistema";
 
@@ -83,72 +76,45 @@ export function useSyncLogic() {
       }
 
       const sqlite = await Database.load("sqlite:valeska.db");
-      const dispResult: any[] = await sqlite.select(
-        "SELECT nombre_equipo FROM dispositivos LIMIT 1",
-      );
+      const dispResult: any[] = await sqlite.select("SELECT nombre_equipo FROM dispositivos LIMIT 1");
       const machineName = dispResult[0]?.nombre_equipo || "PC-DESCONOCIDA";
 
       let isTableEmpty = false;
       try {
-        const repsCheck: any[] = await sqlite.select(
-          "SELECT count(id) as count FROM representantes_legales",
-        );
+        const repsCheck: any[] = await sqlite.select("SELECT count(id) as count FROM representantes_legales");
         if (repsCheck[0].count === 0) isTableEmpty = true;
       } catch (e) {
         isTableEmpty = true;
       }
 
-      // Si es forzado o base vacía, limpiamos el key que usa el pullAction
       if (context?.forceFullSync || isTableEmpty) {
         localStorage.removeItem("valeska_last_sync");
       }
 
       const config = { apiUrl: API_URL };
 
-      // =========================================================
-      // 2. EJECUTAR PUSH DESACOPLADO
-      // =========================================================
       const pushResult = await executePush(config, userId, sqlite);
 
-      // =========================================================
-      // 3. EJECUTAR PULL DESACOPLADO
-      // =========================================================
       let pullData: any = null;
-
+      let pullErrorMsg: string | null = null;
       try {
         const pullResult = await executePull(config, userId, sqlite);
         pullData = pullResult.data;
-      } catch (pullError) {
-        console.warn(
-          "Fallo de conexión en PULL. Ignorando porque el PUSH fue exitoso...",
-          pullError,
-        );
+      } catch (pullError: any) {
+        console.warn("Fallo de conexión en PULL. Ignorando porque el PUSH fue exitoso...", pullError);
+        pullErrorMsg = pullError.message || "Error al descargar actualizaciones.";
       }
 
-      // =========================================================
-      // 4. AUDITORÍA Y ESTADÍSTICAS
-      // =========================================================
       const now = new Date();
       const displayTime = now.toLocaleString("es-PE", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
+        day: "2-digit", month: "short", year: "numeric",
+        hour: "2-digit", minute: "2-digit", second: "2-digit",
       });
 
       localStorage.setItem("valeska_last_sync_display", displayTime);
 
       const currentStats = {
-        push: {
-          sucursales: 0,
-          dispositivos: 0,
-          usuarios: 0,
-          tramites: 0,
-          otros: pushResult.pushedCount, // Total global subido
-          conflictos: 0,
-        },
+        push: { sucursales: 0, dispositivos: 0, usuarios: 0, tramites: 0, otros: pushResult.pushedCount, conflictos: 0 },
         pull: {
           sucursales: pullData?.sucursales?.length || 0,
           dispositivos: pullData?.dispositivos?.length || 0,
@@ -161,39 +127,40 @@ export function useSyncLogic() {
       localStorage.setItem("valeska_sync_stats", JSON.stringify(currentStats));
 
       const totalPulled =
-        (pullData?.tramites?.length || 0) +
-        (pullData?.clientes?.length || 0) +
-        (pullData?.vehiculos?.length || 0) +
-        (pullData?.usuarios?.length || 0);
+        (pullData?.tramites?.length || 0) + (pullData?.clientes?.length || 0) +
+        (pullData?.vehiculos?.length || 0) + (pullData?.usuarios?.length || 0) +
+        (pullData?.plantillasDocumentos?.length || 0);
 
       const logTitle = context?.title || "Sincronización General Completada";
       let logDetails = `Subidos: ${pushResult.pushedCount} regs. | Descargados: ${totalPulled} regs.`;
       if (context?.details) logDetails = `${context.details} | ${logDetails}`;
 
       const newLog: SyncLog = {
-        id: crypto.randomUUID(),
-        timestamp: displayTime,
-        type: "SYNC",
-        status: "COMPLETED",
-        user: userName,
-        machine: machineName,
-        title: logTitle,
-        details: logDetails,
+        id: crypto.randomUUID(), timestamp: displayTime, type: "SYNC",
+        status: "COMPLETED", user: userName, machine: machineName,
+        title: logTitle, details: logDetails,
       };
 
       const prevHistoryRaw = localStorage.getItem("valeska_sync_history");
-      const prevHistory: SyncLog[] = prevHistoryRaw
-        ? JSON.parse(prevHistoryRaw)
-        : [];
-      localStorage.setItem(
-        "valeska_sync_history",
-        JSON.stringify([newLog, ...prevHistory].slice(0, 50)),
-      );
+      const prevHistory: SyncLog[] = prevHistoryRaw ? JSON.parse(prevHistoryRaw) : [];
+      localStorage.setItem("valeska_sync_history", JSON.stringify([newLog, ...prevHistory].slice(0, 50)));
 
       window.dispatchEvent(new Event("valeska_sync_completed"));
       window.dispatchEvent(new Event("valeska_reload_tramites"));
 
-      console.log(logTitle + ": " + logDetails);
+      if (!isAutoSync) {
+        if (pullErrorMsg) {
+          sileo.warning({
+            title: "Sincronización Parcial",
+            description: `Se subieron los datos correctamente, pero hubo un problema al descargar las actualizaciones: ${pullErrorMsg}`
+          });
+        } else {
+          sileo.success({
+            title: "Sincronización Exitosa",
+            description: `Se subieron ${pushResult.pushedCount} y descargaron ${totalPulled} registros correctamente.`
+          });
+        }
+      }
 
       return true;
     } catch (error: any) {
@@ -201,8 +168,13 @@ export function useSyncLogic() {
       const msg = error.message || "No se pudo conectar con la nube central.";
       setSyncError(msg);
 
-      if (!msg.includes("Modo Offline") && !msg.includes("Failed to fetch")) {
-        sileo.error({ title: "Aviso de Sincronización", description: msg });
+      const isNetworkError = msg.includes("Modo Offline") || msg.includes("Failed to fetch") || msg.includes("NetworkError");
+
+      if (!isAutoSync || !isNetworkError) {
+        sileo.error({
+          title: "Fallo en Sincronización",
+          description: msg,
+        });
       }
 
       return false;
@@ -210,6 +182,23 @@ export function useSyncLogic() {
       setIsSyncing(false);
     }
   }, []);
+
+  useEffect(() => {
+    const handleAutoSync = () => {
+      if (!isSyncingRef.current) {
+        triggerSync({ title: "Sincronización Automática", details: "Mantenimiento en segundo plano" });
+      }
+    };
+
+    window.addEventListener("valeska_request_sync", handleAutoSync);
+
+    const intervalId = setInterval(handleAutoSync, 60000);
+
+    return () => {
+      window.removeEventListener("valeska_request_sync", handleAutoSync);
+      clearInterval(intervalId);
+    };
+  }, [triggerSync]);
 
   return {
     isSyncing,
