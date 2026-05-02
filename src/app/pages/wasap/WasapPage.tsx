@@ -11,41 +11,53 @@ import {
   AlertTriangle,
   Save,
   Loader2,
+  Send,
+  Smartphone,
 } from "lucide-react";
+
+// Importamos la función 'open' de Tauri para permitir la apertura de links externos
+import { open } from "@tauri-apps/plugin-shell";
+
+// Restauramos el import original para recuperar el combo box de países
+import PhoneInput from "react-phone-input-2";
+import "react-phone-input-2/lib/style.css";
+
 import {
   useWasapLogic,
   MessageTemplate,
 } from "../../logic/wasap/useWasaplogic";
 
 export function WasapPage() {
-  // Conexión con la BD a través del hook lógico
   const { templates, isLoading, saveTemplate, deleteTemplate } =
     useWasapLogic();
 
   const [searchTerm, setSearchTerm] = useState("");
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  // Estados para el Modal de Formulario (Crear/Editar)
+  // --- ESTADOS DE FORMULARIO ---
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState({ name: "", content: "" });
 
-  // Estados para el Modal de Eliminación
+  // --- ESTADOS DE ELIMINACIÓN ---
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [deletingTemplate, setDeletingTemplate] =
     useState<MessageTemplate | null>(null);
 
-  // Filtrado en memoria (Solo por nombre)
-  const filteredTemplates = templates.filter((tpl) =>
+  // --- ESTADOS WHATSAPP ---
+  const [isWhatsAppModalOpen, setIsWhatsAppModalOpen] = useState(false);
+  const [targetPhone, setTargetPhone] = useState("");
+
+  const filteredTemplates = (templates || []).filter((tpl) =>
     tpl.name.toLowerCase().includes(searchTerm.toLowerCase()),
   );
 
-  // --- MANEJADORES DE ACCIONES ---
-
+  // --- HANDLERS ---
   const handleCopy = (content: string, id: string) => {
-    navigator.clipboard.writeText(content);
-    setCopiedId(id);
-    setTimeout(() => setCopiedId(null), 2000);
+    navigator.clipboard.writeText(content).then(() => {
+      setCopiedId(id);
+      setTimeout(() => setCopiedId(null), 2000);
+    });
   };
 
   const openCreateModal = () => {
@@ -63,15 +75,8 @@ export function WasapPage() {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name.trim() || !formData.content.trim()) return;
-
-    const success = await saveTemplate(
-      { name: formData.name, content: formData.content },
-      editingId,
-    );
-
-    if (success) {
-      setIsFormOpen(false);
-    }
+    const success = await saveTemplate(formData, editingId);
+    if (success) setIsFormOpen(false);
   };
 
   const openDeleteModal = (template: MessageTemplate) => {
@@ -79,209 +84,316 @@ export function WasapPage() {
     setIsDeleteOpen(true);
   };
 
-  const confirmDelete = async () => {
-    if (deletingTemplate) {
-      await deleteTemplate(deletingTemplate.id);
+  const handleOpenWhatsApp = async () => {
+    if (!targetPhone || targetPhone.length < 5) return;
+    const cleanPhone = targetPhone.replace(/\D/g, "");
+    const url = `https://wa.me/${cleanPhone}`;
+
+    try {
+      await open(url);
+    } catch (error) {
+      window.open(url, "_blank", "noopener,noreferrer");
     }
-    setIsDeleteOpen(false);
-    setDeletingTemplate(null);
+
+    setIsWhatsAppModalOpen(false);
   };
 
   return (
-    <div className="min-h-screen bg-[#F6F7FB] p-6 sm:p-8 font-sans animate-in fade-in duration-500 relative">
-      <div className="max-w-[1400px] mx-auto space-y-6">
-        {/* ENCABEZADO */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100">
-          <div className="flex items-center gap-4">
-            <div className="bg-emerald-100 p-4 rounded-2xl text-emerald-600">
-              <MessageCircle size={32} strokeWidth={2.5} />
+    <div className="min-h-screen bg-[#F3F4F6] p-6 sm:p-10 font-sans animate-in fade-in duration-500">
+      {/* Ajustes de CSS para el PhoneInput escalado */}
+      <style>{`
+        .valeska-phone-input .form-control {
+          width: 100% !important;
+          height: 60px !important;
+          border-radius: 16px !important;
+          border: 1px solid #e5e7eb !important;
+          font-size: 1.25rem !important;
+          font-weight: 700 !important;
+          padding-left: 65px !important;
+        }
+        .valeska-phone-input .flag-dropdown {
+          border-radius: 16px 0 0 16px !important;
+          border: 1px solid #e5e7eb !important;
+          border-right: none !important;
+          width: 55px !important;
+        }
+        .valeska-phone-input .selected-flag {
+          width: 55px !important;
+          padding-left: 12px !important;
+        }
+      `}</style>
+
+      <div className="max-w-[1200px] mx-auto space-y-8">
+        {/* HEADER ESCALADO */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-white p-8 rounded-[2rem] shadow-sm border border-gray-200">
+          <div className="flex items-center gap-5">
+            <div className="bg-emerald-500/10 p-4 rounded-2xl text-emerald-600">
+              <MessageCircle size={36} strokeWidth={2.5} />
             </div>
             <div>
-              <h1 className="text-2xl font-black text-gray-800 tracking-tight">
-                Plantillas de WhatsApp
+              <h1 className="text-2xl font-black text-gray-900 uppercase tracking-tight">
+                WhatsApp Valeska
               </h1>
-              <p className="text-sm text-gray-500 font-medium mt-1">
-                Administra los mensajes predefinidos para enviar a clientes.
+              <p className="text-xs text-gray-400 font-bold uppercase tracking-[0.2em] mt-1">
+                Central de Mensajería Notarial
               </p>
             </div>
           </div>
 
-          <button
-            onClick={openCreateModal}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-2xl text-sm font-bold flex items-center justify-center gap-2 transition-all shadow-lg shadow-emerald-200 active:scale-95"
-          >
-            <Plus size={18} strokeWidth={3} /> Nueva Plantilla
-          </button>
+          <div className="flex gap-3">
+            <button
+              onClick={() => {
+                setTargetPhone("51");
+                setIsWhatsAppModalOpen(true);
+              }}
+              className="bg-[#25D366] hover:bg-[#1fae53] text-white px-8 py-4 rounded-2xl text-sm font-black uppercase tracking-wider flex items-center gap-3 transition-all shadow-lg shadow-green-100 active:scale-95"
+            >
+              <Smartphone size={18} strokeWidth={2.5} />
+              Enviar Mensaje
+            </button>
+
+            <button
+              onClick={openCreateModal}
+              className="bg-gray-800 hover:bg-gray-900 text-white px-8 py-4 rounded-2xl text-sm font-black uppercase tracking-wider flex items-center gap-3 transition-all active:scale-95"
+            >
+              <Plus size={18} strokeWidth={3} />
+              Nueva Plantilla
+            </button>
+          </div>
         </div>
 
-        {/* BARRA DE BÚSQUEDA */}
-        <div className="flex items-center gap-3 bg-white px-4 py-3 rounded-2xl border border-gray-200 shadow-sm w-full max-w-md">
-          <Search className="text-gray-400" size={20} />
+        {/* BUSCADOR MÁS GRANDE */}
+        <div className="flex items-center gap-4 bg-white px-6 py-4 rounded-2xl border border-gray-200 shadow-sm w-full max-w-lg focus-within:ring-4 focus-within:ring-emerald-500/5 transition-all">
+          <Search className="text-gray-300" size={24} />
           <input
             type="text"
-            placeholder="Buscar por nombre..."
-            className="w-full bg-transparent border-none outline-none text-sm font-medium text-gray-700 placeholder:text-gray-400"
+            placeholder="BUSCAR PLANTILLA..."
+            className="w-full bg-transparent border-none outline-none text-base font-bold text-gray-600 placeholder:text-gray-200 uppercase tracking-tight"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
 
-        {/* GRILLA DE TARJETAS */}
+        {/* GRID DE TARJETAS MÁS ROBUSTO */}
         {isLoading ? (
-          <div className="flex justify-center items-center py-20">
-            <Loader2 className="w-10 h-10 animate-spin text-emerald-600" />
+          <div className="flex flex-col justify-center items-center py-32 space-y-4">
+            <Loader2
+              className="w-12 h-12 animate-spin text-emerald-500"
+              strokeWidth={3}
+            />
+            <p className="text-xs font-black text-gray-400 uppercase tracking-widest">
+              Cargando base...
+            </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 pt-2">
-            {filteredTemplates.length > 0 ? (
-              filteredTemplates.map((template) => (
-                <div
-                  key={template.id}
-                  className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex flex-col h-full group"
-                >
-                  {/* Cabecera Tarjeta */}
-                  <div className="flex justify-between items-start mb-4">
-                    <h3 className="font-black text-gray-800 text-lg leading-tight line-clamp-2 pr-4">
-                      {template.name}
-                    </h3>
-                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 bg-gray-50 p-1 rounded-xl">
-                      <button
-                        onClick={() => openEditModal(template)}
-                        className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                        title="Editar"
-                      >
-                        <Edit3 size={16} />
-                      </button>
-                      <button
-                        onClick={() => openDeleteModal(template)}
-                        className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                        title="Eliminar"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Contenido del Mensaje (Burbuja chat) */}
-                  <div className="flex-1 bg-[#E8F8F5] text-[#115E59] p-4 rounded-2xl rounded-tl-sm text-sm font-medium leading-relaxed relative mb-6 whitespace-pre-wrap">
-                    {template.content}
-                  </div>
-
-                  {/* Footer Tarjeta */}
-                  <div className="flex items-center justify-between pt-4 border-t border-gray-100 mt-auto">
-                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                      {new Date(template.createdAt).toLocaleDateString()}
-                    </span>
-
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {filteredTemplates.map((template) => (
+              <div
+                key={template.id}
+                className="bg-white rounded-[2rem] p-8 border border-gray-200 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex flex-col group"
+              >
+                <div className="flex justify-between items-start mb-5">
+                  <h3 className="font-black text-gray-800 text-lg uppercase tracking-tight leading-tight pr-10">
+                    {template.name}
+                  </h3>
+                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all shrink-0">
                     <button
-                      onClick={() => handleCopy(template.content, template.id)}
-                      className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-sm
-                        ${
-                          copiedId === template.id
-                            ? "bg-emerald-500 text-white shadow-emerald-200"
-                            : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"
-                        }
-                      `}
+                      onClick={() => openEditModal(template)}
+                      className="p-2 text-gray-300 hover:text-blue-500 transition-colors"
                     >
-                      {copiedId === template.id ? (
-                        <>
-                          <CheckCircle2 size={14} /> Copiado
-                        </>
-                      ) : (
-                        <>
-                          <Copy size={14} /> Copiar Mensaje
-                        </>
-                      )}
+                      <Edit3 size={18} />
+                    </button>
+                    <button
+                      onClick={() => openDeleteModal(template)}
+                      className="p-2 text-gray-300 hover:text-red-500 transition-colors"
+                    >
+                      <Trash2 size={18} />
                     </button>
                   </div>
                 </div>
-              ))
-            ) : (
-              <div className="col-span-full py-20 text-center">
-                <div className="bg-gray-50 w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <MessageCircle size={40} className="text-gray-300" />
+
+                <div className="flex-1 bg-gray-50 text-gray-600 p-6 rounded-2xl text-sm font-semibold leading-relaxed mb-6 whitespace-pre-wrap border border-gray-100 italic">
+                  {template.content}
                 </div>
-                <h3 className="text-lg font-bold text-gray-700">
-                  Sin resultados
-                </h3>
-                <p className="text-gray-500 mt-1">
-                  No se encontró ninguna plantilla.
-                </p>
+
+                <div className="flex items-center justify-between pt-5 border-t border-gray-100 mt-auto">
+                  <span className="text-[10px] font-black text-gray-300 uppercase tracking-widest">
+                    {template.createdAt
+                      ? new Date(template.createdAt).toLocaleDateString()
+                      : "REC"}
+                  </span>
+
+                  <button
+                    onClick={() => handleCopy(template.content, template.id)}
+                    className={`flex items-center gap-3 px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all
+                      ${
+                        copiedId === template.id
+                          ? "bg-emerald-500 text-white shadow-lg shadow-emerald-100 scale-105"
+                          : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                      }
+                    `}
+                  >
+                    {copiedId === template.id ? (
+                      <CheckCircle2 size={14} strokeWidth={3} />
+                    ) : (
+                      <Copy size={14} strokeWidth={2.5} />
+                    )}
+                    {copiedId === template.id ? "Copiado" : "Copiar"}
+                  </button>
+                </div>
               </div>
-            )}
+            ))}
           </div>
         )}
       </div>
 
-      {/* MODAL DE CREAR / EDITAR */}
+      {/* 📱 MODAL WHATSAPP - MÁS GRANDE Y ANCHO */}
+      {isWhatsAppModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
+          <div
+            className="absolute inset-0 bg-gray-900/50 backdrop-blur-md animate-in fade-in duration-300"
+            onClick={() => setIsWhatsAppModalOpen(false)}
+          ></div>
+
+          <div className="bg-white rounded-[2.5rem] w-full max-w-xl shadow-2xl overflow-hidden relative z-10 animate-in zoom-in-95 duration-200 border border-gray-100">
+            <div className="bg-[#25D366] p-8 text-white flex justify-between items-center shadow-lg">
+              <div className="flex items-center gap-4">
+                <div className="bg-white/20 p-3 rounded-2xl">
+                  <Send size={28} strokeWidth={2.5} />
+                </div>
+                <h2 className="text-2xl font-black uppercase tracking-tight">
+                  Chat de WhatsApp
+                </h2>
+              </div>
+              <button
+                onClick={() => setIsWhatsAppModalOpen(false)}
+                className="hover:bg-white/20 rounded-full p-2 transition-all active:scale-90"
+              >
+                <X size={32} strokeWidth={2.5} />
+              </button>
+            </div>
+
+            <div className="p-10 space-y-10">
+              <div className="space-y-4">
+                <label className="text-xs font-black text-gray-400 uppercase tracking-[0.2em] ml-2">
+                  Número del Cliente
+                </label>
+
+                <div className="valeska-phone-input shadow-sm">
+                  <PhoneInput
+                    country={"pe"}
+                    value={targetPhone}
+                    onChange={(phone) => setTargetPhone(phone)}
+                    placeholder="999 888 777"
+                    enableSearch={true}
+                    containerClass="!w-full"
+                    inputClass="!w-full !h-[70px] !rounded-2xl !border-gray-200 !text-2xl !font-black !text-gray-800"
+                    buttonClass="!rounded-l-2xl !border-gray-200 !bg-gray-50 !px-4"
+                  />
+                </div>
+              </div>
+
+              <div className="bg-blue-50 p-6 rounded-2xl flex gap-5 items-start border border-blue-100">
+                <AlertTriangle
+                  size={24}
+                  className="text-blue-500 shrink-0 mt-0.5"
+                />
+                <p className="text-xs text-blue-800 font-bold uppercase leading-relaxed tracking-tight">
+                  Recuerda pegar el mensaje copiado al abrir el chat. El sistema
+                  abrirá la aplicación de WhatsApp directamente.
+                </p>
+              </div>
+
+              <div className="flex gap-4 pt-2">
+                <button
+                  onClick={() => setIsWhatsAppModalOpen(false)}
+                  className="flex-1 py-5 rounded-2xl font-bold text-gray-400 bg-gray-50 hover:bg-gray-100 transition-all uppercase text-xs tracking-widest"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleOpenWhatsApp}
+                  disabled={!targetPhone || targetPhone.length < 5}
+                  className="flex-[1.5] py-5 rounded-2xl font-black text-white bg-[#25D366] hover:bg-[#1fae53] transition-all flex justify-center items-center gap-4 shadow-xl shadow-green-100 disabled:opacity-30 disabled:grayscale uppercase text-xs tracking-widest"
+                >
+                  Abrir WhatsApp
+                  <Send size={20} />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 🧾 MODAL FORMULARIO CRUD - MÁS AMPLIO */}
       {isFormOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/50 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-            <div className="bg-emerald-600 p-6 text-white flex justify-between items-center">
-              <div className="flex items-center gap-3">
-                <MessageCircle size={24} />
-                <h2 className="text-xl font-black uppercase tracking-tight">
-                  {editingId ? "Editar Mensaje" : "Nuevo Mensaje"}
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
+          <div
+            className="absolute inset-0 bg-gray-900/50 backdrop-blur-md"
+            onClick={() => setIsFormOpen(false)}
+          ></div>
+          <div className="bg-white rounded-[2.5rem] w-full max-w-2xl shadow-2xl overflow-hidden relative z-10 animate-in zoom-in-95 duration-200">
+            <div className="bg-gray-800 p-8 text-white flex justify-between items-center">
+              <div className="flex items-center gap-4">
+                <Edit3 size={24} />
+                <h2 className="text-2xl font-black uppercase tracking-tight">
+                  {editingId ? "Editar Plantilla" : "Nueva Plantilla"}
                 </h2>
               </div>
               <button
                 onClick={() => setIsFormOpen(false)}
-                className="text-emerald-100 hover:text-white transition-colors"
+                className="hover:bg-white/10 rounded-full p-2"
               >
-                <X size={24} />
+                <X size={28} />
               </button>
             </div>
 
-            <form onSubmit={handleSave} className="p-6 space-y-5">
-              <div className="space-y-2">
-                <label className="text-[11px] font-black text-gray-500 uppercase tracking-widest">
-                  Título de la Plantilla
+            <form onSubmit={handleSave} className="p-10 space-y-8">
+              <div className="space-y-3">
+                <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-2">
+                  Título Identificador
                 </label>
                 <input
                   type="text"
                   required
-                  placeholder="Ej. Saludo Inicial..."
+                  placeholder="NOMBRE..."
                   value={formData.name}
                   onChange={(e) =>
                     setFormData({ ...formData, name: e.target.value })
                   }
-                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-800 font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition-all"
+                  className="w-full px-6 py-5 bg-gray-50 border border-gray-200 rounded-2xl text-base font-bold uppercase focus:ring-4 focus:ring-gray-100 outline-none transition-all"
                 />
               </div>
 
-              <div className="space-y-2">
-                <label className="text-[11px] font-black text-gray-500 uppercase tracking-widest flex justify-between">
-                  <span>Contenido del Mensaje</span>
-                  <span className="text-gray-400 font-normal normal-case tracking-normal">
-                    Solo texto plano
-                  </span>
+              <div className="space-y-3">
+                <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-2">
+                  Cuerpo del Mensaje
                 </label>
                 <textarea
                   required
-                  rows={6}
-                  placeholder="Escribe el mensaje aquí..."
+                  rows={10}
+                  placeholder="ESCRIBE EL TEXTO AQUÍ..."
                   value={formData.content}
                   onChange={(e) =>
                     setFormData({ ...formData, content: e.target.value })
                   }
-                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition-all resize-none"
+                  className="w-full px-6 py-6 bg-gray-50 border border-gray-200 rounded-2xl text-base font-medium focus:ring-4 focus:ring-gray-100 outline-none resize-none transition-all"
                 />
               </div>
 
-              <div className="pt-4 flex gap-3">
+              <div className="flex gap-4 pt-2">
                 <button
                   type="button"
                   onClick={() => setIsFormOpen(false)}
-                  className="flex-1 py-3 px-4 rounded-xl font-bold text-gray-500 bg-gray-100 hover:bg-gray-200 transition-colors"
+                  className="flex-1 py-5 rounded-2xl font-bold text-gray-400 bg-gray-50 hover:bg-gray-100 transition-all uppercase text-xs tracking-widest"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-3 px-4 rounded-xl font-bold text-white bg-emerald-600 hover:bg-emerald-700 transition-all flex justify-center items-center gap-2 shadow-lg shadow-emerald-200"
+                  className="flex-1 py-5 rounded-2xl font-black text-white bg-emerald-600 hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-100 uppercase text-xs tracking-widest"
                 >
-                  <Save size={18} />
-                  Guardar
+                  Guardar Plantilla
                 </button>
               </div>
             </form>
@@ -289,39 +401,42 @@ export function WasapPage() {
         </div>
       )}
 
-      {/* MODAL DE ELIMINAR */}
+      {/* ❌ MODAL ELIMINAR */}
       {isDeleteOpen && deletingTemplate && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/60 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 border-2 border-red-500">
-            <div className="p-8 text-center space-y-4">
-              <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-2 animate-pulse">
-                <AlertTriangle size={32} />
-              </div>
-              <h2 className="text-2xl font-black text-gray-800 tracking-tight">
-                ¿Eliminar Plantilla?
-              </h2>
-              <p className="text-sm text-gray-500 leading-relaxed">
-                Estás a punto de borrar la plantilla{" "}
-                <strong className="text-gray-800">
-                  "{deletingTemplate.name}"
-                </strong>
-                . Esta acción no se puede deshacer.
-              </p>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
+          <div
+            className="absolute inset-0 bg-gray-900/50 backdrop-blur-sm"
+            onClick={() => setIsDeleteOpen(false)}
+          ></div>
+          <div className="bg-white rounded-[2.5rem] w-full max-w-[380px] shadow-2xl relative z-10 animate-in zoom-in-95 duration-200 p-10 text-center">
+            <div className="w-20 h-20 bg-red-50 text-red-500 rounded-3xl flex items-center justify-center mx-auto mb-6 border border-red-100 shadow-inner">
+              <Trash2 size={40} strokeWidth={2.5} />
             </div>
-
-            <div className="p-4 bg-gray-50 border-t border-gray-100 flex gap-3">
+            <h2 className="text-xl font-black text-gray-800 uppercase mb-3">
+              ¿Eliminar?
+            </h2>
+            <p className="text-xs text-gray-400 font-bold uppercase leading-tight mb-10">
+              Borrarás permanentemente:
+              <br />
+              <span className="text-red-500 block mt-3 italic font-black text-sm">
+                "{deletingTemplate.name}"
+              </span>
+            </p>
+            <div className="flex gap-4">
               <button
                 onClick={() => setIsDeleteOpen(false)}
-                className="flex-1 py-3 rounded-xl font-bold text-gray-600 bg-white border border-gray-200 hover:bg-gray-100 transition-colors"
+                className="flex-1 py-4 rounded-2xl font-bold text-gray-400 bg-gray-50 uppercase text-xs tracking-widest"
               >
-                Cancelar
+                No
               </button>
               <button
-                onClick={confirmDelete}
-                className="flex-1 py-3 rounded-xl font-bold text-white bg-red-600 hover:bg-red-700 transition-colors shadow-lg shadow-red-200 flex justify-center items-center gap-2"
+                onClick={async () => {
+                  await deleteTemplate(deletingTemplate.id);
+                  setIsDeleteOpen(false);
+                }}
+                className="flex-1 py-4 rounded-2xl font-black text-white bg-red-500 hover:bg-red-600 shadow-lg shadow-red-100 uppercase text-xs tracking-widest"
               >
-                <Trash2 size={18} />
-                Sí, Eliminar
+                Sí, Borrar
               </button>
             </div>
           </div>
