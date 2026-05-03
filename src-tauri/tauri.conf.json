@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "valeska",
-  "version": "3.0.2",
+  "version": "3.1.2",
   "identifier": "studios.tkoh.valeska",
   "build": {
     "frontendDist": "../dist",
