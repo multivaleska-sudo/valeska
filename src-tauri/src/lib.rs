@@ -194,6 +194,12 @@ pub fn run() {
             sql: include_str!("../../src/app/db/migrations/0014_allow_duplicates_representantes_and_presentantes.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 16,
+            description: "agregar_columna_para_perfiles de empadronamiento",
+            sql: include_str!("../../src/app/db/migrations/0015_many_ikaris.sql"),
+            kind: MigrationKind::Up,
+        }
     ];
 
     tauri::Builder::default()
