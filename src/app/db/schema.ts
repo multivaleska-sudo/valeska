@@ -227,7 +227,7 @@ export const plantillasDocumentos = sqliteTable('plantillas_documentos', {
     id: text('id').primaryKey(),
     nombreDocumento: text('nombre_documento').notNull(),
     contenidoHtml: text('contenido_html').notNull(),
-    orientacionPapel: text('orientacion_papel').default('PORTRAIT'), // PORTRAIT o LANDSCAPE
+    orientacionPapel: text('orientacion_papel').default('PORTRAIT'),
     activo: integer('activo', { mode: 'boolean' }).notNull().default(true),
     ...syncColumns
 }, (table) => ({
@@ -239,11 +239,11 @@ export const plantillasDocumentos = sqliteTable('plantillas_documentos', {
 // ============================================================================
 export const syncConflictos = sqliteTable('sync_conflictos', {
     id: text('id').primaryKey(),
-    tablaAfectada: text('tabla_afectada').notNull(), // ej: 'tramites', 'clientes'
-    registroId: text('registro_id').notNull(),       // El ID original del trámite o cliente
-    identificadorVisual: text('identificador_visual'), // ej: 'Trámite T-2024-0348'
-    datosLocales: text('datos_locales').notNull(),   // JSON con la versión de SQLite
-    datosRemotos: text('datos_remotos').notNull(),   // JSON con la versión de la nube
+    tablaAfectada: text('tabla_afectada').notNull(),
+    registroId: text('registro_id').notNull(),
+    identificadorVisual: text('identificador_visual'),
+    datosLocales: text('datos_locales').notNull(),
+    datosRemotos: text('datos_remotos').notNull(),
     resuelto: integer('resuelto', { mode: 'boolean' }).notNull().default(false),
     fechaConflicto: integer('fecha_conflicto', { mode: 'timestamp' }).notNull(),
 }, (table) => ({
@@ -258,5 +258,17 @@ export const messageTemplates = sqliteTable("message_templates", {
     id: text("id").primaryKey(),
     name: text("name"),
     content: text("content"),
+    ...syncColumns
+});
+
+// ============================================================================
+// 9. PERFILES DE EMPADRONAMIENTO / GESTORES
+// ============================================================================
+export const perfilesGestor = sqliteTable('perfiles_gestor', {
+    id: text('id').primaryKey(),
+    calidad: text('calidad').notNull(),
+    nombre: text('nombre').notNull(),
+    concesionario: text('concesionario'),
+    importador: text('importador'),
     ...syncColumns
 });
