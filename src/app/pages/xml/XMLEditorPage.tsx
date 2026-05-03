@@ -195,6 +195,10 @@ export function XmlEditorPage() {
       </main>
 
       <style>{`
+        input, textarea, [contenteditable="true"] {
+          caret-color: #2563eb !important; /* Azul brillante intenso para que nunca se pierda */
+        }
+        
         .custom-scrollbar::-webkit-scrollbar {
           width: 6px;
         }
