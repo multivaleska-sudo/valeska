@@ -57,6 +57,13 @@
       "when": 1776657801370,
       "tag": "0007_slow_raider",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1777823138772,
+      "tag": "0008_many_ikaris",
+      "breakpoints": true
     }
   ]
 }
