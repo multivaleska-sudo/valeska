@@ -9,16 +9,11 @@ import {
   CheckCircle2,
   X,
   AlertTriangle,
-  Save,
   Loader2,
   Send,
   Smartphone,
 } from "lucide-react";
-
-// Importamos la función 'open' de Tauri para permitir la apertura de links externos
 import { open } from "@tauri-apps/plugin-shell";
-
-// Restauramos el import original para recuperar el combo box de países
 import PhoneInput from "react-phone-input-2";
 import "react-phone-input-2/lib/style.css";
 
