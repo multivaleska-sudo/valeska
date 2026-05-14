@@ -19,6 +19,7 @@ import { ConflictListPage } from "./pages/central/ConflictListPage";
 import { ResolveConflictPage } from "./pages/central/ResolveConflictPage";
 import { ConfigPage } from "./pages/ConfigPage";
 import CatalogosPage from "./pages/catalogos/CatalogosPage";
+import { PerfilesPage } from "./pages/perfiles/PerfilesPage";
 import { TemplateEditorPage } from "./pages/documents/TemplateEditorPage";
 import { PrintDocumentPage } from "./pages/documents/PrintDocumentPage";
 import { DevicesPage } from "./pages/central/DevicesPage";
@@ -48,6 +49,7 @@ export const router = createBrowserRouter([
       { path: "tramites/:id/edit", element: <EditTramitePage /> },
       { path: "tramites/:id/documents", element: <DocumentCenterPage /> },
       { path: "empresas", element: <EmpresaListPage /> },
+      { path: "perfiles", element: <PerfilesPage /> },
       { path: "situaciones", element: <SituacionesPage /> },
       { path: "xml", element: <XmlEditorPage /> },
       { path: "documentos", element: <DocumentCenterPage /> },

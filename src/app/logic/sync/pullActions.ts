@@ -406,7 +406,22 @@ export async function processPullSync(sqlite: any, pullData: any) {
       );
     }
 
-    // 5. Conflictos de Sincronización
+    // 5. Perfiles de Padron
+    if (pullData.perfilesGestor && pullData.perfilesGestor.length > 0) {
+      for (const p of pullData.perfilesGestor) {
+        await executeWithRetry(
+          sqlite,
+          `INSERT INTO perfiles_gestor (id, calidad, nombre, concesionario, importador, created_at, updated_at, deleted_at, sync_status) 
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'SYNCED')
+           ON CONFLICT(id) DO UPDATE SET 
+           calidad=excluded.calidad, nombre=excluded.nombre, concesionario=excluded.concesionario, importador=excluded.importador, 
+           updated_at=excluded.updated_at, deleted_at=excluded.deleted_at, sync_status='SYNCED'`,
+          [p.id, str(p.calidad), str(p.nombre), str(p.concesionario), str(p.importador), str(p.createdAt), str(p.updatedAt), str(p.deletedAt)],
+        );
+      }
+    }
+
+    // 6. Conflictos de Sincronización
     for (const conf of pullData.conflictos || []) {
       await executeWithRetry(
         sqlite,
