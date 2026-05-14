@@ -41,6 +41,7 @@ export const executePush = async (
       { key: "vehiculos", table: "vehiculos" },
       { key: "tramites", table: "tramites" },
       { key: "tramiteDetalles", table: "tramite_detalles" },
+      { key: "perfilesGestor", table: "perfiles_gestor" },
       { key: "conflictosResueltos", table: "sync_conflictos" }
     ];
 
