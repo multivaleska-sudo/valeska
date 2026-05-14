@@ -12,6 +12,7 @@ import {
   MessageSquareMore,
   Settings,
   Layers,
+  Contact,
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import * as Tooltip from "@radix-ui/react-tooltip";
@@ -24,6 +25,7 @@ const navItems = [
   { path: "/", label: "Dashboard", icon: LayoutDashboard, end: true },
   { path: "/tramites", label: "Trámites", icon: FileText },
   { path: "/empresas", label: "Empresas", icon: Building2 },
+  { path: "/perfiles", label: "Perfiles", icon: Contact },
   { path: "/situaciones", label: "Situaciones", icon: Tag },
   { path: "/catalogos", label: "Catálogos", icon: Layers },
   { path: "/xml", label: "XML SUNAT", icon: FileCode },
