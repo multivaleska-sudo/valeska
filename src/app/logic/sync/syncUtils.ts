@@ -29,8 +29,11 @@ export async function buildPushPayload(sqlite: any) {
     const presentantesRaw: any[] = await sqlite.select("SELECT * FROM presentantes WHERE sync_status != 'SYNCED'");
     const plantillasRaw: any[] = await sqlite.select("SELECT * FROM plantillas_documentos WHERE sync_status != 'SYNCED'");
     const messageTemplatesRaw: any[] = await sqlite.select("SELECT * FROM message_templates WHERE sync_status != 'SYNCED'");
+
     const tramitesRaw: any[] = await sqlite.select("SELECT * FROM tramites WHERE sync_status != 'SYNCED'");
     const tramDetallesRaw: any[] = await sqlite.select("SELECT * FROM tramite_detalles WHERE sync_status != 'SYNCED'");
+
+    const perfilesRaw: any[] = await sqlite.select("SELECT * FROM perfiles_gestor WHERE sync_status != 'SYNCED'");
 
     const conflictosRaw: any[] = await sqlite.select("SELECT * FROM sync_conflictos");
 
@@ -223,6 +226,17 @@ export async function buildPushPayload(sqlite: any) {
             updatedAt: formatDateForNest(td.updated_at),
             deletedAt: formatDateForNest(td.deleted_at),
             syncStatus: td.sync_status,
+        })),
+        perfilesGestor: perfilesRaw.map((p) => ({
+            id: p.id,
+            calidad: p.calidad,
+            nombre: p.nombre,
+            concesionario: p.concesionario,
+            importador: p.importador,
+            createdAt: formatDateForNest(p.created_at),
+            updatedAt: formatDateForNest(p.updated_at),
+            deletedAt: formatDateForNest(p.deleted_at),
+            syncStatus: p.sync_status,
         })),
         conflictosResueltos: conflictosRaw.map((conf) => ({
             id: conf.id,
