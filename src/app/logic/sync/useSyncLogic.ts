@@ -3,6 +3,7 @@ import Database from "@tauri-apps/plugin-sql";
 import { sileo } from "sileo";
 import { executePush } from "./pushActions";
 import { executePull } from "./pullActions";
+import { SyncHttpError, clearInvalidSyncSession } from "../../services/syncService";
 
 const API_URL = (import.meta as any).env.VITE_API_URL;
 
@@ -24,6 +25,23 @@ export interface SyncContext {
   overrideUserId?: string;
   overrideUserName?: string;
 }
+
+const hasSyncToken = () => {
+  const directToken = localStorage.getItem("valeska_access_token");
+  if (directToken) return true;
+
+  const sessionStr = localStorage.getItem("valeska_session_user");
+  if (!sessionStr) return false;
+
+  try {
+    return Boolean(JSON.parse(sessionStr)?.accessToken);
+  } catch {
+    return false;
+  }
+};
+
+const isAuthSyncError = (error: any) =>
+  error instanceof SyncHttpError && error.status === 401;
 
 export function useSyncLogic() {
   const [isSyncing, setIsSyncing] = useState(false);
@@ -165,7 +183,13 @@ export function useSyncLogic() {
       return true;
     } catch (error: any) {
       console.error("Error en sincronización:", error);
-      const msg = error.message || "No se pudo conectar con la nube central.";
+      if (isAuthSyncError(error)) {
+        clearInvalidSyncSession();
+      }
+
+      const msg = isAuthSyncError(error)
+        ? "Tu sesión cloud expiró. Inicia sesión nuevamente para renovar la sincronización."
+        : error.message || "No se pudo conectar con la nube central.";
       setSyncError(msg);
 
       const isNetworkError = msg.includes("Modo Offline") || msg.includes("Failed to fetch") || msg.includes("NetworkError");
@@ -185,7 +209,7 @@ export function useSyncLogic() {
 
   useEffect(() => {
     const handleAutoSync = () => {
-      if (!isSyncingRef.current) {
+      if (!isSyncingRef.current && hasSyncToken()) {
         triggerSync({ title: "Sincronización Automática", details: "Mantenimiento en segundo plano" });
       }
     };
