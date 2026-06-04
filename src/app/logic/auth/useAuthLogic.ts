@@ -214,6 +214,18 @@ const persistCloudProvisioning = async (
   );
 
   localStorage.setItem("valeska_access_token", data.access_token);
+  const sessionRaw = localStorage.getItem("valeska_session_user");
+  if (sessionRaw) {
+    try {
+      const session = JSON.parse(sessionRaw);
+      localStorage.setItem(
+        "valeska_session_user",
+        JSON.stringify({ ...session, accessToken: data.access_token }),
+      );
+    } catch {
+      localStorage.removeItem("valeska_session_user");
+    }
+  }
   if (dispositivo?.macAddress) {
     localStorage.setItem("valeska_device_mac", dispositivo.macAddress.trim().toLowerCase());
   }
@@ -271,6 +283,7 @@ export function useAuthLogic() {
         dbUser.esta_activo === "0"
       ) {
         localStorage.removeItem("valeska_session_user");
+        localStorage.removeItem("valeska_access_token");
         sileo.error({
           title: "Acceso Denegado",
           description:
@@ -452,6 +465,17 @@ export function useAuthLogic() {
       let user = result[0];
 
       if (user && cloudLogin?.access_token) {
+        localStorage.setItem(
+          "valeska_session_user",
+          JSON.stringify({
+            id: user.id,
+            username: user.username,
+            rol: user.rol,
+            nombre: user.nombre_completo,
+            accessToken: cloudLogin.access_token,
+          }),
+        );
+
         try {
           const config = { apiUrl: API_URL };
 
@@ -569,6 +593,7 @@ export function useAuthLogic() {
 
   const logout = () => {
     localStorage.removeItem("valeska_session_user");
+    localStorage.removeItem("valeska_access_token");
     sileo.success({
       title: "Sesión Finalizada",
       description: "Has cerrado sesión correctamente.",
