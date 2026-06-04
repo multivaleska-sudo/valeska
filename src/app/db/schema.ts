@@ -16,6 +16,7 @@ const syncColumns = {
 export const sucursales = sqliteTable('sucursales', {
     id: text('id').primaryKey(),
     nombre: text('nombre').notNull(),
+    codigo: text('codigo'),
     direccion: text('direccion'),
     esCentral: integer('es_central', { mode: 'boolean' }).notNull().default(false),
     ...syncColumns
@@ -31,6 +32,7 @@ export const dispositivos = sqliteTable('dispositivos', {
     autorizado: integer('autorizado', { mode: 'boolean' }).notNull().default(false),
     sucursalId: text('sucursal_id').references(() => sucursales.id).notNull(),
     provisionId: text('provision_id'),
+    usuarioId: text('usuario_id').references(() => usuarios.id),
     ...syncColumns
 }, (table) => ({
     macIdx: uniqueIndex('mac_address_idx').on(table.macAddress),
@@ -249,6 +251,30 @@ export const syncConflictos = sqliteTable('sync_conflictos', {
 }, (table) => ({
     resueltoIdx: index('conflicto_resuelto_idx').on(table.resuelto),
     registroIdx: index('conflicto_registro_idx').on(table.registroId),
+}));
+
+export const syncCursors = sqliteTable('sync_cursors', {
+    entityName: text('entity_name').primaryKey(),
+    cursorTimestamp: text('cursor_timestamp').notNull(),
+    lastId: text('last_id').notNull().default(''),
+    updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+});
+
+export const syncPushChunks = sqliteTable('sync_push_chunks', {
+    id: text('id').primaryKey(),
+    syncSessionId: text('sync_session_id').notNull(),
+    entityName: text('entity_name').notNull(),
+    chunkIndex: integer('chunk_index').notNull(),
+    totalChunks: integer('total_chunks').notNull(),
+    outboxId: text('outbox_id'),
+    status: text('status').notNull().default('PENDING'),
+    recordIdsJson: text('record_ids_json').notNull(),
+    lastError: text('last_error'),
+    updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+}, (table) => ({
+    outboxIdx: index('sync_push_chunks_outbox_idx').on(table.outboxId),
+    naturalIdx: uniqueIndex('sync_push_chunks_natural_idx').on(table.syncSessionId, table.entityName, table.chunkIndex),
+    statusIdx: index('sync_push_chunks_status_idx').on(table.status),
 }));
 
 // ============================================================================
