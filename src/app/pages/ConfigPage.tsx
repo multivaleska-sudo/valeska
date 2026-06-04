@@ -10,8 +10,10 @@ import {
   Building2,
   RefreshCw,
   HardDrive,
+  DownloadCloud,
 } from "lucide-react";
 import { useConfigLogic } from "../logic/usuarios/useConfigLogic";
+import { useAppUpdater } from "../logic/updates/useAppUpdater";
 
 export function ConfigPage() {
   const {
@@ -31,6 +33,9 @@ export function ConfigPage() {
     setConfirmPassword,
     dispositivoNombre,
     setDispositivoNombre,
+    detectedMacAddress,
+    registeredMacAddress,
+    dispositivoAutorizado,
     sucursalId,
     setSucursalId,
     sucursalesList,
@@ -40,6 +45,13 @@ export function ConfigPage() {
     handleChangePassword,
     handleUpdateSystem,
   } = useConfigLogic();
+  const {
+    isChecking,
+    isInstalling,
+    progress,
+    latestVersion,
+    checkAndInstallUpdate,
+  } = useAppUpdater();
 
   if (isLoading)
     return (
@@ -238,6 +250,34 @@ export function ConfigPage() {
                     )}
                   </div>
 
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-4">
+                      <p className="text-[10px] font-black text-emerald-600 uppercase tracking-[0.2em]">
+                        MAC Detectada
+                      </p>
+                      <p className="mt-2 text-sm font-bold text-gray-800 break-all">
+                        {detectedMacAddress || "No detectada"}
+                      </p>
+                    </div>
+                    <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-4">
+                      <p className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em]">
+                        MAC Registrada
+                      </p>
+                      <p className="mt-2 text-sm font-bold text-gray-800 break-all">
+                        {registeredMacAddress || "Sin registro local"}
+                      </p>
+                      <p
+                        className={`mt-2 text-xs font-black uppercase ${
+                          dispositivoAutorizado
+                            ? "text-emerald-600"
+                            : "text-rose-600"
+                        }`}
+                      >
+                        {dispositivoAutorizado ? "Autorizado" : "No autorizado"}
+                      </p>
+                    </div>
+                  </div>
+
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] ml-2">
                       Sucursal Operativa
@@ -296,6 +336,48 @@ export function ConfigPage() {
                       <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                     </label>
                   </div>
+                </div>
+
+                <div className="bg-white p-5 rounded-2xl border border-slate-200">
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <h3 className="text-sm font-bold text-gray-800 flex items-center gap-2">
+                        <DownloadCloud size={16} className="text-violet-500" />
+                        Actualizaciones de Valeska
+                      </h3>
+                      <p className="text-xs text-gray-500 font-medium mt-1">
+                        Buscar e instalar versiones publicadas por el servidor.
+                      </p>
+                      {latestVersion && (
+                        <p className="text-xs text-violet-600 font-bold mt-2">
+                          Nueva version: {latestVersion}
+                        </p>
+                      )}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={checkAndInstallUpdate}
+                      disabled={isChecking || isInstalling}
+                      className="shrink-0 bg-violet-600 text-white px-4 py-3 rounded-2xl font-black uppercase tracking-widest text-[10px] flex items-center gap-2 hover:bg-violet-700 transition-colors disabled:opacity-60"
+                    >
+                      {isChecking || isInstalling ? (
+                        <Loader2 className="animate-spin" size={16} />
+                      ) : (
+                        <DownloadCloud size={16} />
+                      )}
+                      {isInstalling ? "Instalando" : "Buscar"}
+                    </button>
+                  </div>
+
+                  {isInstalling && (
+                    <div className="mt-4 h-2 bg-violet-100 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-violet-600 transition-all"
+                        style={{ width: `${progress}%` }}
+                      />
+                    </div>
+                  )}
                 </div>
 
                 <div className="pt-4">
