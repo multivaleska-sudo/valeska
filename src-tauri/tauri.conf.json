@@ -48,7 +48,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "REPLACE_WITH_TAURI_UPDATER_PUBLIC_KEY",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEEyNzE3NzEwQTY4RDVCMjUKUldRbFc0Mm1FSGR4b3NtbnNLWjJIU1BXUEk2Mzhib09Pa1ZQY081Tm43QnBmK2R0aFp1WWRvMlMK",
       "endpoints": [
         "https://valeska-api.studios-tkoh.online/api/desktop-updates/{{target}}/{{arch}}/{{current_version}}"
       ],
