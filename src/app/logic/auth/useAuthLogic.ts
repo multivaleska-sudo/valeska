@@ -43,27 +43,179 @@ type CloudLoginResult = {
     estaActivo: boolean;
     dispositivoId?: string | null;
   };
+  dispositivo?: {
+    id: string;
+    macAddress: string;
+    nombreEquipo: string;
+    autorizado: boolean;
+    provisionId?: string | null;
+    sucursalId: string;
+    usuarioId?: string | null;
+    createdAt?: string;
+    updatedAt?: string;
+    deletedAt?: string | null;
+    syncStatus?: string;
+  };
+  sucursal?: {
+    id: string;
+    nombre: string;
+    codigo?: string | null;
+    direccion?: string | null;
+    esCentral?: boolean;
+    createdAt?: string;
+    updatedAt?: string;
+    deletedAt?: string | null;
+  };
 };
 
-const loginWithBackend = async (
+type DeviceIdentity = {
+  macAddress: string;
+  machineName: string;
+};
+
+const getDeviceIdentity = async (): Promise<DeviceIdentity> => {
+  try {
+    const identity = await invoke<any>("get_device_identity");
+    return {
+      macAddress: String(identity.mac_address || identity.macAddress || "")
+        .trim()
+        .toLowerCase(),
+      machineName: String(identity.machine_name || identity.machineName || "EQUIPO-VALESKA")
+        .trim()
+        .toUpperCase(),
+    };
+  } catch {
+    const fallbackMac = String(await invoke("get_device_mac")).trim().toLowerCase();
+    return {
+      macAddress: fallbackMac,
+      machineName: "EQUIPO-VALESKA",
+    };
+  }
+};
+
+const provisionDeviceWithBackend = async (
   username: string,
   password: string,
+  identity: DeviceIdentity,
 ): Promise<CloudLoginResult | null> => {
   try {
-    const response = await fetch(`${API_URL}/auth/login`, {
+    const response = await fetch(`${API_URL}/auth/provision-device`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "ngrok-skip-browser-warning": "true",
         Accept: "application/json",
       },
-      body: JSON.stringify({ username, password }),
+      body: JSON.stringify({
+        username,
+        email: username,
+        password,
+        macAddress: identity.macAddress,
+        nombreEquipo: identity.machineName,
+      }),
     });
 
     if (!response.ok) return null;
     return response.json();
   } catch {
     return null;
+  }
+};
+
+const persistCloudProvisioning = async (
+  sqlite: any,
+  data: CloudLoginResult,
+  passwordPlain: string,
+) => {
+  const now = new Date().toISOString();
+  const passwordHash = bcrypt.hashSync(passwordPlain, bcrypt.genSaltSync(10));
+  const sucursal = data.sucursal;
+  const dispositivo = data.dispositivo;
+
+  if (sucursal) {
+    await sqlite.execute(
+      `INSERT INTO sucursales
+        (id, nombre, codigo, direccion, es_central, created_at, updated_at, deleted_at, sync_status)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'SYNCED')
+       ON CONFLICT(id) DO UPDATE SET
+         nombre = excluded.nombre,
+         codigo = excluded.codigo,
+         direccion = excluded.direccion,
+         es_central = excluded.es_central,
+         updated_at = excluded.updated_at,
+         deleted_at = excluded.deleted_at,
+         sync_status = 'SYNCED'`,
+      [
+        sucursal.id,
+        sucursal.nombre,
+        sucursal.codigo ?? null,
+        sucursal.direccion ?? "",
+        sucursal.esCentral ? 1 : 0,
+        sucursal.createdAt ?? now,
+        sucursal.updatedAt ?? now,
+        sucursal.deletedAt ?? null,
+      ],
+    );
+  }
+
+  if (dispositivo) {
+    await sqlite.execute(
+      `INSERT INTO dispositivos
+        (id, mac_address, nombre_equipo, autorizado, sucursal_id, provision_id, usuario_id, created_at, updated_at, deleted_at, sync_status)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'SYNCED')
+       ON CONFLICT(id) DO UPDATE SET
+         mac_address = excluded.mac_address,
+         nombre_equipo = excluded.nombre_equipo,
+         autorizado = excluded.autorizado,
+         sucursal_id = excluded.sucursal_id,
+         provision_id = excluded.provision_id,
+         usuario_id = excluded.usuario_id,
+         updated_at = excluded.updated_at,
+         deleted_at = excluded.deleted_at,
+         sync_status = 'SYNCED'`,
+      [
+        dispositivo.id,
+        dispositivo.macAddress.trim().toLowerCase(),
+        dispositivo.nombreEquipo,
+        dispositivo.autorizado ? 1 : 0,
+        dispositivo.sucursalId,
+        dispositivo.provisionId ?? null,
+        dispositivo.usuarioId ?? data.user.id,
+        dispositivo.createdAt ?? now,
+        dispositivo.updatedAt ?? now,
+        dispositivo.deletedAt ?? null,
+      ],
+    );
+  }
+
+  await sqlite.execute(
+    `INSERT INTO usuarios
+      (id, username, password_hash, rol, nombre_completo, dispositivo_id, esta_activo, created_at, updated_at, sync_status)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $8, 'SYNCED')
+     ON CONFLICT(id) DO UPDATE SET
+       username = excluded.username,
+       password_hash = excluded.password_hash,
+       rol = excluded.rol,
+       nombre_completo = excluded.nombre_completo,
+       dispositivo_id = excluded.dispositivo_id,
+       esta_activo = excluded.esta_activo,
+       updated_at = excluded.updated_at,
+       sync_status = 'SYNCED'`,
+    [
+      data.user.id,
+      data.user.username,
+      passwordHash,
+      data.user.rol,
+      data.user.nombreCompleto,
+      data.user.dispositivoId ?? dispositivo?.id ?? null,
+      data.user.estaActivo ? 1 : 0,
+      now,
+    ],
+  );
+
+  localStorage.setItem("valeska_access_token", data.access_token);
+  if (dispositivo?.macAddress) {
+    localStorage.setItem("valeska_device_mac", dispositivo.macAddress.trim().toLowerCase());
   }
 };
 
@@ -167,9 +319,9 @@ export function useAuthLogic() {
 
       let realMacAddress = "MAC-DESCONOCIDA";
       try {
-        realMacAddress = await invoke("get_device_mac");
+        realMacAddress = String(await invoke("get_device_mac")).trim().toLowerCase();
       } catch (e) {
-        realMacAddress = `MAC-FALLBACK-${Date.now()}`;
+        realMacAddress = `mac-fallback-${Date.now()}`;
       }
 
       const now = new Date();
@@ -179,6 +331,7 @@ export function useAuthLogic() {
         .values({
           id: provisionData.sucursal.id,
           nombre: provisionData.sucursal.nombre,
+          codigo: provisionData.sucursal.codigo || null,
           direccion: provisionData.sucursal.direccion || "",
           esCentral: provisionData.tipo_licencia === "MASTER",
           createdAt: now,
@@ -186,6 +339,11 @@ export function useAuthLogic() {
         })
         .onConflictDoNothing();
 
+      const userId =
+        provisionData.admin?.id ||
+        provisionData.usuario?.id ||
+        crypto.randomUUID();
+        
       const deviceId = crypto.randomUUID();
       await db.insert(schema.dispositivos).values({
         id: deviceId,
@@ -194,14 +352,10 @@ export function useAuthLogic() {
         autorizado: true,
         sucursalId: provisionData.sucursal.id,
         provisionId: provisionData.provision_id,
+        usuarioId: userId,
         createdAt: now,
         updatedAt: now,
       });
-
-      const userId =
-        provisionData.admin?.id ||
-        provisionData.usuario?.id ||
-        crypto.randomUUID();
 
       let finalHash = provisionData.admin.password_temporal_hash;
       if (!finalHash && provisionData.admin.password_temporal) {
@@ -246,87 +400,22 @@ export function useAuthLogic() {
   const cloudProvisioning = async (email: string, passwordPlain: string) => {
     setError(null);
     try {
-      let realMacAddress = "MAC-DESCONOCIDA";
-      try {
-        realMacAddress = await invoke("get_device_mac");
-      } catch (e) {
-        realMacAddress = `MAC-FALLBACK-${Date.now()}`;
+      const identity = await getDeviceIdentity();
+      const data = await provisionDeviceWithBackend(email, passwordPlain, identity);
+      if (!data) {
+        throw new Error("Credenciales invalidas o conexion a la nube fallida.");
       }
 
-      const response = await fetch(`${API_URL}/auth/provision-device`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "ngrok-skip-browser-warning": "true",
-          Accept: "application/json",
-        },
-        body: JSON.stringify({
-          email,
-          password: passwordPlain,
-          macAddress: realMacAddress,
-        }),
-      });
-
-      if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(
-          errData.message ||
-            "Credenciales inválidas o conexión a la nube fallida.",
-        );
-      }
-
-      const data = await response.json();
-
-      const db = await getDb();
-      const now = new Date();
-
-      await db
-        .insert(schema.sucursales)
-        .values({
-          id: data.sucursal.id,
-          nombre: data.sucursal.nombre,
-          direccion: data.sucursal.direccion || "",
-          esCentral: data.sucursal.es_central,
-          createdAt: now,
-          updatedAt: now,
-        })
-        .onConflictDoNothing();
-
-      await db
-        .insert(schema.dispositivos)
-        .values({
-          id: data.dispositivo.id,
-          macAddress: data.dispositivo.macAddress,
-          nombreEquipo: "NUEVA-PC-NUBE",
-          autorizado: true,
-          sucursalId: data.sucursal.id,
-          createdAt: now,
-          updatedAt: now,
-        })
-        .onConflictDoNothing();
-
-      await db
-        .insert(schema.usuarios)
-        .values({
-          id: data.usuario.id,
-          username: data.usuario.username,
-          passwordHash: data.usuario.passwordHash,
-          rol: data.usuario.rol,
-          nombreCompleto: data.usuario.nombreCompleto,
-          dispositivoId: data.dispositivo.id,
-          estaActivo: true,
-          createdAt: now,
-          updatedAt: now,
-        })
-        .onConflictDoNothing();
+      const sqlite = await Database.load("sqlite:valeska.db");
+      await persistCloudProvisioning(sqlite, data, passwordPlain);
 
       sileo.success({
-        title: "Sincronización Exitosa",
-        description: "Configuración descargada desde la nube.",
+        title: "Sincronizacion Exitosa",
+        description: "Configuracion descargada desde la nube.",
       });
       return true;
     } catch (err: any) {
-      console.error("Error en provisión por nube:", err);
+      console.error("Error en provision por nube:", err);
       setError(
         err.message ||
           "Error interno al configurar el dispositivo desde la nube.",
@@ -340,46 +429,19 @@ export function useAuthLogic() {
       return false;
     }
   };
-
   const login = async (username: string, passwordPlain: string) => {
     setError(null);
     try {
       const sqlite = await Database.load("sqlite:valeska.db");
-      const cloudLogin = await loginWithBackend(username, passwordPlain);
+      const identity = await getDeviceIdentity();
+      const cloudLogin = await provisionDeviceWithBackend(
+        username,
+        passwordPlain,
+        identity,
+      );
 
       if (cloudLogin?.access_token) {
-        localStorage.setItem("valeska_access_token", cloudLogin.access_token);
-
-        const passwordHash = bcrypt.hashSync(
-          passwordPlain,
-          bcrypt.genSaltSync(10),
-        );
-        const now = new Date().toISOString();
-
-        await sqlite.execute(
-          `INSERT INTO usuarios
-            (id, username, password_hash, rol, nombre_completo, dispositivo_id, esta_activo, created_at, updated_at, sync_status)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $8, 'SYNCED')
-           ON CONFLICT(id) DO UPDATE SET
-             username = excluded.username,
-             password_hash = excluded.password_hash,
-             rol = excluded.rol,
-             nombre_completo = excluded.nombre_completo,
-             dispositivo_id = excluded.dispositivo_id,
-             esta_activo = excluded.esta_activo,
-             updated_at = excluded.updated_at,
-             sync_status = 'SYNCED'`,
-          [
-            cloudLogin.user.id,
-            cloudLogin.user.username,
-            passwordHash,
-            cloudLogin.user.rol,
-            cloudLogin.user.nombreCompleto,
-            cloudLogin.user.dispositivoId ?? null,
-            cloudLogin.user.estaActivo ? 1 : 0,
-            now,
-          ],
-        );
+        await persistCloudProvisioning(sqlite, cloudLogin, passwordPlain);
       }
 
       let result: any[] = await sqlite.select(
