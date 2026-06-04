@@ -22,6 +22,21 @@ export class SyncHttpError extends Error {
   }
 }
 
+export function clearInvalidSyncSession() {
+  localStorage.removeItem("valeska_access_token");
+
+  const sessionRaw = localStorage.getItem("valeska_session_user");
+  if (!sessionRaw) return;
+
+  try {
+    const session = JSON.parse(sessionRaw);
+    delete session.accessToken;
+    localStorage.setItem("valeska_session_user", JSON.stringify(session));
+  } catch {
+    localStorage.removeItem("valeska_session_user");
+  }
+}
+
 export const SYNC_ENTITY_TO_LOCAL_KEY: Record<SyncEntityName, string> = {
   tramite: "tramites",
   tramite_detalle: "tramiteDetalles",
@@ -90,7 +105,7 @@ export async function getSyncAuthContext(): Promise<SyncAuthContext> {
   const sessionRaw = localStorage.getItem("valeska_session_user");
   const session = sessionRaw ? JSON.parse(sessionRaw) : null;
   const accessToken =
-    session?.accessToken || localStorage.getItem("valeska_access_token") || "";
+    localStorage.getItem("valeska_access_token") || session?.accessToken || "";
 
   if (!accessToken) {
     throw new Error("Token JWT requerido para sincronizar con la nube.");
@@ -134,6 +149,7 @@ export async function pushSyncChunk(
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => null);
+    if (response.status === 401) clearInvalidSyncSession();
     throw new SyncHttpError(
       errorData?.message ||
         `HTTP ${response.status} al subir ${chunk.entityName}`,
@@ -156,6 +172,7 @@ export async function getPushStatus(
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => null);
+    if (response.status === 401) clearInvalidSyncSession();
     throw new SyncHttpError(
       errorData?.message || `HTTP ${response.status} consultando push-status`,
       response.status,
@@ -189,6 +206,7 @@ export async function pullSyncEntity<TRecord = Record<string, unknown>>(
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => null);
+    if (response.status === 401) clearInvalidSyncSession();
     throw new SyncHttpError(
       errorData?.message || `HTTP ${response.status} descargando ${query.entityName}`,
       response.status,
