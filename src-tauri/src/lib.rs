@@ -12,6 +12,12 @@ use tauri_plugin_sql::{Builder as SqlBuilder, Migration, MigrationKind};
 
 const VALESKA_SECRET: &str = dotenv!("VALESKA_SECRET");
 
+#[derive(serde::Serialize)]
+struct DeviceIdentity {
+    mac_address: String,
+    machine_name: String,
+}
+
 #[tauri::command]
 async fn extract_pdf_data(path: String) -> Result<logic::pdf_parser::ExtractedData, String> {
     logic::pdf_parser::parse_sunarp_pdf(&path)
@@ -36,6 +42,19 @@ fn get_device_mac() -> Result<String, String> {
         Ok(None) => Err("No se encontró tarjeta de red".to_string()),
         Err(e) => Err(e.to_string()),
     }
+}
+
+#[tauri::command]
+fn get_device_identity() -> Result<DeviceIdentity, String> {
+    let mac_address = get_device_mac()?.trim().to_lowercase();
+    let machine_name = std::env::var("COMPUTERNAME")
+        .or_else(|_| std::env::var("HOSTNAME"))
+        .unwrap_or_else(|_| "EQUIPO-VALESKA".to_string());
+
+    Ok(DeviceIdentity {
+        mac_address,
+        machine_name,
+    })
 }
 
 #[tauri::command]
@@ -199,6 +218,12 @@ pub fn run() {
             description: "agregar_columna_para_perfiles de empadronamiento",
             sql: include_str!("../../src/app/db/migrations/0015_many_ikaris.sql"),
             kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 17,
+            description: "alinear_contrato_sync_backend_actual",
+            sql: include_str!("../../src/app/db/migrations/0016_sync_backend_contract.sql"),
+            kind: MigrationKind::Up,
         }
     ];
 
@@ -210,6 +235,8 @@ pub fn run() {
                 .build(),
         )
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_shell::init())
         .plugin(
             tauri_plugin_log::Builder::default()
@@ -221,6 +248,7 @@ pub fn run() {
             extract_xml_data,
             extract_full_invoice_data,
             get_device_mac,
+            get_device_identity,
             import_provisioning_profile,
             generate_provisioning_file
         ])
