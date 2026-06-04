@@ -25,6 +25,7 @@
   },
   "bundle": {
     "active": true,
+    "createUpdaterArtifacts": true,
     "targets": "all",
     "icon": [
       "icons/32x32.png",
@@ -42,6 +43,17 @@
       },
       "nsis": {
         "languages": ["Spanish"]
+      }
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEEyNzE3NzEwQTY4RDVCMjUKUldRbFc0Mm1FSGR4b3NtbnNLWjJIU1BXUEk2Mzhib09Pa1ZQY081Tm43QnBmK2R0aFp1WWRvMlMK",
+      "endpoints": [
+        "https://valeska-api.studios-tkoh.online/api/desktop-updates/{{target}}/{{arch}}/{{current_version}}"
+      ],
+      "windows": {
+        "installMode": "passive"
       }
     }
   }

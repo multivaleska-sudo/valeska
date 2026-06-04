@@ -60,6 +60,8 @@ dist-ssr
 .env
 g_l.cjs
 master.valeska
+valeska.key
+valeska.key.pub
 
 # Editor directories and files
 .vscode/*

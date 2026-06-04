@@ -1,11 +1,9 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
-import { useAuthLogic } from "./useAuthLogic";
 import { sileo } from "sileo";
 
 export function useForgotPasswordLogic() {
   const navigate = useNavigate();
-  const { updatePasswordLocal } = useAuthLogic();
 
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [isLoading, setIsLoading] = useState(false);
@@ -23,23 +21,26 @@ export function useForgotPasswordLogic() {
     setError(null);
 
     try {
-      const res = await fetch(`${API_URL}/auth/forgot-password`, {
+      const res = await fetch(`${API_URL}/auth/reset-code`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "ngrok-skip-browser-warning": "true",
         },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ username: email }),
       });
 
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         throw new Error(
-          "Error al enviar el correo. Verifique su conexión o el usuario.",
+          data.message ||
+            "Error al enviar el codigo. Verifique su conexion o el usuario.",
         );
       }
+
       setStep(2);
       sileo.success({
-        title: "Código Enviado",
+        title: "Codigo Enviado",
         description: "Revisa tu bandeja de entrada.",
       });
     } catch (err: any) {
@@ -56,28 +57,18 @@ export function useForgotPasswordLogic() {
     setError(null);
 
     try {
-      const res = await fetch(`${API_URL}/auth/verify-code`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "ngrok-skip-browser-warning": "true",
-        },
-        body: JSON.stringify({ email, code }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.message || "Código inválido o expirado.");
+      if (!/^\d{6}$/.test(code)) {
+        throw new Error("El codigo debe tener 6 digitos.");
       }
 
       setStep(3);
       sileo.success({
-        title: "Código Verificado",
-        description: "Puedes ingresar tu nueva contraseña.",
+        title: "Codigo Listo",
+        description: "Puedes ingresar tu nueva contrasena.",
       });
     } catch (err: any) {
       setError(err.message);
-      sileo.error({ title: "Error de Verificación", description: err.message });
+      sileo.error({ title: "Error de Verificacion", description: err.message });
     } finally {
       setIsLoading(false);
     }
@@ -86,10 +77,10 @@ export function useForgotPasswordLogic() {
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (newPassword.length < 6) {
-      setError("La contraseña debe tener al menos 6 caracteres.");
+      setError("La contrasena debe tener al menos 6 caracteres.");
       sileo.warning({
-        title: "Contraseña Inválida",
-        description: "La contraseña debe tener al menos 6 caracteres.",
+        title: "Contrasena Invalida",
+        description: "La contrasena debe tener al menos 6 caracteres.",
       });
       return;
     }
@@ -97,25 +88,41 @@ export function useForgotPasswordLogic() {
     setIsLoading(true);
     setError(null);
 
-    const success = await updatePasswordLocal(email, newPassword);
+    try {
+      const res = await fetch(`${API_URL}/auth/reset-password`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "ngrok-skip-browser-warning": "true",
+        },
+        body: JSON.stringify({
+          username: email,
+          code,
+          newPassword,
+        }),
+      });
 
-    setIsLoading(false);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.message || "Codigo invalido o expirado.");
+      }
 
-    if (success) {
+      localStorage.removeItem("valeska_session_user");
+      localStorage.removeItem("valeska_access_token");
+
       sileo.success({
-        title: "Contraseña Actualizada",
-        description: "¡Contraseña actualizada con éxito!",
+        title: "Contrasena Actualizada",
+        description: "Contrasena actualizada con exito.",
       });
       navigate("/auth/login");
-    } else {
-      setError(
-        "Error interno al guardar la contraseña en la base de datos local.",
-      );
+    } catch (err: any) {
+      setError(err.message || "No se pudo actualizar la contrasena.");
       sileo.error({
-        title: "Error Interno",
-        description:
-          "No se pudo guardar la contraseña en la base de datos local.",
+        title: "Error",
+        description: err.message || "No se pudo actualizar la contrasena.",
       });
+    } finally {
+      setIsLoading(false);
     }
   };
 

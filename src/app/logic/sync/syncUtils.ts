@@ -14,9 +14,9 @@ export const markRecordsAsSynced = async (sqlite: any, tableName: string, ids: s
 };
 
 export async function buildPushPayload(sqlite: any) {
-    const sucursalesRaw: any[] = await sqlite.select("SELECT * FROM sucursales");
-    const dispositivosRaw: any[] = await sqlite.select("SELECT * FROM dispositivos");
-    const usuariosRaw: any[] = await sqlite.select("SELECT * FROM usuarios");
+    const sucursalesRaw: any[] = await sqlite.select("SELECT * FROM sucursales WHERE sync_status != 'SYNCED'");
+    const dispositivosRaw: any[] = await sqlite.select("SELECT * FROM dispositivos WHERE sync_status != 'SYNCED'");
+    const usuariosRaw: any[] = await sqlite.select("SELECT * FROM usuarios WHERE sync_status != 'SYNCED'");
 
     const catTiposRaw: any[] = await sqlite.select("SELECT * FROM catalogo_tipos_tramite WHERE sync_status != 'SYNCED'");
     const catSitRaw: any[] = await sqlite.select("SELECT * FROM catalogo_situaciones WHERE sync_status != 'SYNCED'");
@@ -35,17 +35,19 @@ export async function buildPushPayload(sqlite: any) {
 
     const perfilesRaw: any[] = await sqlite.select("SELECT * FROM perfiles_gestor WHERE sync_status != 'SYNCED'");
 
-    const conflictosRaw: any[] = await sqlite.select("SELECT * FROM sync_conflictos");
+    const conflictosRaw: any[] = await sqlite.select("SELECT * FROM sync_conflictos WHERE resuelto = 1");
 
     return {
         sucursales: sucursalesRaw.map((s) => ({
             id: s.id,
             nombre: s.nombre,
+            codigo: s.codigo ?? null,
             direccion: s.direccion,
             esCentral: s.es_central === 1 || s.es_central === true,
             createdAt: formatDateForNest(s.created_at),
             updatedAt: formatDateForNest(s.updated_at),
             deletedAt: formatDateForNest(s.deleted_at),
+            syncStatus: s.sync_status,
         })),
         dispositivos: dispositivosRaw.map((d) => ({
             id: d.id,
@@ -54,9 +56,11 @@ export async function buildPushPayload(sqlite: any) {
             autorizado: d.autorizado === 1 || d.autorizado === true,
             provisionId: d.provision_id,
             sucursalId: d.sucursal_id,
+            usuarioId: d.usuario_id,
             createdAt: formatDateForNest(d.created_at),
             updatedAt: formatDateForNest(d.updated_at),
             deletedAt: formatDateForNest(d.deleted_at),
+            syncStatus: d.sync_status,
         })),
         usuarios: usuariosRaw.map((u) => ({
             id: u.id,
@@ -69,6 +73,7 @@ export async function buildPushPayload(sqlite: any) {
             createdAt: formatDateForNest(u.created_at),
             updatedAt: formatDateForNest(u.updated_at),
             deletedAt: formatDateForNest(u.deleted_at),
+            syncStatus: u.sync_status,
         })),
 
         catalogoTiposTramite: catTiposRaw.map((c) => ({
@@ -111,6 +116,7 @@ export async function buildPushPayload(sqlite: any) {
             marca: v.marca,
             modelo: v.modelo,
             color: v.color,
+            carroceria: v.carroceria,
             categoria: v.categoria,
             anioFabricacion: v.anio_fabricacion,
             anioModelo: v.anio_modelo,
@@ -245,12 +251,12 @@ export async function buildPushPayload(sqlite: any) {
             identificadorVisual: conf.identificador_visual,
             datosLocales:
                 typeof conf.datos_locales === "string"
-                    ? JSON.parse(conf.datos_locales || "{}")
-                    : conf.datos_locales,
+                    ? conf.datos_locales
+                    : JSON.stringify(conf.datos_locales || {}),
             datosRemotos:
                 typeof conf.datos_remotos === "string"
-                    ? JSON.parse(conf.datos_remotos || "{}")
-                    : conf.datos_remotos,
+                    ? conf.datos_remotos
+                    : JSON.stringify(conf.datos_remotos || {}),
             resuelto: conf.resuelto === 1 || conf.resuelto === true,
             fechaConflicto: formatDateForNest(conf.fecha_conflicto),
         })),

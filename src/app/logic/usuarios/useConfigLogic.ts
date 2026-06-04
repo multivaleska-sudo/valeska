@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import Database from "@tauri-apps/plugin-sql";
 import * as bcrypt from "bcryptjs";
 import { sileo } from "sileo";
@@ -23,6 +24,9 @@ export function useConfigLogic() {
   // ================= ESTADOS: SISTEMA Y DISPOSITIVO =================
   const [dispositivoId, setDispositivoId] = useState("");
   const [dispositivoNombre, setDispositivoNombre] = useState("");
+  const [detectedMacAddress, setDetectedMacAddress] = useState("");
+  const [registeredMacAddress, setRegisteredMacAddress] = useState("");
+  const [dispositivoAutorizado, setDispositivoAutorizado] = useState(false);
   const [sucursalId, setSucursalId] = useState("");
   const [sucursalesList, setSucursalesList] = useState<any[]>([]);
   const [autoSync, setAutoSync] = useState(true);
@@ -46,6 +50,22 @@ export function useConfigLogic() {
 
         // Cargar datos del dispositivo y sucursal desde SQLite
         const sqlite = await Database.load("sqlite:valeska.db");
+        try {
+          const identity = await invoke<any>("get_device_identity");
+          setDetectedMacAddress(
+            String(identity.mac_address || identity.macAddress || "")
+              .trim()
+              .toLowerCase(),
+          );
+        } catch {
+          try {
+            setDetectedMacAddress(
+              String(await invoke("get_device_mac")).trim().toLowerCase(),
+            );
+          } catch {
+            setDetectedMacAddress("No detectada");
+          }
+        }
 
         // 1. Obtener a qué dispositivo está amarrado este usuario
         const userDb: any[] = await sqlite.select(
@@ -58,11 +78,17 @@ export function useConfigLogic() {
 
           // 2. Obtener el nombre del dispositivo y su sucursal actual
           const dispDb: any[] = await sqlite.select(
-            "SELECT nombre_equipo, sucursal_id FROM dispositivos WHERE id = $1",
+            "SELECT nombre_equipo, mac_address, autorizado, sucursal_id FROM dispositivos WHERE id = $1",
             [currentDispId],
           );
           if (dispDb.length > 0) {
             setDispositivoNombre(dispDb[0].nombre_equipo || "PC-DESCONOCIDA");
+            setRegisteredMacAddress(dispDb[0].mac_address || "");
+            setDispositivoAutorizado(
+              dispDb[0].autorizado === 1 ||
+                dispDb[0].autorizado === true ||
+                dispDb[0].autorizado === "1",
+            );
             setSucursalId(dispDb[0].sucursal_id || "");
           }
         }
@@ -231,6 +257,9 @@ export function useConfigLogic() {
     setConfirmPassword,
     dispositivoNombre,
     setDispositivoNombre,
+    detectedMacAddress,
+    registeredMacAddress,
+    dispositivoAutorizado,
     sucursalId,
     setSucursalId,
     sucursalesList,

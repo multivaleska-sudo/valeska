@@ -122,8 +122,8 @@ export function useConflictosLogic() {
 
       // Marcar el conflicto como resuelto
       await sqlite.execute(
-        "UPDATE sync_conflictos SET resuelto = 1 WHERE id = $1",
-        [conflictoId],
+        "UPDATE sync_conflictos SET resuelto = 1, datos_locales = $1, fecha_conflicto = $2 WHERE id = $3",
+        [JSON.stringify(resolvedData), now, conflictoId],
       );
     };
 

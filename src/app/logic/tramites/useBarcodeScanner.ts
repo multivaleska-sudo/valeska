@@ -6,6 +6,7 @@ export function useBarcodeScanner(onScan: (data: string) => void) {
 
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
+            if (!e.key) return;
             if (e.key === 'Shift' || e.key === 'Control' || e.key === 'Alt' || e.key === 'Meta') return;
 
             const currentTime = Date.now();
