@@ -33,6 +33,40 @@ const getDb = async () => {
 
 const API_URL = (import.meta as any).env.VITE_API_URL;
 
+type CloudLoginResult = {
+  access_token: string;
+  user: {
+    id: string;
+    username: string;
+    nombreCompleto: string;
+    rol: string;
+    estaActivo: boolean;
+    dispositivoId?: string | null;
+  };
+};
+
+const loginWithBackend = async (
+  username: string,
+  password: string,
+): Promise<CloudLoginResult | null> => {
+  try {
+    const response = await fetch(`${API_URL}/auth/login`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "ngrok-skip-browser-warning": "true",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({ username, password }),
+    });
+
+    if (!response.ok) return null;
+    return response.json();
+  } catch {
+    return null;
+  }
+};
+
 export function useAuthLogic() {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(true);
@@ -311,6 +345,42 @@ export function useAuthLogic() {
     setError(null);
     try {
       const sqlite = await Database.load("sqlite:valeska.db");
+      const cloudLogin = await loginWithBackend(username, passwordPlain);
+
+      if (cloudLogin?.access_token) {
+        localStorage.setItem("valeska_access_token", cloudLogin.access_token);
+
+        const passwordHash = bcrypt.hashSync(
+          passwordPlain,
+          bcrypt.genSaltSync(10),
+        );
+        const now = new Date().toISOString();
+
+        await sqlite.execute(
+          `INSERT INTO usuarios
+            (id, username, password_hash, rol, nombre_completo, dispositivo_id, esta_activo, created_at, updated_at, sync_status)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $8, 'SYNCED')
+           ON CONFLICT(id) DO UPDATE SET
+             username = excluded.username,
+             password_hash = excluded.password_hash,
+             rol = excluded.rol,
+             nombre_completo = excluded.nombre_completo,
+             dispositivo_id = excluded.dispositivo_id,
+             esta_activo = excluded.esta_activo,
+             updated_at = excluded.updated_at,
+             sync_status = 'SYNCED'`,
+          [
+            cloudLogin.user.id,
+            cloudLogin.user.username,
+            passwordHash,
+            cloudLogin.user.rol,
+            cloudLogin.user.nombreCompleto,
+            cloudLogin.user.dispositivoId ?? null,
+            cloudLogin.user.estaActivo ? 1 : 0,
+            now,
+          ],
+        );
+      }
 
       let result: any[] = await sqlite.select(
         "SELECT id, username, rol, nombre_completo, password_hash, esta_activo FROM usuarios WHERE username = $1",
@@ -319,7 +389,7 @@ export function useAuthLogic() {
 
       let user = result[0];
 
-      if (user) {
+      if (user && cloudLogin?.access_token) {
         try {
           const config = { apiUrl: API_URL };
 
@@ -382,6 +452,10 @@ export function useAuthLogic() {
           username: user.username,
           rol: user.rol,
           nombre: user.nombre_completo,
+          accessToken:
+            cloudLogin?.access_token ||
+            localStorage.getItem("valeska_access_token") ||
+            undefined,
         }),
       );
 
