@@ -1,19 +1,30 @@
-import React, { useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { open } from "@tauri-apps/plugin-dialog";
+import { getCurrentWebview } from "@tauri-apps/api/webview";
 import {
-  Laptop,
-  CheckCircle,
   AlertCircle,
-  Loader2,
-  UploadCloud,
-  FileKey,
+  CheckCircle,
   Cloud,
-  ShieldCheck,
-  Mail,
+  FileKey,
+  Laptop,
+  Loader2,
   Lock,
+  Mail,
+  ShieldCheck,
+  UploadCloud,
 } from "lucide-react";
 import { useAuthLogic } from "../../logic/auth/useAuthLogic";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "../../components/ui/alert-dialog";
 
 export function WelcomeSetupPage() {
   const navigate = useNavigate();
@@ -24,24 +35,89 @@ export function WelcomeSetupPage() {
   } = useAuthLogic();
 
   const [activeTab, setActiveTab] = useState<"cloud" | "file">("cloud");
-
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   const [success, setSuccess] = useState(false);
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
+  const [existingIdentifier, setExistingIdentifier] = useState<string | null>(null);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  const handleCloudSubmit = async (e: React.FormEvent) => {
+  const getFileName = (filePath: string) =>
+    filePath.split("\\").pop()?.split("/").pop() || "Archivo seleccionado";
+
+  const isValeskaFile = (filePath: string) =>
+    filePath.trim().toLowerCase().endsWith(".valeska");
+
+  const handleProvisioningPath = async (filePath: string) => {
+    if (!isValeskaFile(filePath)) {
+      setSelectedFileName(null);
+      return;
+    }
+
+    setSelectedFileName(getFileName(filePath));
+    setIsProcessing(true);
+
+    const result = await processProvisioningFile(filePath);
+    setIsProcessing(false);
+
+    if (result.status === "existing_user") {
+      setExistingIdentifier(result.identifier);
+      setSelectedFileName(null);
+      return;
+    }
+
+    if (result.status === "created") {
+      setSuccess(true);
+      window.setTimeout(() => navigate("/"), 900);
+      return;
+    }
+
+    setSelectedFileName(null);
+  };
+
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+
+    getCurrentWebview()
+      .onDragDropEvent((event) => {
+        if (activeTab !== "file" || isProcessing) return;
+
+        if (event.payload.type === "over") {
+          setIsDragging(true);
+          return;
+        }
+
+        if (event.payload.type === "drop") {
+          setIsDragging(false);
+          const [filePath] = event.payload.paths;
+          if (filePath) void handleProvisioningPath(filePath);
+          return;
+        }
+
+        setIsDragging(false);
+      })
+      .then((handler) => {
+        unlisten = handler;
+      })
+      .catch((err) => {
+        console.warn("No se pudo activar drag/drop de Tauri:", err);
+      });
+
+    return () => unlisten?.();
+  }, [activeTab, isProcessing]);
+
+  const handleCloudSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setIsProcessing(true);
 
-    const isOk = await cloudProvisioning(email, password);
+    const isOk = await cloudProvisioning(email.trim(), password);
     setIsProcessing(false);
 
     if (isOk) {
       setSuccess(true);
-      setTimeout(() => navigate("/auth/login"), 3000);
+      window.setTimeout(() => navigate("/auth/login"), 1200);
     }
   };
 
@@ -53,25 +129,20 @@ export function WelcomeSetupPage() {
       });
 
       if (selectedPath && typeof selectedPath === "string") {
-        const fileName =
-          selectedPath.split("\\").pop()?.split("/").pop() ||
-          "Archivo seleccionado";
-        setSelectedFileName(fileName);
-
-        setIsProcessing(true);
-        const isOk = await processProvisioningFile(selectedPath);
-        setIsProcessing(false);
-
-        if (isOk) {
-          setSuccess(true);
-          setTimeout(() => navigate("/auth/login"), 3000);
-        } else {
-          setSelectedFileName(null);
-        }
+        await handleProvisioningPath(selectedPath);
       }
     } catch (err) {
       console.error("Error al abrir diálogo:", err);
     }
+  };
+
+  const goToExistingLogin = () => {
+    if (!existingIdentifier) return;
+    sessionStorage.setItem("valeska_login_prefill", existingIdentifier);
+    setExistingIdentifier(null);
+    navigate("/auth/login", {
+      state: { prefillIdentifier: existingIdentifier },
+    });
   };
 
   return (
@@ -79,7 +150,7 @@ export function WelcomeSetupPage() {
       <div className="w-full max-w-xl">
         <div className="bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100">
           <div className="bg-slate-900 p-8 text-center relative overflow-hidden">
-            <div className="absolute top-[-50%] left-[-10%] w-[50%] h-[200%] bg-blue-600/20 rotate-12 blur-2xl pointer-events-none"></div>
+            <div className="absolute top-[-50%] left-[-10%] w-[50%] h-[200%] bg-blue-600/20 rotate-12 blur-2xl pointer-events-none" />
             <div className="relative z-10">
               <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-blue-500/30">
                 <Laptop className="w-8 h-8 text-white" />
@@ -88,7 +159,7 @@ export function WelcomeSetupPage() {
                 Sistema Valeska
               </h1>
               <p className="text-blue-200 mt-2 font-medium">
-                Inicialización Segura de Sucursal
+                Inicialización segura de sucursal
               </p>
             </div>
           </div>
@@ -107,29 +178,31 @@ export function WelcomeSetupPage() {
                   <CheckCircle className="w-10 h-10 text-green-600" />
                 </div>
                 <h2 className="text-xl font-black text-gray-800 mb-2 uppercase">
-                  ¡Configuración Exitosa!
+                  Configuración exitosa
                 </h2>
                 <p className="text-gray-500 font-medium">
                   La base de datos ha sido anclada a este dispositivo.
                 </p>
                 <p className="text-sm text-blue-600 font-bold mt-4 animate-pulse">
-                  Redirigiendo al inicio de sesión...
+                  Redirigiendo...
                 </p>
               </div>
             ) : (
               <>
                 <div className="flex bg-gray-100 p-1 rounded-xl mb-8">
                   <button
+                    type="button"
                     onClick={() => setActiveTab("cloud")}
                     className={`flex-1 py-2.5 text-sm font-bold rounded-lg flex items-center justify-center gap-2 transition-all ${activeTab === "cloud" ? "bg-white text-blue-600 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
                   >
-                    <Cloud size={16} /> Conexión en Nube
+                    <Cloud size={16} /> Conexión en nube
                   </button>
                   <button
+                    type="button"
                     onClick={() => setActiveTab("file")}
                     className={`flex-1 py-2.5 text-sm font-bold rounded-lg flex items-center justify-center gap-2 transition-all ${activeTab === "file" ? "bg-white text-blue-600 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
                   >
-                    <FileKey size={16} /> Archivo Físico
+                    <FileKey size={16} /> Archivo físico
                   </button>
                 </div>
 
@@ -140,8 +213,7 @@ export function WelcomeSetupPage() {
                   >
                     <div className="text-center mb-6">
                       <p className="text-sm text-gray-500">
-                        Inicie sesión para descargar sus credenciales y enlazar
-                        esta computadora a la nube central.
+                        Inicia sesión para descargar credenciales y enlazar esta computadora a la nube central.
                       </p>
                     </div>
 
@@ -152,8 +224,9 @@ export function WelcomeSetupPage() {
                           size={18}
                         />
                         <input
-                          type="email"
-                          placeholder="Correo electrónico de la cuenta"
+                          type="text"
+                          autoComplete="username"
+                          placeholder="Correo o usuario de la cuenta"
                           required
                           value={email}
                           onChange={(e) => setEmail(e.target.value)}
@@ -167,6 +240,7 @@ export function WelcomeSetupPage() {
                         />
                         <input
                           type="password"
+                          autoComplete="current-password"
                           placeholder="Contraseña asignada"
                           required
                           value={password}
@@ -179,16 +253,14 @@ export function WelcomeSetupPage() {
                     <button
                       type="submit"
                       disabled={isProcessing}
-                      className="w-full mt-2 bg-blue-600 text-white py-3.5 rounded-xl font-black uppercase tracking-widest text-xs flex justify-center items-center gap-2 hover:bg-blue-700 transition-colors shadow-lg shadow-blue-200"
+                      className="w-full mt-2 bg-blue-600 text-white py-3.5 rounded-xl font-black uppercase tracking-widest text-xs flex justify-center items-center gap-2 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors shadow-lg shadow-blue-200"
                     >
                       {isProcessing ? (
                         <Loader2 className="animate-spin" size={18} />
                       ) : (
                         <Cloud size={18} />
                       )}
-                      {isProcessing
-                        ? "Descargando Licencia..."
-                        : "Conectar y Descargar"}
+                      {isProcessing ? "Descargando licencia..." : "Conectar y descargar"}
                     </button>
                   </form>
                 )}
@@ -197,19 +269,21 @@ export function WelcomeSetupPage() {
                   <div className="animate-in fade-in slide-in-from-left-4">
                     <div className="text-center mb-6">
                       <p className="text-sm text-gray-500">
-                        Seleccione el archivo{" "}
+                        Selecciona o arrastra el archivo{" "}
                         <span className="font-bold text-gray-700 bg-gray-100 px-2 py-0.5 rounded">
                           .valeska
                         </span>{" "}
-                        proporcionado por el Administrador. Ideal para entornos
-                        sin conexión a internet.
+                        proporcionado por el administrador.
                       </p>
                     </div>
 
-                    <div
+                    <button
+                      type="button"
                       onClick={() => !isProcessing && handleSelectFile()}
-                      className={`border-2 border-dashed rounded-2xl p-8 text-center transition-all cursor-pointer bg-gray-50 hover:bg-blue-50 border-gray-300 hover:border-blue-400
-                        ${isProcessing ? "pointer-events-none opacity-80" : ""}
+                      disabled={isProcessing}
+                      className={`w-full border-2 border-dashed rounded-2xl p-8 text-center transition-all bg-gray-50 hover:bg-blue-50 focus:outline-none focus:ring-4 focus:ring-blue-100
+                        ${isDragging ? "border-blue-500 bg-blue-50 scale-[1.01]" : "border-gray-300 hover:border-blue-400"}
+                        ${isProcessing ? "pointer-events-none opacity-80" : "cursor-pointer"}
                       `}
                     >
                       {isProcessing ? (
@@ -231,15 +305,15 @@ export function WelcomeSetupPage() {
                           </div>
                           <div>
                             <p className="font-bold text-gray-700 text-lg">
-                              Seleccionar Archivo Físico
+                              Arrastra tu licencia aquí
                             </p>
                             <p className="text-sm text-gray-500 mt-1">
-                              Explorar carpetas locales
+                              o haz clic para explorar carpetas locales
                             </p>
                           </div>
                         </div>
                       )}
-                    </div>
+                    </button>
                   </div>
                 )}
 
@@ -249,9 +323,7 @@ export function WelcomeSetupPage() {
                     className="text-blue-600 shrink-0 mt-0.5"
                   />
                   <p className="text-xs text-blue-800 font-medium leading-relaxed">
-                    Cualquiera de las dos opciones configurará los catálogos y
-                    enlazará su Tarjeta de Red (MAC) al sistema. Solo se
-                    requiere realizar esto una vez por computadora.
+                    Cualquiera de las dos opciones configura catálogos y enlaza la tarjeta de red (MAC) al sistema. Solo se requiere una vez por computadora.
                   </p>
                 </div>
               </>
@@ -259,6 +331,28 @@ export function WelcomeSetupPage() {
           </div>
         </div>
       </div>
+
+      <AlertDialog
+        open={Boolean(existingIdentifier)}
+        onOpenChange={(openState) => {
+          if (!openState) setExistingIdentifier(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>USUARIO EXISTENTE, ¿DESEA INICIAR SESIÓN?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Este archivo corresponde a un usuario que ya está registrado en esta computadora. Puedes ir al login con el usuario prellenado.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={goToExistingLogin}>
+              Iniciar sesión
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
