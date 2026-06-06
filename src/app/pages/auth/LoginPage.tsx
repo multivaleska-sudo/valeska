@@ -1,126 +1,175 @@
-import { useState, useEffect } from "react";
-import { useNavigate, Link } from "react-router";
-import { Lock, User, AlertCircle, Loader2 } from "lucide-react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { Link, useLocation } from "react-router";
+import { AlertCircle, Loader2, Lock, User } from "lucide-react";
 import { ConnectionBadge } from "../../components/ConnectionBadge";
-import { useAuthLogic } from "../../logic/auth/useAuthLogic";
+import {
+  getLoginHistory,
+  recordSuccessfulLogin,
+  useAuthLogic,
+} from "../../logic/auth/useAuthLogic";
+
+type LoginLocationState = {
+  prefillIdentifier?: string;
+};
 
 export function LoginPage() {
-  const navigate = useNavigate();
-  const { login, checkInitialSetup, isLoading, error } = useAuthLogic();
+  const location = useLocation();
+  const { login, error } = useAuthLogic();
+  const passwordRef = useRef<HTMLInputElement>(null);
 
-  const [isOnline] = useState(true);
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isOnline] = useState(true);
+  const [history, setHistory] = useState(() => getLoginHistory());
 
   useEffect(() => {
-    checkInitialSetup();
-  }, []);
+    const state = location.state as LoginLocationState | null;
+    const prefill =
+      state?.prefillIdentifier ||
+      sessionStorage.getItem("valeska_login_prefill") ||
+      "";
 
-  const handleLogin = async (e: React.FormEvent) => {
+    if (!prefill) return;
+
+    setIdentifier(prefill);
+    sessionStorage.removeItem("valeska_login_prefill");
+    window.setTimeout(() => passwordRef.current?.focus(), 80);
+  }, [location.state]);
+
+  const suggestions = useMemo(() => {
+    const query = identifier.trim().toLowerCase();
+    if (!query) return history.slice(0, 5);
+
+    return history
+      .filter(
+        (item) =>
+          item.identifier.toLowerCase().includes(query) ||
+          item.username.toLowerCase().includes(query) ||
+          item.nombre?.toLowerCase().includes(query),
+      )
+      .slice(0, 5);
+  }, [history, identifier]);
+
+  const handleLogin = async (e: FormEvent) => {
     e.preventDefault();
-    setIsSubmitting(true);
+    const cleanIdentifier = identifier.trim();
 
-    const success = await login(email, password);
-    setIsSubmitting(false);
+    if (!cleanIdentifier || !password) return;
+
+    setIsSubmitting(true);
+    try {
+      const success = await login(cleanIdentifier, password);
+      if (success) {
+        recordSuccessfulLogin({
+          identifier: cleanIdentifier,
+          username: cleanIdentifier,
+        });
+        setHistory(getLoginHistory());
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-[#F6F7FB] flex flex-col items-center justify-center text-gray-500 font-bold gap-3">
-        <Loader2 size={32} className="animate-spin text-[#2563EB]" />
-        Verificando integridad del sistema...
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-[#F6F7FB] flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        <div className="bg-white rounded-lg shadow-lg p-8">
-          <div className="text-center mb-8">
-            <div className="w-16 h-16 bg-[#2563EB] rounded-full flex items-center justify-center mx-auto mb-4">
-              <Lock className="w-8 h-8 text-white" />
-            </div>
-            <h1 className="text-2xl font-semibold text-[#111827]">
-              Sistema Valeska
-            </h1>
-            <p className="text-sm text-[#6B7280] mt-2">
-              Iniciar sesión en el sistema
-            </p>
+    <div className="min-h-screen bg-[#F6F7FB] flex items-center justify-center p-4 font-sans">
+      <div className="w-full max-w-md bg-white rounded-[2rem] shadow-2xl overflow-hidden border border-gray-100">
+        <div className="bg-[#111827] p-8 text-white text-center">
+          <div className="w-16 h-16 bg-[#2563EB] rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-blue-500/30">
+            <Lock className="w-8 h-8 text-white" />
           </div>
+          <h1 className="text-2xl font-black uppercase tracking-tight">
+            Acceso Valeska
+          </h1>
+          <p className="text-blue-200 text-sm mt-2 font-medium">
+            Inicia sesión con tu usuario o correo.
+          </p>
+        </div>
 
+        <form onSubmit={handleLogin} className="p-8 space-y-5">
           <ConnectionBadge isOnline={isOnline} />
 
           {error && (
-            <div className="mb-6 p-3 bg-red-50 border border-red-100 text-red-700 text-sm font-semibold rounded-lg flex items-center gap-2 animate-in fade-in">
-              <AlertCircle size={18} className="shrink-0" /> {error}
+            <div className="p-3 bg-red-50 border border-red-100 text-red-700 text-sm font-bold rounded-xl flex items-start gap-2">
+              <AlertCircle size={18} className="shrink-0 mt-0.5" />
+              <span>{error}</span>
             </div>
           )}
 
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-[#111827] mb-2">
-                Usuario o Email
-              </label>
-              <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[#6B7280]" />
-                <input
-                  type="text"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-[#E5E7EB] rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-transparent transition-all"
-                  placeholder="admin@valeska.com"
-                  required
-                />
-              </div>
+          <div className="space-y-2">
+            <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] ml-2">
+              Usuario o correo
+            </label>
+            <div className="relative">
+              <User
+                className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
+                size={18}
+              />
+              <input
+                list="valeska-login-history"
+                type="text"
+                autoComplete="username"
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
+                className="w-full pl-12 pr-4 py-3 bg-gray-50 border-2 border-gray-100 rounded-xl text-gray-800 font-bold outline-none focus:ring-4 focus:ring-blue-100 focus:border-blue-400 transition-all"
+                placeholder="usuario o correo"
+                required
+              />
+              <datalist id="valeska-login-history">
+                {suggestions.map((item) => (
+                  <option key={`${item.username}-${item.lastLoginAt}`} value={item.identifier}>
+                    {item.nombre || item.username}
+                  </option>
+                ))}
+              </datalist>
             </div>
-
-            <div>
-              <label className="block text-sm font-medium text-[#111827] mb-2">
-                Contraseña
-              </label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[#6B7280]" />
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-[#E5E7EB] rounded-md focus:outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-transparent transition-all"
-                  placeholder="••••••••"
-                  required
-                />
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="w-full bg-[#2563EB] text-white py-2.5 rounded-md hover:bg-[#1D4ED8] transition-colors font-medium flex justify-center items-center gap-2 disabled:opacity-70"
-            >
-              {isSubmitting && <Loader2 size={18} className="animate-spin" />}
-              {isSubmitting ? "Verificando credenciales..." : "Iniciar Sesión"}
-            </button>
-          </form>
-
-          <div className="mt-4 text-center">
-            <Link
-              to="/auth/forgot-password"
-              className="text-sm text-[#2563EB] hover:underline font-medium"
-            >
-              ¿Olvidaste tu contraseña?
-            </Link>
           </div>
 
-          <div className="mt-8 text-center pt-6 border-t border-gray-100">
-            <Link
-              to="/auth/welcome"
-              className="text-xs text-[#6B7280] hover:text-[#2563EB] hover:underline transition-colors"
-            >
-              ¿Equipo nuevo? Configurar licencia de sucursal
+          <div className="space-y-2">
+            <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] ml-2">
+              Contraseña
+            </label>
+            <div className="relative">
+              <Lock
+                className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
+                size={18}
+              />
+              <input
+                ref={passwordRef}
+                type="password"
+                autoComplete="current-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full pl-12 pr-4 py-3 bg-gray-50 border-2 border-gray-100 rounded-xl text-gray-800 font-bold outline-none focus:ring-4 focus:ring-blue-100 focus:border-blue-400 transition-all"
+                placeholder="Contraseña"
+                required
+              />
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            disabled={isSubmitting || !identifier.trim() || !password}
+            className="w-full bg-[#2563EB] text-white py-3.5 rounded-xl font-black uppercase tracking-widest text-xs flex justify-center items-center gap-2 hover:bg-[#1D4ED8] disabled:opacity-60 disabled:cursor-not-allowed transition-colors shadow-lg shadow-blue-200"
+          >
+            {isSubmitting ? (
+              <Loader2 className="animate-spin" size={18} />
+            ) : (
+              <Lock size={18} />
+            )}
+            {isSubmitting ? "Validando..." : "Iniciar sesión"}
+          </button>
+
+          <div className="flex items-center justify-between gap-3 pt-2 text-xs font-bold">
+            <Link to="/auth/forgot-password" className="text-blue-600 hover:text-blue-800">
+              Olvidé mi contraseña
+            </Link>
+            <Link to="/auth/welcome" className="text-gray-500 hover:text-gray-800">
+              Configurar equipo
             </Link>
           </div>
-        </div>
+        </form>
       </div>
     </div>
   );
