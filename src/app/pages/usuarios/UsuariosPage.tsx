@@ -7,6 +7,16 @@ import {
 import { UserForm } from "./UserForm";
 import { TransferConfirmModal } from "./TransferConfirmModal";
 import { UserCard } from "../../components/shared/UserCard";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "../../components/ui/alert-dialog";
 
 export function UsuariosPage() {
   const {
@@ -22,6 +32,7 @@ export function UsuariosPage() {
 
   const [showModal, setShowModal] = useState(false);
   const [editingUser, setEditingUser] = useState<UserDB | null>(null);
+  const [userPendingDelete, setUserPendingDelete] = useState<UserDB | null>(null);
 
   // Estados para verificar los permisos del usuario actual
   const [isCurrentUserAdmin, setIsCurrentUserAdmin] = useState(false);
@@ -75,6 +86,12 @@ export function UsuariosPage() {
       setTransferData(null);
       setShowModal(false);
     }
+  };
+
+  const executeDelete = async () => {
+    if (!userPendingDelete) return;
+    await deleteUser(userPendingDelete.id, currentUserId);
+    setUserPendingDelete(null);
   };
 
   if (isLoading) {
@@ -134,7 +151,7 @@ export function UsuariosPage() {
             isCurrentUserAdmin={isCurrentUserAdmin}
             currentUserId={currentUserId}
             onToggleStatus={() => toggleUserStatus(user.id, user.esta_activo)}
-            onDelete={() => deleteUser(user.id, currentUserId)}
+            onDelete={() => setUserPendingDelete(user)}
             onEdit={() => {
               setEditingUser(user);
               setShowModal(true);
@@ -161,6 +178,33 @@ export function UsuariosPage() {
           onCancel={() => setTransferData(null)}
         />
       )}
+
+      <AlertDialog
+        open={Boolean(userPendingDelete)}
+        onOpenChange={(openState) => {
+          if (!openState) setUserPendingDelete(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Eliminar usuario</AlertDialogTitle>
+            <AlertDialogDescription>
+              {userPendingDelete
+                ? `¿Deseas retirar el acceso de ${userPendingDelete.nombre_completo}? El registro quedará pendiente de sincronización si no hay nube disponible.`
+                : "Confirma la eliminación del usuario."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={executeDelete}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
