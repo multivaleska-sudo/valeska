@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useCallback, useState } from "react";
 import { useNavigate } from "react-router";
 import {
   Filter,
@@ -12,11 +12,14 @@ import {
   Search,
   X,
   Trash2,
+  ScanBarcode,
 } from "lucide-react";
 import { useTramitesListLogic } from "../../logic/tramites/useTramitesListLogic";
+import { useBarcodeScanner } from "../../logic/tramites/useBarcodeScanner";
 
 export function TramitesListPage() {
   const navigate = useNavigate();
+  const [scanNotice, setScanNotice] = useState<string | null>(null);
   const {
     filtros,
     paginacion,
@@ -28,8 +31,26 @@ export function TramitesListPage() {
     deleteTramite,
   } = useTramitesListLogic();
 
+  const handlePlateScan = useCallback(
+    (plate: string) => {
+      filtros.setSearchPlaca(plate);
+      setScanNotice(`Buscando placa escaneada: ${plate}`);
+      window.setTimeout(() => setScanNotice(null), 2500);
+    },
+    [filtros.setSearchPlaca],
+  );
+
+  useBarcodeScanner({
+    onScan: handlePlateScan,
+  });
+
   return (
     <div className="min-h-screen bg-slate-50 p-6 font-sans">
+      {scanNotice && (
+        <div className="fixed top-6 left-1/2 -translate-x-1/2 bg-blue-600 text-white px-6 py-3 rounded-full shadow-lg font-bold flex items-center gap-2 z-50 animate-in fade-in slide-in-from-top-2">
+          <ScanBarcode size={20} /> {scanNotice}
+        </div>
+      )}
       <div className="max-w-[1400px] mx-auto space-y-6">
         <div className="flex justify-between items-center bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
           <div>
