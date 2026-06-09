@@ -265,14 +265,13 @@ const persistCloudProvisioning = async (
     await sqlite.execute(
       `INSERT INTO dispositivos
         (id, mac_address, nombre_equipo, autorizado, sucursal_id, provision_id, usuario_id, created_at, updated_at, deleted_at, sync_status)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'SYNCED')
+       VALUES ($1, $2, $3, $4, $5, $6, NULL, $7, $8, $9, 'SYNCED')
        ON CONFLICT(id) DO UPDATE SET
          mac_address = excluded.mac_address,
          nombre_equipo = excluded.nombre_equipo,
          autorizado = excluded.autorizado,
          sucursal_id = excluded.sucursal_id,
          provision_id = excluded.provision_id,
-         usuario_id = excluded.usuario_id,
          updated_at = excluded.updated_at,
          deleted_at = excluded.deleted_at,
          sync_status = 'SYNCED'`,
@@ -283,7 +282,6 @@ const persistCloudProvisioning = async (
         dispositivo.autorizado ? 1 : 0,
         dispositivo.sucursalId,
         dispositivo.provisionId ?? null,
-        dispositivo.usuarioId ?? data.user.id,
         dispositivo.createdAt ?? now,
         dispositivo.updatedAt ?? now,
         dispositivo.deletedAt ?? null,
@@ -310,11 +308,18 @@ const persistCloudProvisioning = async (
       passwordHash,
       data.user.rol,
       data.user.nombreCompleto,
-      data.user.dispositivoId ?? dispositivo?.id ?? null,
+      dispositivo?.id ?? null,
       data.user.estaActivo ? 1 : 0,
       now,
     ],
   );
+
+  if (dispositivo) {
+    await sqlite.execute(
+      "UPDATE dispositivos SET usuario_id = $1, updated_at = $2, sync_status = 'SYNCED' WHERE id = $3",
+      [data.user.id, now, dispositivo.id],
+    );
+  }
 
   localStorage.setItem("valeska_access_token", data.access_token);
   const sessionRaw = localStorage.getItem("valeska_session_user");
@@ -537,7 +542,6 @@ export function useAuthLogic() {
         autorizado: true,
         sucursalId: provisionData.sucursal.id,
         provisionId: provisionData.provision_id,
-        usuarioId: userId,
         createdAt: now,
         updatedAt: now,
       });
@@ -572,6 +576,11 @@ export function useAuthLogic() {
         createdAt: now,
         updatedAt: now,
       });
+
+      await db
+        .update(schema.dispositivos)
+        .set({ usuarioId: userId, updatedAt: now })
+        .where(eq(schema.dispositivos.id, deviceId));
 
       const user = { id: userId, username: identifier, rol, nombre };
       createLocalSession(user);
