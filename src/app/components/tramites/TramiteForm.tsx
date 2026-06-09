@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useCallback, useState } from "react";
 import { useNavigate } from "react-router";
 import { open as openExternalLink } from "@tauri-apps/plugin-shell";
 import {
@@ -70,16 +70,16 @@ export function TramiteForm({ mode, initialData }: TramiteFormProps) {
 
   const [empresaModalRuc, setEmpresaModalRuc] = useState<string | null>(null);
 
-  useBarcodeScanner((scannedData) => {
-    if (isViewOnly) return;
-    procesarCodigoEscaneado(scannedData);
-  });
-
-  const procesarCodigoEscaneado = (codigo: string) => {
+  const procesarCodigoEscaneado = useCallback((codigo: string) => {
     setFormData((prev) => ({ ...prev, vehiculo_placa: codigo.toUpperCase() }));
     setScanSuccess(true);
     setTimeout(() => setScanSuccess(false), 3000);
-  };
+  }, [setFormData]);
+
+  useBarcodeScanner({
+    enabled: !isViewOnly,
+    onScan: procesarCodigoEscaneado,
+  });
 
   const handleSave = async () => {
     const savedId = await saveTramite();
