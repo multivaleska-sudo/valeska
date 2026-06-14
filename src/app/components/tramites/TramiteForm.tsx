@@ -355,10 +355,11 @@ export function TramiteForm({ mode, initialData }: TramiteFormProps) {
                       </label>
                       <input
                         type="date"
+                        name="fecha_tarjeta_oficina"
                         value={formData.fecha_tarjeta_oficina || ""}
-                        readOnly
+                        onChange={handleChange}
                         className="border border-gray-300 rounded-md px-3 py-1.5 text-xs text-gray-600 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-400"
-                        disabled={!formData.check_tarjeta_oficina}
+                        disabled={!formData.check_tarjeta_oficina || isViewOnly}
                       />
                     </div>
                     <div className="flex items-center justify-between">
@@ -378,10 +379,11 @@ export function TramiteForm({ mode, initialData }: TramiteFormProps) {
                       </label>
                       <input
                         type="date"
+                        name="fecha_placa_oficina"
                         value={formData.fecha_placa_oficina || ""}
-                        readOnly
+                        onChange={handleChange}
                         className="border border-gray-300 rounded-md px-3 py-1.5 text-xs text-gray-600 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-400"
-                        disabled={!formData.check_placa_oficina}
+                        disabled={!formData.check_placa_oficina || isViewOnly}
                       />
                     </div>
                   </div>
@@ -446,10 +448,11 @@ export function TramiteForm({ mode, initialData }: TramiteFormProps) {
                       </div>
                       <input
                         type="date"
+                        name="fecha_entrega_tarjeta"
                         value={formData.fecha_entrega_tarjeta || ""}
-                        readOnly
+                        onChange={handleChange}
                         className="border border-gray-300 rounded-md px-3 py-1.5 text-xs text-gray-600 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-400"
-                        disabled={!formData.check_entrega_tarjeta}
+                        disabled={!formData.check_entrega_tarjeta || isViewOnly}
                       />
                     </div>
 
@@ -507,10 +510,11 @@ export function TramiteForm({ mode, initialData }: TramiteFormProps) {
                       </div>
                       <input
                         type="date"
+                        name="fecha_entrega_placa"
                         value={formData.fecha_entrega_placa || ""}
-                        readOnly
+                        onChange={handleChange}
                         className="border border-gray-300 rounded-md px-3 py-1.5 text-xs text-gray-600 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-400"
-                        disabled={!formData.check_entrega_placa}
+                        disabled={!formData.check_entrega_placa || isViewOnly}
                       />
                     </div>
                   </div>

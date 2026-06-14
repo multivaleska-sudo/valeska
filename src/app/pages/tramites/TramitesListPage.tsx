@@ -46,6 +46,13 @@ export function TramitesListPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 p-6 font-sans">
+      {isExporting && (
+        <div className="fixed inset-0 z-[100] bg-white/80 backdrop-blur-sm flex flex-col items-center justify-center animate-in fade-in">
+          <Loader2 size={64} className="animate-spin text-emerald-600 mb-4" />
+          <h2 className="text-2xl font-black text-gray-800 tracking-tight">Exportando Base de Datos</h2>
+          <p className="text-gray-500 font-medium mt-2">Por favor espere, esto puede tardar unos segundos...</p>
+        </div>
+      )}
       {scanNotice && (
         <div className="fixed top-6 left-1/2 -translate-x-1/2 bg-blue-600 text-white px-6 py-3 rounded-full shadow-lg font-bold flex items-center gap-2 z-50 animate-in fade-in slide-in-from-top-2">
           <ScanBarcode size={20} /> {scanNotice}

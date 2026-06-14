@@ -273,35 +273,43 @@ export function useTramitesListLogic() {
   ]);
 
   const handleExportExcel = async () => {
-    if (filteredTramites.length === 0) return;
     setIsExporting(true);
+    // Pequeña pausa para permitir que React renderice el Overlay antes de bloquear el hilo principal
+    await new Promise((resolve) => setTimeout(resolve, 100));
     try {
-      const dataToExport = filteredTramites.map((t, idx) => ({
-        "N°": idx + 1,
-        "N° TÍTULO": t.n_titulo,
-        CLIENTE: t.cliente,
-        "DNI / RUC": t.dni,
-        PLACA: t.placa,
-        TRAMITE: t.tramite,
-        SITUACIÓN: t.situacion,
-        FECHA: t.fecha_presentacion,
-        EMPRESA: t.empresa_gestiona,
-        CREADOR: t.creador,
-      }));
-      const ws = XLSX.utils.json_to_sheet(dataToExport);
+      const db = await Database.load("sqlite:valeska.db");
+      const tables: any[] = await db.select(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
+      );
+
       const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "Reporte");
+
+      for (const t of tables) {
+        const tableName = t.name;
+        const records: any[] = await db.select(`SELECT * FROM ${tableName}`);
+        
+        // Si la tabla no tiene registros, añadimos un arreglo vacío con una columna por defecto
+        const dataToExport = records.length > 0 ? records : [{ Info: "Sin registros" }];
+        const ws = XLSX.utils.json_to_sheet(dataToExport);
+        
+        // El nombre de la hoja en Excel no puede exceder los 31 caracteres
+        const sheetName = tableName.substring(0, 31);
+        XLSX.utils.book_append_sheet(wb, ws, sheetName);
+      }
+
       const path = await save({
-        defaultPath: `Reporte_Valeska_${new Date().toISOString().split("T")[0]}.xlsx`,
+        defaultPath: `Base_Datos_Valeska_${new Date().toISOString().split("T")[0]}.xlsx`,
         filters: [{ name: "Excel", extensions: ["xlsx"] }],
       });
+
       if (path) {
         const excelBuffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
         await writeFile(path, new Uint8Array(excelBuffer));
-        sileo.success({ title: "Éxito", description: "Excel guardado." });
+        sileo.success({ title: "Éxito", description: "Base de datos exportada correctamente." });
       }
-    } catch (e) {
-      sileo.error({ title: "Error", description: "No se pudo exportar." });
+    } catch (e: any) {
+      console.error("Error exportando BD completa:", e);
+      sileo.error({ title: "Error", description: "No se pudo exportar la base de datos." });
     } finally {
       setIsExporting(false);
     }
