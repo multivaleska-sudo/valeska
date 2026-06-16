@@ -13,27 +13,36 @@ export const markRecordsAsSynced = async (sqlite: any, tableName: string, ids: s
     await sqlite.execute(`UPDATE ${tableName} SET sync_status = 'SYNCED' WHERE id IN (${formattedIds})`);
 };
 
+const versionFields = (row: any) => ({
+    version: Number(row.version ?? 1),
+    baseVersion: Number(row.base_version ?? row.version ?? 0),
+    updatedByUserId: row.updated_by_user_id ?? null,
+    updatedByDeviceMac: row.updated_by_device_mac ?? null,
+});
+
+const PENDING_SYNC_WHERE = "sync_status IN ('LOCAL_INSERT','LOCAL_UPDATE','LOCAL_DELETE')";
+
 export async function buildPushPayload(sqlite: any) {
-    const sucursalesRaw: any[] = await sqlite.select("SELECT * FROM sucursales WHERE sync_status != 'SYNCED'");
-    const dispositivosRaw: any[] = await sqlite.select("SELECT * FROM dispositivos WHERE sync_status != 'SYNCED'");
-    const usuariosRaw: any[] = await sqlite.select("SELECT * FROM usuarios WHERE sync_status != 'SYNCED'");
+    const sucursalesRaw: any[] = await sqlite.select(`SELECT * FROM sucursales WHERE ${PENDING_SYNC_WHERE}`);
+    const dispositivosRaw: any[] = await sqlite.select(`SELECT * FROM dispositivos WHERE ${PENDING_SYNC_WHERE}`);
+    const usuariosRaw: any[] = await sqlite.select(`SELECT * FROM usuarios WHERE ${PENDING_SYNC_WHERE}`);
 
-    const catTiposRaw: any[] = await sqlite.select("SELECT * FROM catalogo_tipos_tramite WHERE sync_status != 'SYNCED'");
-    const catSitRaw: any[] = await sqlite.select("SELECT * FROM catalogo_situaciones WHERE sync_status != 'SYNCED'");
-    const clientesRaw: any[] = await sqlite.select("SELECT * FROM clientes WHERE sync_status != 'SYNCED'");
-    const vehiculosRaw: any[] = await sqlite.select("SELECT * FROM vehiculos WHERE sync_status != 'SYNCED'");
+    const catTiposRaw: any[] = await sqlite.select(`SELECT * FROM catalogo_tipos_tramite WHERE ${PENDING_SYNC_WHERE}`);
+    const catSitRaw: any[] = await sqlite.select(`SELECT * FROM catalogo_situaciones WHERE ${PENDING_SYNC_WHERE}`);
+    const clientesRaw: any[] = await sqlite.select(`SELECT * FROM clientes WHERE ${PENDING_SYNC_WHERE}`);
+    const vehiculosRaw: any[] = await sqlite.select(`SELECT * FROM vehiculos WHERE ${PENDING_SYNC_WHERE}`);
 
-    const empresasRaw: any[] = await sqlite.select("SELECT * FROM empresas_gestoras WHERE sync_status != 'SYNCED'");
-    const representantesRaw: any[] = await sqlite.select("SELECT * FROM representantes_legales WHERE sync_status != 'SYNCED'");
+    const empresasRaw: any[] = await sqlite.select(`SELECT * FROM empresas_gestoras WHERE ${PENDING_SYNC_WHERE}`);
+    const representantesRaw: any[] = await sqlite.select(`SELECT * FROM representantes_legales WHERE ${PENDING_SYNC_WHERE}`);
 
-    const presentantesRaw: any[] = await sqlite.select("SELECT * FROM presentantes WHERE sync_status != 'SYNCED'");
-    const plantillasRaw: any[] = await sqlite.select("SELECT * FROM plantillas_documentos WHERE sync_status != 'SYNCED'");
-    const messageTemplatesRaw: any[] = await sqlite.select("SELECT * FROM message_templates WHERE sync_status != 'SYNCED'");
+    const presentantesRaw: any[] = await sqlite.select(`SELECT * FROM presentantes WHERE ${PENDING_SYNC_WHERE}`);
+    const plantillasRaw: any[] = await sqlite.select(`SELECT * FROM plantillas_documentos WHERE ${PENDING_SYNC_WHERE}`);
+    const messageTemplatesRaw: any[] = await sqlite.select(`SELECT * FROM message_templates WHERE ${PENDING_SYNC_WHERE}`);
 
-    const tramitesRaw: any[] = await sqlite.select("SELECT * FROM tramites WHERE sync_status != 'SYNCED'");
-    const tramDetallesRaw: any[] = await sqlite.select("SELECT * FROM tramite_detalles WHERE sync_status != 'SYNCED'");
+    const tramitesRaw: any[] = await sqlite.select(`SELECT * FROM tramites WHERE ${PENDING_SYNC_WHERE}`);
+    const tramDetallesRaw: any[] = await sqlite.select(`SELECT * FROM tramite_detalles WHERE ${PENDING_SYNC_WHERE}`);
 
-    const perfilesRaw: any[] = await sqlite.select("SELECT * FROM perfiles_gestor WHERE sync_status != 'SYNCED'");
+    const perfilesRaw: any[] = await sqlite.select(`SELECT * FROM perfiles_gestor WHERE ${PENDING_SYNC_WHERE}`);
 
     const conflictosRaw: any[] = await sqlite.select("SELECT * FROM sync_conflictos WHERE resuelto = 1");
 
@@ -84,6 +93,7 @@ export async function buildPushPayload(sqlite: any) {
             updatedAt: formatDateForNest(c.updated_at),
             deletedAt: formatDateForNest(c.deleted_at),
             syncStatus: c.sync_status,
+            ...versionFields(c),
         })),
         catalogoSituaciones: catSitRaw.map((c) => ({
             id: c.id,
@@ -124,6 +134,7 @@ export async function buildPushPayload(sqlite: any) {
             updatedAt: formatDateForNest(v.updated_at),
             deletedAt: formatDateForNest(v.deleted_at),
             syncStatus: v.sync_status,
+            ...versionFields(v),
         })),
         empresasGestoras: empresasRaw.map((e) => ({
             id: e.id,
@@ -210,6 +221,7 @@ export async function buildPushPayload(sqlite: any) {
             updatedAt: formatDateForNest(t.updated_at),
             deletedAt: formatDateForNest(t.deleted_at),
             syncStatus: t.sync_status,
+            ...versionFields(t),
         })),
         tramiteDetalles: tramDetallesRaw.map((td) => ({
             id: td.id,
@@ -232,6 +244,7 @@ export async function buildPushPayload(sqlite: any) {
             updatedAt: formatDateForNest(td.updated_at),
             deletedAt: formatDateForNest(td.deleted_at),
             syncStatus: td.sync_status,
+            ...versionFields(td),
         })),
         perfilesGestor: perfilesRaw.map((p) => ({
             id: p.id,
