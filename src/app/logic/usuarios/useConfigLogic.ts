@@ -1,8 +1,18 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { confirm } from "@tauri-apps/plugin-dialog";
 import Database from "@tauri-apps/plugin-sql";
 import * as bcrypt from "bcryptjs";
 import { sileo } from "sileo";
+import {
+  LocalSyncDiagnostics,
+  collectLocalSyncDiagnostics,
+  countPendingLocalChanges,
+  exportLocalSyncDiagnostics,
+  forceTramiteResync,
+} from "../sync/diagnostics";
+
+const API_URL = (import.meta as any).env.VITE_API_URL;
 
 export function useConfigLogic() {
   const [isLoading, setIsLoading] = useState(true);
@@ -30,6 +40,9 @@ export function useConfigLogic() {
   const [sucursalId, setSucursalId] = useState("");
   const [sucursalesList, setSucursalesList] = useState<any[]>([]);
   const [autoSync, setAutoSync] = useState(true);
+  const [syncDiagnostics, setSyncDiagnostics] = useState<LocalSyncDiagnostics | null>(null);
+  const [isLoadingDiagnostics, setIsLoadingDiagnostics] = useState(false);
+  const [isRepairingSync, setIsRepairingSync] = useState(false);
 
   // Cargar todos los datos al abrir la página
   useEffect(() => {
@@ -240,6 +253,90 @@ export function useConfigLogic() {
     }
   };
 
+  const handleRefreshSyncDiagnostics = async () => {
+    setIsLoadingDiagnostics(true);
+    try {
+      const sqlite = await Database.load("sqlite:valeska.db");
+      const diagnostics = await collectLocalSyncDiagnostics(sqlite);
+      setSyncDiagnostics(diagnostics);
+      return diagnostics;
+    } catch (error) {
+      console.error("Error al generar diagnostico local:", error);
+      sileo.error({
+        title: "Diagnostico no disponible",
+        description: "No se pudo leer la base local de sincronizacion.",
+      });
+      return null;
+    } finally {
+      setIsLoadingDiagnostics(false);
+    }
+  };
+
+  const handleExportSyncDiagnostics = async () => {
+    const diagnostics = syncDiagnostics || await handleRefreshSyncDiagnostics();
+    if (!diagnostics) return;
+
+    try {
+      const filePath = await exportLocalSyncDiagnostics(diagnostics);
+      if (filePath) {
+        sileo.success({
+          title: "Diagnostico exportado",
+          description: "Reporte local guardado correctamente.",
+        });
+      }
+    } catch (error) {
+      console.error("Error exportando diagnostico:", error);
+      sileo.error({
+        title: "No se pudo exportar",
+        description: "Intenta guardar el diagnostico en otra carpeta.",
+      });
+    }
+  };
+
+  const handleForceTramiteResync = async () => {
+    if (!userId) return;
+
+    const diagnostics = syncDiagnostics || await handleRefreshSyncDiagnostics();
+    if (!diagnostics) return;
+
+    const pendingChanges = countPendingLocalChanges(diagnostics);
+    if (pendingChanges > 0) {
+      sileo.warning({
+        title: "Reparacion bloqueada",
+        description: `Hay ${pendingChanges} cambios locales pendientes. Sincronizalos antes de reparar.`,
+      });
+      return;
+    }
+
+    const accepted = await confirm(
+      "Se creara un backup local, se borraran solo los cursores de sincronizacion y se descargaran nuevamente los datos relacionados a tramites. Continuar?",
+      { title: "Forzar resincronizacion de tramites", kind: "warning" },
+    );
+    if (!accepted) return;
+
+    setIsRepairingSync(true);
+    try {
+      const sqlite = await Database.load("sqlite:valeska.db");
+      await forceTramiteResync(sqlite, { apiUrl: API_URL }, userId);
+      const refreshed = await collectLocalSyncDiagnostics(sqlite);
+      setSyncDiagnostics(refreshed);
+      window.dispatchEvent(new Event("valeska_sync_completed"));
+      window.dispatchEvent(new Event("valeska_reload_tramites"));
+      sileo.success({
+        title: "Resincronizacion completada",
+        description: "Se reconstruyeron los datos locales relacionados a tramites.",
+      });
+    } catch (error: any) {
+      console.error("Error reparando sincronizacion:", error);
+      sileo.error({
+        title: "No se pudo reparar",
+        description: error?.message || "La resincronizacion fue interrumpida.",
+      });
+    } finally {
+      setIsRepairingSync(false);
+    }
+  };
+
   return {
     isLoading,
     isSavingProfile,
@@ -265,8 +362,14 @@ export function useConfigLogic() {
     sucursalesList,
     autoSync,
     setAutoSync,
+    syncDiagnostics,
+    isLoadingDiagnostics,
+    isRepairingSync,
     handleUpdateProfile,
     handleChangePassword,
     handleUpdateSystem,
+    handleRefreshSyncDiagnostics,
+    handleExportSyncDiagnostics,
+    handleForceTramiteResync,
   };
 }
