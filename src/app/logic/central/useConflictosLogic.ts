@@ -12,6 +12,114 @@ export interface Conflicto {
   fechaConflicto: number;
 }
 
+const TABLE_FIELD_MAP: Record<string, Record<string, string>> = {
+  clientes: {
+    tipoDocumento: "tipo_documento",
+    tipo_documento: "tipo_documento",
+    numeroDocumento: "numero_documento",
+    numero_documento: "numero_documento",
+    razonSocialNombres: "razon_social_nombres",
+    razon_social_nombres: "razon_social_nombres",
+    estadoCivil: "estado_civil",
+    estado_civil: "estado_civil",
+    domicilio: "domicilio",
+    telefono: "telefono",
+  },
+  vehiculos: {
+    chasisVin: "chasis_vin",
+    chasis_vin: "chasis_vin",
+    placa: "placa",
+    motor: "motor",
+    marca: "marca",
+    modelo: "modelo",
+    color: "color",
+    carroceria: "carroceria",
+    categoria: "categoria",
+    anioFabricacion: "anio_fabricacion",
+    anio_fabricacion: "anio_fabricacion",
+    anioModelo: "anio_modelo",
+    anio_modelo: "anio_modelo",
+  },
+  tramites: {
+    codigoVerificacion: "codigo_verificacion",
+    codigo_verificacion: "codigo_verificacion",
+    tramiteAnio: "tramite_anio",
+    tramite_anio: "tramite_anio",
+    clienteId: "cliente_id",
+    cliente_id: "cliente_id",
+    vehiculoId: "vehiculo_id",
+    vehiculo_id: "vehiculo_id",
+    tipoTramiteId: "tipo_tramite_id",
+    tipo_tramite_id: "tipo_tramite_id",
+    situacionId: "situacion_id",
+    situacion_id: "situacion_id",
+    nTitulo: "n_titulo",
+    n_titulo: "n_titulo",
+    nFormato: "n_formato",
+    n_formato: "n_formato",
+    fechaPresentacion: "fecha_presentacion",
+    fecha_presentacion: "fecha_presentacion",
+    observacionesGenerales: "observaciones_generales",
+    observaciones_generales: "observaciones_generales",
+    tarjetaEnOficina: "tarjeta_en_oficina",
+    tarjeta_en_oficina: "tarjeta_en_oficina",
+    fechaTarjetaEnOficina: "fecha_tarjeta_en_oficina",
+    fecha_tarjeta_en_oficina: "fecha_tarjeta_en_oficina",
+    placaEnOficina: "placa_en_oficina",
+    placa_en_oficina: "placa_en_oficina",
+    fechaPlacaEnOficina: "fecha_placa_en_oficina",
+    fecha_placa_en_oficina: "fecha_placa_en_oficina",
+    entregoTarjeta: "entrego_tarjeta",
+    entrego_tarjeta: "entrego_tarjeta",
+    fechaEntregaTarjeta: "fecha_entrega_tarjeta",
+    fecha_entrega_tarjeta: "fecha_entrega_tarjeta",
+    metodoEntregaTarjeta: "metodo_entrega_tarjeta",
+    metodo_entrega_tarjeta: "metodo_entrega_tarjeta",
+    entregoPlaca: "entrego_placa",
+    entrego_placa: "entrego_placa",
+    fechaEntregaPlaca: "fecha_entrega_placa",
+    fecha_entrega_placa: "fecha_entrega_placa",
+    metodoEntregaPlaca: "metodo_entrega_placa",
+    metodo_entrega_placa: "metodo_entrega_placa",
+    observacionPlaca: "observacion_placa",
+    observacion_placa: "observacion_placa",
+  },
+  tramite_detalles: {
+    tramiteId: "tramite_id",
+    tramite_id: "tramite_id",
+    empresaGestoraId: "empresa_gestora_id",
+    empresa_gestora_id: "empresa_gestora_id",
+    representanteLegalId: "representante_legal_id",
+    representante_legal_id: "representante_legal_id",
+    presentanteId: "presentante_id",
+    presentante_id: "presentante_id",
+    tipoBoleta: "tipo_boleta",
+    tipo_boleta: "tipo_boleta",
+    numeroBoleta: "numero_boleta",
+    numero_boleta: "numero_boleta",
+    fechaBoleta: "fecha_boleta",
+    fecha_boleta: "fecha_boleta",
+    dua: "dua",
+    numFormatoInmatriculacion: "num_formato_inmatriculacion",
+    num_formato_inmatriculacion: "num_formato_inmatriculacion",
+    numeroReciboTramite: "numero_recibo_tramite",
+    numero_recibo_tramite: "numero_recibo_tramite",
+    clausulaMonto: "clausula_monto",
+    clausula_monto: "clausula_monto",
+    clausulaFormaPago: "clausula_forma_pago",
+    clausula_forma_pago: "clausula_forma_pago",
+    clausulaPagoBancarizado: "clausula_pago_bancarizado",
+    clausula_pago_bancarizado: "clausula_pago_bancarizado",
+    aclaracionDice: "aclaracion_dice",
+    aclaracion_dice: "aclaracion_dice",
+    aclaracionDebeDecir: "aclaracion_debe_decir",
+    aclaracion_debe_decir: "aclaracion_debe_decir",
+  },
+};
+
+const getVersion = (value: Record<string, any>) =>
+  Number(value.version ?? value.baseVersion ?? value.base_version ?? 1);
+
 export function useConflictosLogic() {
   const [conflictos, setConflictos] = useState<Conflicto[]>([]);
   const [conflictCount, setConflictCount] = useState(0);
@@ -29,7 +137,6 @@ export function useConflictosLogic() {
     }
   }, []);
 
-  // 2. OBTENER LISTA DE CONFLICTOS (Para ConflictListPage)
   const loadConflictos = useCallback(async () => {
     setIsLoading(true);
     try {
@@ -38,7 +145,7 @@ export function useConflictosLogic() {
         "SELECT * FROM sync_conflictos WHERE resuelto = 0 ORDER BY fecha_conflicto DESC",
       );
 
-      const mapeados: Conflicto[] = res.map((row) => ({
+      setConflictos(res.map((row) => ({
         id: row.id,
         tablaAfectada: row.tabla_afectada,
         registroId: row.registro_id,
@@ -46,9 +153,7 @@ export function useConflictosLogic() {
         datosLocales: JSON.parse(row.datos_locales || "{}"),
         datosRemotos: JSON.parse(row.datos_remotos || "{}"),
         fechaConflicto: row.fecha_conflicto,
-      }));
-
-      setConflictos(mapeados);
+      })));
     } catch (error) {
       console.error("Error cargando conflictos:", error);
       sileo.error({ title: "Error al cargar la lista de conflictos" });
@@ -57,7 +162,6 @@ export function useConflictosLogic() {
     }
   }, []);
 
-  // 3. OBTENER UN CONFLICTO ESPECÍFICO (Para ResolveConflictPage)
   const getConflictoById = async (id: string): Promise<Conflicto | null> => {
     try {
       const sqlite = await Database.load("sqlite:valeska.db");
@@ -84,7 +188,6 @@ export function useConflictosLogic() {
     }
   };
 
-  // 4. RESOLVER CONFLICTO DINÁMICAMENTE
   const resolveConflicto = async (
     conflictoId: string,
     tablaAfectada: string,
@@ -93,34 +196,50 @@ export function useConflictosLogic() {
   ) => {
     const promise = async () => {
       const sqlite = await Database.load("sqlite:valeska.db");
-      const now = Date.now();
-
-      // Construir la consulta UPDATE dinámicamente basándonos en los campos resueltos
-      // Excluimos campos de control de la actualización de datos crudos
-      const keysToUpdate = Object.keys(resolvedData).filter(
-        (k) =>
-          ![
-            "id",
-            "created_at",
-            "updated_at",
-            "deleted_at",
-            "sync_status",
-          ].includes(k),
-      );
-
-      if (keysToUpdate.length > 0) {
-        const setClauses = keysToUpdate
-          .map((key, index) => `${key} = $${index + 1}`)
-          .join(", ");
-        const values = keysToUpdate.map((key) => resolvedData[key]);
-
-        // Añadimos los campos de sincronización obligatorios al final
-        const finalQuery = `UPDATE ${tablaAfectada} SET ${setClauses}, updated_at = $${values.length + 1}, sync_status = 'LOCAL_UPDATE' WHERE id = $${values.length + 2}`;
-
-        await sqlite.execute(finalQuery, [...values, now, registroId]);
+      const fieldMap = TABLE_FIELD_MAP[tablaAfectada];
+      if (!fieldMap) {
+        throw new Error(`Tabla de conflicto no permitida: ${tablaAfectada}`);
       }
 
-      // Marcar el conflicto como resuelto
+      const now = Date.now();
+      const conflictRows: any[] = await sqlite.select(
+        "SELECT datos_remotos FROM sync_conflictos WHERE id = $1 LIMIT 1",
+        [conflictoId],
+      );
+      const remoteData = JSON.parse(conflictRows[0]?.datos_remotos || "{}");
+      const remoteVersion = getVersion(remoteData);
+      const entriesToUpdate = Object.entries(resolvedData)
+        .map(([key, value]) => ({ column: fieldMap[key], key, value }))
+        .filter((entry): entry is { column: string; key: string; value: any } =>
+          Boolean(entry.column),
+        );
+
+      if (entriesToUpdate.length > 0) {
+        const useRemoteAsSynced = entriesToUpdate.every(({ column, key, value }) => {
+          const remoteValue = remoteData[key] ?? remoteData[column];
+          return JSON.stringify(value) === JSON.stringify(remoteValue);
+        });
+        const setClauses = entriesToUpdate
+          .map((entry, index) => `${entry.column} = $${index + 1}`)
+          .join(", ");
+        const values = entriesToUpdate.map((entry) => entry.value);
+        const finalQuery = `UPDATE ${tablaAfectada}
+          SET ${setClauses},
+              updated_at = $${values.length + 1},
+              sync_status = $${values.length + 2},
+              base_version = $${values.length + 3},
+              version = CASE WHEN $${values.length + 2} = 'SYNCED' THEN $${values.length + 3} ELSE version END
+          WHERE id = $${values.length + 4}`;
+
+        await sqlite.execute(finalQuery, [
+          ...values,
+          now,
+          useRemoteAsSynced ? "SYNCED" : "LOCAL_UPDATE",
+          remoteVersion,
+          registroId,
+        ]);
+      }
+
       await sqlite.execute(
         "UPDATE sync_conflictos SET resuelto = 1, datos_locales = $1, fecha_conflicto = $2 WHERE id = $3",
         [JSON.stringify(resolvedData), now, conflictoId],
