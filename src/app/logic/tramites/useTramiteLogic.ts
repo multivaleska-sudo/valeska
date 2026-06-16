@@ -452,6 +452,21 @@ export function useTramiteLogic(initialData?: Partial<TramiteFormData>) {
     try {
       const sqlite = await Database.load("sqlite:valeska.db");
 
+      if (formData.id) {
+        const conflictRows: any[] = await sqlite.select(
+          "SELECT sync_status FROM tramites WHERE id = $1 LIMIT 1",
+          [formData.id],
+        );
+        if (conflictRows[0]?.sync_status === "CONFLICT") {
+          sileo.error({
+            title: "Tramite en conflicto",
+            description: "Este registro debe resolverse desde Gestion de Conflictos antes de editarlo.",
+          });
+          setIsSaving(false);
+          return null;
+        }
+      }
+
       const chasisToCheck = (formData.vehiculo_chasis || "")
         .trim()
         .toUpperCase();
