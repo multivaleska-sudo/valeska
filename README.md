@@ -2,7 +2,7 @@
 
 Aplicacion de escritorio para la gestion operativa, documental y sincronizada de tramites vehiculares. Esta construida con React, TypeScript, Tauri 2, SQLite local y Drizzle ORM bajo una arquitectura offline-first: la oficina puede trabajar localmente y sincronizar con el backend central cuando exista conexion.
 
-Version actual del frontend: `3.0.2`.
+Version actual del frontend: `5.3.0`.
 
 ## Resumen
 
