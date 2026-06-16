@@ -13,6 +13,12 @@ import {
   X,
   Trash2,
   ScanBarcode,
+  RefreshCw,
+  User,
+  Calendar,
+  CalendarDays,
+  Clock,
+  ChevronDown,
 } from "lucide-react";
 import { useTramitesListLogic } from "../../logic/tramites/useTramitesListLogic";
 import { useBarcodeScanner } from "../../logic/tramites/useBarcodeScanner";
@@ -93,38 +99,107 @@ export function TramitesListPage() {
         </div>
 
         <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-          <div className="flex items-center gap-2 mb-4 text-gray-800">
-            <Filter size={18} className="text-blue-600" />
-            <h2 className="text-sm font-bold uppercase tracking-wider">
-              Filtros de Búsqueda
-            </h2>
+          {/* AGENTE: Se rediseña la cabecera de filtros y botones de limpieza/búsqueda según el mock provisto */}
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-2 text-gray-800">
+              <Filter size={18} className="text-blue-600" />
+              <h2 className="text-sm font-bold uppercase tracking-wider">
+                Filtros de Búsqueda
+              </h2>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  filtros.setSearchBusquedaRapida("");
+                  filtros.setSearchCliente("");
+                  filtros.setSearchTitulo("");
+                  filtros.setSearchDNI("");
+                  filtros.setSearchPlaca("");
+                  filtros.setSearchMotor("");
+                  filtros.setSearchChasis("");
+                  filtros.setSearchVin("");
+                  filtros.setFilterSituacion("");
+                  filtros.setFilterEmpresa("");
+                  filtros.setInputEmpresa("");
+                  filtros.setFechaInicio("");
+                  filtros.setFechaFin("");
+                }}
+                className="text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-colors border border-blue-100"
+              >
+                <RefreshCw size={16} /> Limpiar filtros
+              </button>
+              <button className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-colors shadow-sm">
+                <Search size={16} /> Buscar
+              </button>
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
-            <div className="flex flex-col">
+          {/* AGENTE: Nueva sección superior con Búsqueda Rápida y Búsquedas Frecuentes */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-6">
+            <div className="lg:col-span-5 flex flex-col">
               <label className="text-xs font-semibold text-gray-600 mb-1.5 uppercase">
-                Fecha Inicial
+                Búsqueda Rápida
               </label>
-              <input
-                type="date"
-                value={filtros.fechaInicio}
-                onChange={(e) => filtros.setFechaInicio(e.target.value)}
-                className="h-10 px-3 rounded-lg border border-gray-200 text-sm focus:ring-4 focus:ring-blue-500/10 outline-none transition-all"
-              />
+              <div className="relative">
+                <input
+                  type="text"
+                  value={filtros.searchBusquedaRapida}
+                  onChange={(e) => filtros.setSearchBusquedaRapida(e.target.value)}
+                  placeholder="Buscar por nombre, apellido, placa, título, RUC, motor, chasis, VIN..."
+                  className="h-10 w-full pl-9 pr-3 rounded-lg border border-gray-200 text-sm focus:ring-4 focus:ring-blue-500/10 outline-none"
+                />
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              </div>
             </div>
-
-            <div className="flex flex-col">
+            <div className="lg:col-span-7 flex flex-col">
               <label className="text-xs font-semibold text-gray-600 mb-1.5 uppercase">
-                Fecha Final
+                Búsquedas Frecuentes
               </label>
-              <input
-                type="date"
-                value={filtros.fechaFin}
-                onChange={(e) => filtros.setFechaFin(e.target.value)}
-                className="h-10 px-3 rounded-lg border border-gray-200 text-sm focus:ring-4 focus:ring-blue-500/10 outline-none transition-all"
-              />
+              <div className="flex flex-wrap gap-2">
+                <button 
+                  onClick={() => {
+                    const today = new Date().toISOString().split('T')[0];
+                    filtros.setFechaInicio(today);
+                    filtros.setFechaFin(today);
+                  }}
+                  className="h-10 px-4 bg-gray-50 border border-gray-200 rounded-lg text-sm font-semibold text-gray-700 hover:bg-gray-100 transition-colors flex items-center gap-2"
+                >
+                  <User size={14} /> Hoy
+                </button>
+                <button 
+                  onClick={() => {
+                    const today = new Date();
+                    const firstDay = new Date(today.setDate(today.getDate() - today.getDay()));
+                    const lastDay = new Date(today.setDate(today.getDate() - today.getDay() + 6));
+                    filtros.setFechaInicio(firstDay.toISOString().split('T')[0]);
+                    filtros.setFechaFin(lastDay.toISOString().split('T')[0]);
+                  }}
+                  className="h-10 px-4 bg-gray-50 border border-gray-200 rounded-lg text-sm font-semibold text-gray-700 hover:bg-gray-100 transition-colors flex items-center gap-2"
+                >
+                  <Calendar size={14} /> Esta semana
+                </button>
+                <button 
+                  onClick={() => {
+                    const date = new Date();
+                    const firstDay = new Date(date.getFullYear(), date.getMonth(), 1);
+                    const lastDay = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+                    filtros.setFechaInicio(firstDay.toISOString().split('T')[0]);
+                    filtros.setFechaFin(lastDay.toISOString().split('T')[0]);
+                  }}
+                  className="h-10 px-4 bg-gray-50 border border-gray-200 rounded-lg text-sm font-semibold text-gray-700 hover:bg-gray-100 transition-colors flex items-center gap-2"
+                >
+                  <CalendarDays size={14} /> Este mes
+                </button>
+                <button className="h-10 px-4 bg-gray-50 border border-gray-200 rounded-lg text-sm font-semibold text-gray-700 hover:bg-gray-100 transition-colors flex items-center gap-2">
+                  <Clock size={14} /> Trámites recientes
+                </button>
+              </div>
             </div>
+          </div>
 
+          {/* AGENTE: Rejilla de filtros individuales, reordenada y expandida */}
+          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-x-4 gap-y-5">
+            {/* FILA 1 */}
             <div className="flex flex-col lg:col-span-2">
               <label className="text-xs font-semibold text-gray-600 mb-1.5 uppercase">
                 Nombre / Apellido Cliente
@@ -133,24 +208,10 @@ export function TramitesListPage() {
                 type="text"
                 value={filtros.searchCliente}
                 onChange={(e) => filtros.setSearchCliente(e.target.value)}
-                placeholder="Ej. Juan Perez..."
+                placeholder="Ej. JUAN PEREZ..."
                 className="h-10 px-3 rounded-lg border border-gray-200 text-sm focus:ring-4 focus:ring-blue-500/10 outline-none uppercase font-bold"
               />
             </div>
-
-            <div className="flex flex-col">
-              <label className="text-xs font-semibold text-gray-600 mb-1.5 uppercase">
-                N° de Título
-              </label>
-              <input
-                type="text"
-                value={filtros.searchTitulo}
-                onChange={(e) => filtros.setSearchTitulo(e.target.value)}
-                placeholder="Ej. 2026..."
-                className="h-10 px-3 rounded-lg border border-gray-200 text-sm focus:ring-4 focus:ring-blue-500/10 outline-none uppercase font-bold"
-              />
-            </div>
-
             <div className="flex flex-col">
               <label className="text-xs font-semibold text-gray-600 mb-1.5 uppercase">
                 DNI / RUC
@@ -163,8 +224,57 @@ export function TramitesListPage() {
                 className="h-10 px-3 rounded-lg border border-gray-200 text-sm focus:ring-4 focus:ring-blue-500/10 outline-none"
               />
             </div>
-
-            <div className="flex flex-col lg:col-span-2">
+            <div className="flex flex-col">
+              <label className="text-xs font-semibold text-gray-600 mb-1.5 uppercase">
+                N° de Título
+              </label>
+              <input
+                type="text"
+                value={filtros.searchTitulo}
+                onChange={(e) => filtros.setSearchTitulo(e.target.value)}
+                placeholder="Ej. 2026..."
+                className="h-10 px-3 rounded-lg border border-gray-200 text-sm focus:ring-4 focus:ring-blue-500/10 outline-none uppercase font-bold"
+              />
+            </div>
+            <div className="flex flex-col">
+              <label className="text-xs font-semibold text-gray-600 mb-1.5 uppercase">
+                Motor (N°)
+              </label>
+              <input
+                type="text"
+                value={filtros.searchMotor}
+                onChange={(e) => filtros.setSearchMotor(e.target.value)}
+                placeholder="Ej. 2026..."
+                className="h-10 px-3 rounded-lg border border-gray-200 text-sm focus:ring-4 focus:ring-blue-500/10 outline-none uppercase font-bold"
+              />
+            </div>
+            <div className="flex flex-col">
+              <label className="text-xs font-semibold text-gray-600 mb-1.5 uppercase">
+                Chasis (N°)
+              </label>
+              <input
+                type="text"
+                value={filtros.searchChasis}
+                onChange={(e) => filtros.setSearchChasis(e.target.value)}
+                placeholder="Ej. 2026..."
+                className="h-10 px-3 rounded-lg border border-gray-200 text-sm focus:ring-4 focus:ring-blue-500/10 outline-none uppercase font-bold"
+              />
+            </div>
+            
+            {/* FILA 2 */}
+            <div className="flex flex-col lg:col-span-1">
+              <label className="text-xs font-semibold text-gray-600 mb-1.5 uppercase">
+                VIN
+              </label>
+              <input
+                type="text"
+                value={filtros.searchVin}
+                onChange={(e) => filtros.setSearchVin(e.target.value)}
+                placeholder="Ej. 2026..."
+                className="h-10 px-3 rounded-lg border border-gray-200 text-sm focus:ring-4 focus:ring-blue-500/10 outline-none uppercase font-bold"
+              />
+            </div>
+            <div className="flex flex-col lg:col-span-1">
               <label className="text-xs font-semibold text-gray-600 mb-1.5 uppercase">
                 N° Placa
               </label>
@@ -176,11 +286,7 @@ export function TramitesListPage() {
                 className="h-10 px-3 rounded-lg border border-gray-200 text-sm focus:ring-4 focus:ring-blue-500/10 outline-none uppercase font-bold"
               />
             </div>
-
-            <div
-              ref={filtros.dropdownRef}
-              className="flex flex-col lg:col-span-2 relative"
-            >
+            <div ref={filtros.dropdownRef} className="flex flex-col lg:col-span-2 relative">
               <label className="text-xs font-semibold text-gray-600 mb-1.5 uppercase flex justify-between">
                 <span>Empresa Gestora</span>
                 {filtros.filterEmpresa && (
@@ -189,7 +295,7 @@ export function TramitesListPage() {
                       filtros.setFilterEmpresa("");
                       filtros.setInputEmpresa("");
                     }}
-                    className="text-red-500"
+                    className="text-red-500 hover:bg-red-50 rounded"
                   >
                     <X size={12} />
                   </button>
@@ -207,31 +313,26 @@ export function TramitesListPage() {
                   }}
                   className={`h-10 w-full pl-9 pr-3 rounded-lg border text-sm outline-none transition-all uppercase font-bold ${filtros.filterEmpresa ? "border-emerald-500 bg-emerald-50" : "border-gray-200 focus:border-blue-500"}`}
                 />
-                <Building2
-                  size={14}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                />
-                {filtros.showEmpresaResults &&
-                  filtros.empresasSugeridas.length > 0 && (
-                    <div className="absolute top-full left-0 w-full bg-white border border-gray-200 rounded-lg shadow-xl z-50 max-h-48 overflow-y-auto mt-1">
-                      {filtros.empresasSugeridas.map((emp, i) => (
-                        <div
-                          key={i}
-                          className="p-2 hover:bg-blue-50 cursor-pointer text-xs font-bold uppercase"
-                          onClick={() => {
-                            filtros.setFilterEmpresa(emp);
-                            filtros.setInputEmpresa(emp);
-                            filtros.setShowEmpresaResults(false);
-                          }}
-                        >
-                          {emp}
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                <Building2 size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                {filtros.showEmpresaResults && filtros.empresasSugeridas.length > 0 && (
+                  <div className="absolute top-full left-0 w-full bg-white border border-gray-200 rounded-lg shadow-xl z-50 max-h-48 overflow-y-auto mt-1">
+                    {filtros.empresasSugeridas.map((emp, i) => (
+                      <div
+                        key={i}
+                        className="p-2 hover:bg-blue-50 cursor-pointer text-xs font-bold uppercase"
+                        onClick={() => {
+                          filtros.setFilterEmpresa(emp);
+                          filtros.setInputEmpresa(emp);
+                          filtros.setShowEmpresaResults(false);
+                        }}
+                      >
+                        {emp}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
-
             <div className="flex flex-col lg:col-span-2">
               <label className="text-xs font-semibold text-gray-600 mb-1.5 uppercase">
                 Situación
@@ -249,6 +350,35 @@ export function TramitesListPage() {
                 ))}
               </select>
             </div>
+
+            {/* FILA 3 */}
+            <div className="flex flex-col lg:col-span-1">
+              <label className="text-xs font-semibold text-gray-600 mb-1.5 uppercase">
+                Fecha Inicial
+              </label>
+              <input
+                type="date"
+                value={filtros.fechaInicio}
+                onChange={(e) => filtros.setFechaInicio(e.target.value)}
+                className="h-10 px-3 rounded-lg border border-gray-200 text-sm focus:ring-4 focus:ring-blue-500/10 outline-none transition-all"
+              />
+            </div>
+            <div className="flex flex-col lg:col-span-1">
+              <label className="text-xs font-semibold text-gray-600 mb-1.5 uppercase">
+                Fecha Final
+              </label>
+              <input
+                type="date"
+                value={filtros.fechaFin}
+                onChange={(e) => filtros.setFechaFin(e.target.value)}
+                className="h-10 px-3 rounded-lg border border-gray-200 text-sm focus:ring-4 focus:ring-blue-500/10 outline-none transition-all"
+              />
+            </div>
+          </div>
+
+          {/* AGENTE: Botón expandible de Búsqueda avanzada visual */}
+          <div className="mt-5 border-t border-gray-100 pt-4 flex items-center gap-2 cursor-pointer text-gray-600 hover:text-blue-600 transition-colors font-medium text-sm">
+            <ChevronDown size={16} /> Búsqueda avanzada
           </div>
         </div>
 

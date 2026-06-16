@@ -36,6 +36,10 @@ export function EmpresaListPage() {
   );
   const [search, setSearch] = useState("");
 
+  const sessionRaw = localStorage.getItem("valeska_session_user");
+  const sessionUser = sessionRaw ? JSON.parse(sessionRaw) : null;
+  const isReadOnly = sessionUser?.rol !== "ADMIN_CENTRAL";
+
   const filteredRepresentantes = useMemo(() => {
     return representantes.filter((r) => {
       const term = search.toLowerCase();
@@ -264,6 +268,7 @@ export function EmpresaListPage() {
                     label="R.U.C. (Opcional)"
                     value={formRepresentante.ruc}
                     mono={true}
+                    readOnly={isReadOnly}
                     onChange={(val) => {
                       const newRuc = val.replace(/\D/g, "").slice(0, 11);
                       setFormRepresentante({
@@ -277,20 +282,11 @@ export function EmpresaListPage() {
                   <CopiableField
                     label="Razón Social (*)"
                     value={formRepresentante.razon_social}
+                    readOnly={isReadOnly}
                     onChange={(val) =>
                       setFormRepresentante({
                         ...formRepresentante,
                         razon_social: val,
-                      })
-                    }
-                  />
-                  <CopiableField
-                    label="Dirección Fiscal"
-                    value={formRepresentante.direccion}
-                    onChange={(val) =>
-                      setFormRepresentante({
-                        ...formRepresentante,
-                        direccion: val,
                       })
                     }
                   />
@@ -302,53 +298,9 @@ export function EmpresaListPage() {
                     2. Datos del Representante Legal (Opcional)
                   </h4>
                   <CopiableField
-                    label="D.N.I."
-                    value={formRepresentante.dni}
-                    mono={true}
-                    onChange={(val) =>
-                      setFormRepresentante({
-                        ...formRepresentante,
-                        dni: val.replace(/\D/g, "").slice(0, 8),
-                      })
-                    }
-                  />
-
-                  <CopiableField
-                    label="Primer Apellido"
-                    value={formRepresentante.primer_apellido}
-                    onChange={(val) =>
-                      setFormRepresentante({
-                        ...formRepresentante,
-                        primer_apellido: val,
-                      })
-                    }
-                  />
-                  <CopiableField
-                    label="Segundo Apellido"
-                    value={formRepresentante.segundo_apellido}
-                    onChange={(val) =>
-                      setFormRepresentante({
-                        ...formRepresentante,
-                        segundo_apellido: val,
-                      })
-                    }
-                  />
-                  <CopiableField
-                    label="Nombres"
-                    value={formRepresentante.nombres}
-                    onChange={(val) =>
-                      setFormRepresentante({
-                        ...formRepresentante,
-                        nombres: val,
-                      })
-                    }
-                  />
-
-                  <div className="h-px bg-emerald-200/50 my-4" />
-
-                  <CopiableField
                     label="Partida Registral"
                     value={formRepresentante.partida_registral}
+                    readOnly={isReadOnly}
                     onChange={(val) =>
                       setFormRepresentante({
                         ...formRepresentante,
@@ -359,6 +311,7 @@ export function EmpresaListPage() {
                   <CopiableField
                     label="Oficina Registral"
                     value={formRepresentante.oficina_registral}
+                    readOnly={isReadOnly}
                     onChange={(val) =>
                       setFormRepresentante({
                         ...formRepresentante,
@@ -369,10 +322,59 @@ export function EmpresaListPage() {
                   <CopiableField
                     label="Domicilio"
                     value={formRepresentante.domicilio}
+                    readOnly={isReadOnly}
                     onChange={(val) =>
                       setFormRepresentante({
                         ...formRepresentante,
                         domicilio: val,
+                      })
+                    }
+                  />
+                  
+                  <div className="h-px bg-emerald-200/50 my-4" />
+
+                  <CopiableField
+                    label="D.N.I."
+                    value={formRepresentante.dni}
+                    mono={true}
+                    readOnly={isReadOnly}
+                    onChange={(val) =>
+                      setFormRepresentante({
+                        ...formRepresentante,
+                        dni: val.replace(/\D/g, "").slice(0, 8),
+                      })
+                    }
+                  />
+                  <CopiableField
+                    label="Primer Apellido"
+                    value={formRepresentante.primer_apellido}
+                    readOnly={isReadOnly}
+                    onChange={(val) =>
+                      setFormRepresentante({
+                        ...formRepresentante,
+                        primer_apellido: val,
+                      })
+                    }
+                  />
+                  <CopiableField
+                    label="Segundo Apellido"
+                    value={formRepresentante.segundo_apellido}
+                    readOnly={isReadOnly}
+                    onChange={(val) =>
+                      setFormRepresentante({
+                        ...formRepresentante,
+                        segundo_apellido: val,
+                      })
+                    }
+                  />
+                  <CopiableField
+                    label="Nombres"
+                    value={formRepresentante.nombres}
+                    readOnly={isReadOnly}
+                    onChange={(val) =>
+                      setFormRepresentante({
+                        ...formRepresentante,
+                        nombres: val,
                       })
                     }
                   />
@@ -387,6 +389,7 @@ export function EmpresaListPage() {
                   label="D.N.I."
                   value={formPresentante.dni || ""}
                   mono={true}
+                  readOnly={isReadOnly}
                   onChange={(val) =>
                     setFormPresentante({
                       ...formPresentante,
@@ -397,6 +400,7 @@ export function EmpresaListPage() {
                 <CopiableField
                   label="PRIMER APELLIDO"
                   value={formPresentante.primer_apellido || ""}
+                  readOnly={isReadOnly}
                   onChange={(val) =>
                     setFormPresentante({
                       ...formPresentante,
@@ -407,6 +411,7 @@ export function EmpresaListPage() {
                 <CopiableField
                   label="SEGUNDO APELLIDO"
                   value={formPresentante.segundo_apellido || ""}
+                  readOnly={isReadOnly}
                   onChange={(val) =>
                     setFormPresentante({
                       ...formPresentante,
@@ -417,6 +422,7 @@ export function EmpresaListPage() {
                 <CopiableField
                   label="NOMBRES"
                   value={formPresentante.nombres || ""}
+                  readOnly={isReadOnly}
                   onChange={(val) =>
                     setFormPresentante({
                       ...formPresentante,
@@ -431,7 +437,7 @@ export function EmpresaListPage() {
           {/* BOTONERA INFERIOR UNIFICADA CON OPCIONES SEPARADAS PARA ELIMINAR */}
           <div className="p-5 bg-white border-t border-gray-200 flex flex-wrap items-center justify-center sm:justify-end gap-3 shrink-0">
             {/* BOTÓN PARA ELIMINAR EMPRESA ENTERA */}
-            {activeTab === "representantes" && formRepresentante.empresa_id && (
+            {activeTab === "representantes" && formRepresentante.empresa_id && !isReadOnly && (
               <button
                 onClick={() =>
                   deleteRecord(
@@ -451,7 +457,7 @@ export function EmpresaListPage() {
             {activeTab === "representantes" &&
               formRepresentante.id &&
               !formRepresentante.id.includes("empty") &&
-              !formRepresentante.id.includes("legacy") && (
+              !formRepresentante.id.includes("legacy") && !isReadOnly && (
                 <button
                   onClick={() =>
                     deleteRecord("representantes_legales", formRepresentante.id)
@@ -465,7 +471,7 @@ export function EmpresaListPage() {
               )}
 
             {/* BOTÓN PARA ELIMINAR PRESENTANTES */}
-            {activeTab === "presentantes" && formPresentante.id && (
+            {activeTab === "presentantes" && formPresentante.id && !isReadOnly && (
               <button
                 onClick={() => deleteRecord("presentantes", formPresentante.id)}
                 disabled={isSaving}
@@ -487,23 +493,24 @@ export function EmpresaListPage() {
               <X size={16} /> CANCELAR
             </button>
 
-            <button
-              onClick={() => {
-                if (activeTab === "representantes") saveRepresentante();
-                else savePresentante();
-              }}
-              disabled={isSaving}
-              className="bg-[#2E7D32] hover:bg-[#166534] text-white px-8 py-2.5 rounded-xl font-black text-xs uppercase tracking-widest transition-all shadow-md flex items-center justify-center gap-2 flex-1 sm:flex-none w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isSaving ? (
-                "GUARDANDO..."
-              ) : (
-                <>
-                  <Save size={16} /> GRABAR{" "}
-                  {activeTab === "representantes" ? "REGISTRO" : "PRESENTANTE"}
-                </>
-              )}
-            </button>
+            {!isReadOnly && (
+              <button
+                onClick={() => {
+                  if (activeTab === "representantes") saveRepresentante();
+                  else savePresentante();
+                }}
+                disabled={isSaving}
+                className="bg-[#2E7D32] hover:bg-[#166534] text-white px-8 py-2.5 rounded-xl font-black text-xs uppercase tracking-widest transition-all shadow-md flex items-center justify-center gap-2 flex-1 sm:flex-none w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isSaving ? (
+                  "GUARDANDO..."
+                ) : (
+                  <>
+                    <Save size={16} /> GUARDAR FICHA
+                  </>
+                )}
+              </button>
+            )}
           </div>
         </div>
       </div>

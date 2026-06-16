@@ -16,6 +16,8 @@ export interface TramiteRow {
   fecha_presentacion: string;
   empresa_gestiona: string;
   creador: string;
+  motor: string;
+  chasis_vin: string;
   timestamp: number;
 }
 
@@ -30,6 +32,10 @@ export function useTramitesListLogic() {
   const [searchTitulo, setSearchTitulo] = useState("");
   const [searchDNI, setSearchDNI] = useState("");
   const [searchPlaca, setSearchPlaca] = useState("");
+  const [searchBusquedaRapida, setSearchBusquedaRapida] = useState("");
+  const [searchMotor, setSearchMotor] = useState("");
+  const [searchChasis, setSearchChasis] = useState("");
+  const [searchVin, setSearchVin] = useState("");
   const [filterSituacion, setFilterSituacion] = useState("");
   const [fechaInicio, setFechaInicio] = useState("");
   const [fechaFin, setFechaFin] = useState("");
@@ -84,6 +90,8 @@ export function useTramitesListLogic() {
                     c.razon_social_nombres AS cliente,
                     c.numero_documento AS dni,
                     v.placa AS placa,
+                    v.motor AS motor,
+                    v.chasis_vin AS chasis_vin,
                     ctt.nombre AS tramite,
                     cs.nombre AS situacion,
                     t.fecha_presentacion,
@@ -115,6 +123,8 @@ export function useTramitesListLogic() {
         fecha_presentacion: row.fecha_presentacion || "",
         empresa_gestiona: row.empresa_gestiona || "--",
         creador: row.creador || "Desconocido",
+        motor: row.motor || "",
+        chasis_vin: row.chasis_vin || "",
         timestamp: row.updated_at || row.created_at || 0,
       }));
 
@@ -208,6 +218,19 @@ export function useTramitesListLogic() {
 
   const filteredTramites = useMemo(() => {
     return rawData.filter((tramite) => {
+      // Búsqueda Rápida (evalúa múltiples campos)
+      let matchRapida = true;
+      if (searchBusquedaRapida) {
+        const rapidaLower = searchBusquedaRapida.toLowerCase();
+        matchRapida = 
+          tramite.cliente.toLowerCase().includes(rapidaLower) ||
+          tramite.n_titulo.toLowerCase().includes(rapidaLower) ||
+          tramite.dni.toLowerCase().includes(rapidaLower) ||
+          tramite.placa.toLowerCase().includes(rapidaLower) ||
+          tramite.motor.toLowerCase().includes(rapidaLower) ||
+          tramite.chasis_vin.toLowerCase().includes(rapidaLower);
+      }
+
       const matchCliente = tramite.cliente
         .toLowerCase()
         .includes(searchCliente.toLowerCase());
@@ -218,6 +241,15 @@ export function useTramitesListLogic() {
       const matchPlaca = tramite.placa
         .toLowerCase()
         .includes(searchPlaca.toLowerCase());
+      const matchMotor = tramite.motor
+        .toLowerCase()
+        .includes(searchMotor.toLowerCase());
+      const matchChasis = tramite.chasis_vin
+        .toLowerCase()
+        .includes(searchChasis.toLowerCase());
+      const matchVin = tramite.chasis_vin
+        .toLowerCase()
+        .includes(searchVin.toLowerCase());
       const matchSituacion = filterSituacion
         ? tramite.situacion === filterSituacion
         : true;
@@ -232,10 +264,14 @@ export function useTramitesListLogic() {
         matchFecha = matchFecha && tramite.fecha_presentacion <= fechaFin;
 
       return (
+        matchRapida &&
         matchCliente &&
         matchTitulo &&
         matchDNI &&
         matchPlaca &&
+        matchMotor &&
+        matchChasis &&
+        matchVin &&
         matchSituacion &&
         matchEmpresa &&
         matchFecha
@@ -243,10 +279,14 @@ export function useTramitesListLogic() {
     });
   }, [
     rawData,
+    searchBusquedaRapida,
     searchCliente,
     searchTitulo,
     searchDNI,
     searchPlaca,
+    searchMotor,
+    searchChasis,
+    searchVin,
     filterSituacion,
     filterEmpresa,
     fechaInicio,
@@ -284,6 +324,89 @@ export function useTramitesListLogic() {
 
       const wb = XLSX.utils.book_new();
 
+      // --- 1. HOJA PRINCIPAL: REPORTE GENERAL CON 36 COLUMNAS ---
+      // AGENTE: Se implementa la consulta SQL requerida cruzando todas las tablas relacionadas para poblar las 36 columnas exactas de la Plantilla, omitiendo los filtros de la interfaz y extrayendo todos los trámites no eliminados.
+      const queryEspecial = `
+        SELECT 
+          t.n_titulo, t.tramite_anio, c.razon_social_nombres, c.telefono, c.numero_documento,
+          eg.razon_social as empresa_gestora, tt.nombre as tramite, cs.nombre as situacion,
+          t.observaciones_generales, t.fecha_presentacion, t.fecha_tarjeta_en_oficina, t.fecha_placa_en_oficina,
+          v.marca, v.chasis_vin, v.color, v.modelo, v.motor, v.anio_modelo, v.placa, v.carroceria,
+          p.nombres as p_nombres, p.primer_apellido as p_apellido1, p.segundo_apellido as p_apellido2,
+          td.tipo_boleta, td.fecha_boleta, td.dua, td.num_formato_inmatriculacion, td.numero_boleta,
+          t.codigo_verificacion, td.clausula_monto, td.clausula_forma_pago, td.clausula_pago_bancarizado,
+          td.aclaracion_dice, td.aclaracion_debe_decir, u.username as creador
+        FROM tramites t
+        LEFT JOIN tramite_detalles td ON t.id = td.tramite_id
+        LEFT JOIN clientes c ON t.cliente_id = c.id
+        LEFT JOIN vehiculos v ON t.vehiculo_id = v.id
+        LEFT JOIN empresas_gestoras eg ON td.empresa_gestora_id = eg.id
+        LEFT JOIN catalogo_tipos_tramite tt ON t.tipo_tramite_id = tt.id
+        LEFT JOIN catalogo_situaciones cs ON t.situacion_id = cs.id
+        LEFT JOIN usuarios u ON t.usuario_creador_id = u.id
+        LEFT JOIN presentantes p ON td.presentante_id = p.id
+        WHERE t.deleted_at IS NULL
+        ORDER BY t.created_at DESC
+      `;
+      const tramitesEspeciales: any[] = await db.select(queryEspecial);
+
+      // AGENTE: Configuro la estructura exacta en Array de Arrays (AOA) para garantizar el orden de columnas y asegurar que las posiciones N y V sean en blanco.
+      const headers = [
+        "N°", "N° TÍTULO", "Año", "CLIENTE", "Teléfono", "DNI / RUC", "EMPRESA", "TRÁMITE", "SITUACIÓN", "Observaciones", 
+        "FECHA", "Tarjeta en Oficina", "Placa en Oficina", " ", "Marca", "Chasis / VIN", "Color", "Modelo", "Motor", 
+        "Año Vehículo", "PLACA", "  ", "Presentante Físico (Trabajador / Tramitador Asignado)", "Tipo de Boleta", 
+        "Fecha Boleta", "DUA", "N° Formato Inmatriculación", "Número Boleta", "Código Verificación", "Monto Total", 
+        "Forma de Pago", "Pago Bancarizado Según", "Dice", "Debe Decir", "Carrocería", "CREADOR"
+      ];
+
+      const dataAOA = [headers];
+      tramitesEspeciales.forEach((r, index) => {
+        const row = [
+          index + 1, // A: N°
+          r.n_titulo || "", // B: N° TÍTULO
+          r.tramite_anio || "", // C: Año
+          r.razon_social_nombres || "", // D: CLIENTE
+          r.telefono || "", // E: Teléfono
+          r.numero_documento || "", // F: DNI / RUC
+          r.empresa_gestora || "", // G: EMPRESA
+          r.tramite || "", // H: TRÁMITE
+          r.situacion || "", // I: SITUACIÓN
+          r.observaciones_generales || "", // J: Observaciones
+          r.fecha_presentacion || "", // K: FECHA
+          r.fecha_tarjeta_en_oficina || "", // L: Tarjeta en Oficina
+          r.fecha_placa_en_oficina || "", // M: Placa en Oficina
+          "", // N: (COLUMNA EN BLANCO INTENCIONAL)
+          r.marca || "", // O: Marca
+          r.chasis_vin || "", // P: Chasis / VIN
+          r.color || "", // Q: Color
+          r.modelo || "", // R: Modelo
+          r.motor || "", // S: Motor
+          r.anio_modelo || "", // T: Año Vehículo
+          r.placa || "", // U: PLACA
+          "", // V: (COLUMNA EN BLANCO INTENCIONAL)
+          `${r.p_nombres || ""} ${r.p_apellido1 || ""} ${r.p_apellido2 || ""}`.trim(), // W: Presentante Físico
+          r.tipo_boleta || "", // X: Tipo de Boleta
+          r.fecha_boleta || "", // Y: Fecha Boleta
+          r.dua || "", // Z: DUA
+          r.num_formato_inmatriculacion || "", // AA: N° Formato Inmatriculacion
+          r.numero_boleta || "", // AB: Numero Boleta
+          r.codigo_verificacion || "", // AC: Codigo Verificacion
+          r.clausula_monto || "", // AD: Monto Total
+          r.clausula_forma_pago || "", // AE: Forma de Pago
+          r.clausula_pago_bancarizado || "", // AF: Pago Bancarizado
+          r.aclaracion_dice || "", // AG: Dice
+          r.aclaracion_debe_decir || "", // AH: Debe Decir
+          r.carroceria || "", // AI: Carrocería
+          r.creador || "" // AJ: CREADOR
+        ];
+        dataAOA.push(row);
+      });
+
+      const wsEspecial = XLSX.utils.aoa_to_sheet(dataAOA);
+      XLSX.utils.book_append_sheet(wb, wsEspecial, "Reporte_General");
+
+      // --- 2. DEMÁS HOJAS: VOLCADO MASIVO DE TODAS LAS TABLAS COMO BACKUP ---
+      // AGENTE: Se itera sobre todas las tablas de sqlite_master como se planeó.
       for (const t of tables) {
         const tableName = t.name;
         const records: any[] = await db.select(`SELECT * FROM ${tableName}`);
@@ -317,6 +440,14 @@ export function useTramitesListLogic() {
 
   return {
     filtros: {
+      searchBusquedaRapida,
+      setSearchBusquedaRapida,
+      searchMotor,
+      setSearchMotor,
+      searchChasis,
+      setSearchChasis,
+      searchVin,
+      setSearchVin,
       searchCliente,
       setSearchCliente,
       searchTitulo,
