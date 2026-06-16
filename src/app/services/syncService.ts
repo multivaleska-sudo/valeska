@@ -323,7 +323,11 @@ export async function waitForPushCompletion(
 
   for (let attempt = 0; attempt < attempts; attempt += 1) {
     const status = await getPushStatus(apiUrl, outboxId);
-    if (status.status === "COMPLETED" || status.status === "DEAD_LETTER") {
+    if (
+      status.status === "COMPLETED" ||
+      status.status === "COMPLETED_WITH_CONFLICTS" ||
+      status.status === "DEAD_LETTER"
+    ) {
       return status;
     }
 
