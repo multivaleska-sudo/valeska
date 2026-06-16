@@ -46,6 +46,7 @@ export interface BaseSyncDto {
 }
 
 export interface PushSyncChunkDto {
+  syncProtocolVersion: 2;
   syncSessionId: string;
   entityName: SyncEntityName;
   chunkIndex: number;
@@ -81,6 +82,10 @@ export interface PushAcceptedResponse {
   entityName: SyncEntityName;
   chunkIndex: number;
   status: SyncOutboxStatus;
+  conflictCount?: number;
+  acceptedRecordIds?: string[];
+  conflictedRecordIds?: string[];
+  conflictIds?: string[];
 }
 
 export interface PushStatusResponse {
@@ -93,6 +98,9 @@ export interface PushStatusResponse {
   status: SyncOutboxStatus;
   attempts: number;
   conflictCount?: number;
+  acceptedRecordIds?: string[];
+  conflictedRecordIds?: string[];
+  conflictIds?: string[];
   queuedAt: string | null;
   processingStartedAt: string | null;
   completedAt: string | null;
