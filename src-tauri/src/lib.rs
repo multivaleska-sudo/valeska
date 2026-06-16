@@ -224,6 +224,12 @@ pub fn run() {
             description: "alinear_contrato_sync_backend_actual",
             sql: include_str!("../../src/app/db/migrations/0016_sync_backend_contract.sql"),
             kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 18,
+            description: "agregar_metadata_sync_optimista",
+            sql: include_str!("../../src/app/db/migrations/0017_optimistic_sync_metadata.sql"),
+            kind: MigrationKind::Up,
         }
     ];
 
