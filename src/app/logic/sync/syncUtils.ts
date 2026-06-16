@@ -13,6 +13,12 @@ export const markRecordsAsSynced = async (sqlite: any, tableName: string, ids: s
     await sqlite.execute(`UPDATE ${tableName} SET sync_status = 'SYNCED' WHERE id IN (${formattedIds})`);
 };
 
+export const markRecordsAsConflicted = async (sqlite: any, tableName: string, ids: string[]) => {
+    if (!ids || ids.length === 0) return;
+    const formattedIds = ids.map(id => `'${id}'`).join(',');
+    await sqlite.execute(`UPDATE ${tableName} SET sync_status = 'CONFLICT' WHERE id IN (${formattedIds})`);
+};
+
 const versionFields = (row: any) => ({
     version: Number(row.version ?? 1),
     baseVersion: Number(row.base_version ?? row.version ?? 0),
@@ -117,6 +123,7 @@ export async function buildPushPayload(sqlite: any) {
             updatedAt: formatDateForNest(c.updated_at),
             deletedAt: formatDateForNest(c.deleted_at),
             syncStatus: c.sync_status,
+            ...versionFields(c),
         })),
         vehiculos: vehiculosRaw.map((v) => ({
             id: v.id,
