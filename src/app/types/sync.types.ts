@@ -23,13 +23,15 @@ export type SyncStatus =
   | "SYNCED"
   | "LOCAL_INSERT"
   | "LOCAL_UPDATE"
-  | "LOCAL_DELETE";
+  | "LOCAL_DELETE"
+  | "CONFLICT";
 
 export type SyncOutboxStatus =
   | "PENDING"
   | "QUEUED"
   | "PROCESSING"
   | "COMPLETED"
+  | "COMPLETED_WITH_CONFLICTS"
   | "FAILED"
   | "DEAD_LETTER";
 
@@ -37,6 +39,10 @@ export interface BaseSyncDto {
   id: string;
   updatedAt: string;
   syncStatus?: string;
+  version?: number;
+  baseVersion?: number;
+  updatedByUserId?: string | null;
+  updatedByDeviceMac?: string | null;
 }
 
 export interface PushSyncChunkDto {
@@ -86,6 +92,7 @@ export interface PushStatusResponse {
   totalChunks: number;
   status: SyncOutboxStatus;
   attempts: number;
+  conflictCount?: number;
   queuedAt: string | null;
   processingStartedAt: string | null;
   completedAt: string | null;
