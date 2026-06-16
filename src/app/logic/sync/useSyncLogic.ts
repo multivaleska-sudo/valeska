@@ -6,6 +6,14 @@ import { executePull } from "./pullActions";
 import { SyncHttpError, clearInvalidSyncSession } from "../../services/syncService";
 
 const API_URL = (import.meta as any).env.VITE_API_URL;
+const SYNC_INTERVAL_MS = 15000;
+
+declare global {
+  interface Window {
+    __valeskaSyncInFlight?: boolean;
+    __valeskaSyncPending?: boolean;
+  }
+}
 
 export interface SyncLog {
   id: string;
@@ -76,6 +84,13 @@ export function useSyncLogic() {
   }, []);
 
   const triggerSync = useCallback(async (context?: SyncContext) => {
+    if (window.__valeskaSyncInFlight) {
+      window.__valeskaSyncPending = true;
+      return false;
+    }
+
+    window.__valeskaSyncInFlight = true;
+    const syncStartedAt = performance.now();
     setIsSyncing(true);
     setSyncError(null);
 
@@ -130,6 +145,7 @@ export function useSyncLogic() {
       });
 
       localStorage.setItem("valeska_last_sync_display", displayTime);
+      localStorage.setItem("valeska_last_sync_duration_ms", String(Math.round(performance.now() - syncStartedAt)));
 
       const currentStats = {
         push: { sucursales: 0, dispositivos: 0, usuarios: 0, tramites: 0, otros: pushResult.pushedCount, conflictos: 0 },
@@ -204,6 +220,13 @@ export function useSyncLogic() {
       return false;
     } finally {
       setIsSyncing(false);
+      window.__valeskaSyncInFlight = false;
+      if (window.__valeskaSyncPending) {
+        window.__valeskaSyncPending = false;
+        window.setTimeout(() => {
+          window.dispatchEvent(new Event("valeska_request_sync"));
+        }, 500);
+      }
     }
   }, []);
 
@@ -216,7 +239,7 @@ export function useSyncLogic() {
 
     window.addEventListener("valeska_request_sync", handleAutoSync);
 
-    const intervalId = setInterval(handleAutoSync, 60000);
+    const intervalId = setInterval(handleAutoSync, SYNC_INTERVAL_MS + Math.floor(Math.random() * 5000));
 
     return () => {
       window.removeEventListener("valeska_request_sync", handleAutoSync);
