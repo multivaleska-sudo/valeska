@@ -5,6 +5,7 @@ import { sileo } from "sileo";
 
 export function useTramiteDetail(id: string | undefined) {
   const [tramiteData, setTramiteData] = useState<Partial<TramiteFormData> & { creador?: string } | null>(null);
+  const [syncIntegrityWarning, setSyncIntegrityWarning] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const loadTramite = async () => {
@@ -18,7 +19,8 @@ export function useTramiteDetail(id: string | undefined) {
 
       const query = `
         SELECT 
-          t.id, t.codigo_verificacion, t.tramite_anio, t.n_titulo, t.fecha_presentacion, t.observaciones_generales as observaciones,
+          t.id, t.cliente_id, t.vehiculo_id, t.tipo_tramite_id, t.situacion_id,
+          t.codigo_verificacion, t.tramite_anio, t.n_titulo, t.fecha_presentacion, t.observaciones_generales as observaciones,
           
           t.entrego_tarjeta as check_entrega_tarjeta, t.fecha_entrega_tarjeta, t.metodo_entrega_tarjeta,
           t.entrego_placa as check_entrega_placa, t.fecha_entrega_placa, t.metodo_entrega_placa,
@@ -26,11 +28,15 @@ export function useTramiteDetail(id: string | undefined) {
           t.tarjeta_en_oficina as check_tarjeta_oficina, t.fecha_tarjeta_en_oficina as fecha_tarjeta_oficina,
           t.placa_en_oficina as check_placa_oficina, t.fecha_placa_en_oficina as fecha_placa_oficina,
           
-          c.razon_social_nombres as cliente, c.numero_documento as dni, c.telefono,
+          c.id as cliente_local_id, c.razon_social_nombres as cliente, c.numero_documento as dni, c.telefono,
+          v.id as vehiculo_local_id,
           v.marca as vehiculo_marca, v.motor as vehiculo_motor, v.chasis_vin as vehiculo_chasis, v.anio_fabricacion as vehiculo_anio, v.color as vehiculo_color, v.placa as vehiculo_placa, v.modelo as vehiculo_modelo,
+          ctt.id as tipo_tramite_local_id,
           ctt.nombre as tipo_tramite,
+          cs.id as situacion_local_id,
           cs.nombre as estado_tramite,
           
+          td.id as detalle_local_id,
           td.tipo_boleta, td.numero_boleta, td.fecha_boleta, td.dua, td.num_formato_inmatriculacion, 
           td.numero_recibo_tramite, td.clausula_monto, td.clausula_forma_pago, td.clausula_pago_bancarizado, td.aclaracion_dice, td.aclaracion_debe_decir,
           
@@ -42,10 +48,10 @@ export function useTramiteDetail(id: string | undefined) {
           
           u.nombre_completo as creador
         FROM tramites t
-        JOIN clientes c ON t.cliente_id = c.id
-        JOIN vehiculos v ON t.vehiculo_id = v.id
-        JOIN catalogo_tipos_tramite ctt ON t.tipo_tramite_id = ctt.id
-        JOIN catalogo_situaciones cs ON t.situacion_id = cs.id
+        LEFT JOIN clientes c ON t.cliente_id = c.id
+        LEFT JOIN vehiculos v ON t.vehiculo_id = v.id
+        LEFT JOIN catalogo_tipos_tramite ctt ON t.tipo_tramite_id = ctt.id
+        LEFT JOIN catalogo_situaciones cs ON t.situacion_id = cs.id
         LEFT JOIN tramite_detalles td ON t.id = td.tramite_id
         LEFT JOIN empresas_gestoras eg ON td.empresa_gestora_id = eg.id
         LEFT JOIN representantes_legales rl ON td.representante_legal_id = rl.id
@@ -58,6 +64,21 @@ export function useTramiteDetail(id: string | undefined) {
 
       if (result.length > 0) {
         const row = result[0];
+        const missingParts = [
+          !row.cliente_local_id ? "cliente" : null,
+          !row.vehiculo_local_id ? "vehiculo" : null,
+          !row.tipo_tramite_local_id ? "tipo de tramite" : null,
+          !row.situacion_local_id ? "situacion" : null,
+          !row.detalle_local_id ? "detalle del tramite" : null,
+        ].filter(Boolean) as string[];
+
+        if (missingParts.length > 0) {
+          const warning = `Registro incompleto por sincronizacion. Faltan: ${missingParts.join(", ")}.`;
+          console.warn("[TRAMITE INCOMPLETO]", { tramiteId: row.id, missingParts });
+          setSyncIntegrityWarning(warning);
+        } else {
+          setSyncIntegrityWarning(null);
+        }
 
         let comboEmpresa = row.empresa_razon_social || "";
         if (row.rl_nombres) {
@@ -128,6 +149,7 @@ export function useTramiteDetail(id: string | undefined) {
 
         setTramiteData(dataFormateada);
       } else {
+        setSyncIntegrityWarning(null);
         sileo.error({ title: "No encontrado", description: "Trámite no encontrado." });
       }
     } catch (e: any) {
@@ -140,5 +162,5 @@ export function useTramiteDetail(id: string | undefined) {
 
   useEffect(() => { loadTramite(); }, [id]);
 
-  return { tramiteData, isLoading, loadTramite };
+  return { tramiteData, isLoading, syncIntegrityWarning, loadTramite };
 }
