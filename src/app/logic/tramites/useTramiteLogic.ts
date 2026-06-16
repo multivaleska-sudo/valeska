@@ -803,6 +803,7 @@ export function useTramiteLogic(initialData?: Partial<TramiteFormData>) {
       setSelectedRepresentanteLegalId(finalRepLegalId);
 
       window.dispatchEvent(new Event("valeska_reload_tramites"));
+      window.dispatchEvent(new Event("valeska_request_sync"));
       sileo.success({
         title: "Éxito",
         description: formData.id
