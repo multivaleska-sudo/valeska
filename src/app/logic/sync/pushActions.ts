@@ -143,7 +143,7 @@ export const executePush = async (
           lastError: finalStatus.lastError,
         });
 
-        if (finalStatus.status !== "COMPLETED") {
+        if (!["COMPLETED", "COMPLETED_WITH_CONFLICTS"].includes(finalStatus.status)) {
           throw new Error(
             finalStatus.lastError ||
               `El servidor dejo el chunk ${entityName} en estado ${finalStatus.status}`,
