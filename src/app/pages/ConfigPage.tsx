@@ -11,6 +11,9 @@ import {
   RefreshCw,
   HardDrive,
   DownloadCloud,
+  Activity,
+  FileDown,
+  Wrench,
 } from "lucide-react";
 import { useConfigLogic } from "../logic/usuarios/useConfigLogic";
 import { useAppUpdater } from "../logic/updates/useAppUpdater";
@@ -41,9 +44,15 @@ export function ConfigPage() {
     sucursalesList,
     autoSync,
     setAutoSync,
+    syncDiagnostics,
+    isLoadingDiagnostics,
+    isRepairingSync,
     handleUpdateProfile,
     handleChangePassword,
     handleUpdateSystem,
+    handleRefreshSyncDiagnostics,
+    handleExportSyncDiagnostics,
+    handleForceTramiteResync,
   } = useConfigLogic();
   const {
     isChecking,
@@ -380,6 +389,91 @@ export function ConfigPage() {
                   )}
                 </div>
 
+                {isAdmin && (
+                  <div className="bg-white p-5 rounded-2xl border border-slate-200">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <h3 className="text-sm font-bold text-gray-800 flex items-center gap-2">
+                          <Activity size={16} className="text-cyan-600" />
+                          Diagnostico de sincronizacion
+                        </h3>
+                        <p className="text-xs text-gray-500 font-medium mt-1">
+                          Revisar SQLite local y reparar cursores de tramites con backup previo.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleRefreshSyncDiagnostics}
+                        disabled={isLoadingDiagnostics || isRepairingSync}
+                        className="shrink-0 bg-cyan-600 text-white px-3 py-2 rounded-xl font-black uppercase tracking-widest text-[10px] flex items-center gap-2 hover:bg-cyan-700 transition-colors disabled:opacity-60"
+                      >
+                        {isLoadingDiagnostics ? (
+                          <Loader2 className="animate-spin" size={14} />
+                        ) : (
+                          <RefreshCw size={14} />
+                        )}
+                        Revisar
+                      </button>
+                    </div>
+
+                    {syncDiagnostics && (
+                      <div className="mt-4 space-y-4">
+                        <div className="grid grid-cols-2 gap-3">
+                          <Metric label="Tramites" value={syncDiagnostics.counts.tramites || 0} />
+                          <Metric label="Detalles" value={syncDiagnostics.counts.tramite_detalles || 0} />
+                          <Metric label="Clientes" value={syncDiagnostics.counts.clientes || 0} />
+                          <Metric label="Vehiculos" value={syncDiagnostics.counts.vehiculos || 0} />
+                          <Metric label="Conflictos" value={syncDiagnostics.conflictCount || 0} />
+                          <Metric label="Sync ms" value={syncDiagnostics.lastSyncDurationMs || 0} />
+                        </div>
+
+                        <div className="bg-amber-50 border border-amber-100 rounded-2xl p-4">
+                          <p className="text-[10px] font-black text-amber-700 uppercase tracking-[0.2em]">
+                            Integridad local
+                          </p>
+                          <div className="mt-3 grid grid-cols-2 gap-2 text-xs font-bold text-gray-700">
+                            <span>Sin detalle: {syncDiagnostics.orphanCounts.tramitesSinDetalle}</span>
+                            <span>Sin cliente: {syncDiagnostics.orphanCounts.tramitesSinCliente}</span>
+                            <span>Sin vehiculo: {syncDiagnostics.orphanCounts.tramitesSinVehiculo}</span>
+                            <span>Detalles huerfanos: {syncDiagnostics.orphanCounts.detallesSinTramite}</span>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-wrap gap-3">
+                          <button
+                            type="button"
+                            onClick={handleExportSyncDiagnostics}
+                            disabled={isLoadingDiagnostics || isRepairingSync}
+                            className="flex-1 min-w-36 bg-slate-800 text-white px-4 py-3 rounded-2xl font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-2 hover:bg-black transition-colors disabled:opacity-60"
+                          >
+                            <FileDown size={15} />
+                            Exportar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleForceTramiteResync}
+                            disabled={isLoadingDiagnostics || isRepairingSync}
+                            className="flex-1 min-w-44 bg-amber-600 text-white px-4 py-3 rounded-2xl font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-2 hover:bg-amber-700 transition-colors disabled:opacity-60"
+                          >
+                            {isRepairingSync ? (
+                              <Loader2 className="animate-spin" size={15} />
+                            ) : (
+                              <Wrench size={15} />
+                            )}
+                            Resincronizar
+                          </button>
+                        </div>
+
+                        {syncDiagnostics.pendingCounts.length > 0 && (
+                          <p className="text-xs font-bold text-rose-600">
+                            Reparacion bloqueada: hay cambios locales pendientes por subir.
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <div className="pt-4">
                   <button
                     type="submit"
@@ -405,4 +499,15 @@ export function ConfigPage() {
 
 function SettingsIcon(props: any) {
   return <ShieldCheck {...props} />;
+}
+
+function Metric({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3">
+      <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.18em]">
+        {label}
+      </p>
+      <p className="text-xl font-black text-gray-800 mt-1">{value}</p>
+    </div>
+  );
 }
