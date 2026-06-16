@@ -1,4 +1,5 @@
 import { sqliteTable, text, integer, real, uniqueIndex, index } from 'drizzle-orm/sqlite-core';
+import type { AnySQLiteColumn } from 'drizzle-orm/sqlite-core';
 
 // ============================================================================
 // 0. CAMPOS BASE DE SINCRONIZACIÓN
@@ -8,6 +9,13 @@ const syncColumns = {
     updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
     deletedAt: integer('deleted_at', { mode: 'timestamp' }),
     syncStatus: text('sync_status').notNull().default('LOCAL_INSERT'),
+};
+
+const optimisticSyncColumns = {
+    version: integer('version').notNull().default(1),
+    baseVersion: integer('base_version').notNull().default(0),
+    updatedByUserId: text('updated_by_user_id'),
+    updatedByDeviceMac: text('updated_by_device_mac'),
 };
 
 // ============================================================================
@@ -32,7 +40,7 @@ export const dispositivos = sqliteTable('dispositivos', {
     autorizado: integer('autorizado', { mode: 'boolean' }).notNull().default(false),
     sucursalId: text('sucursal_id').references(() => sucursales.id).notNull(),
     provisionId: text('provision_id'),
-    usuarioId: text('usuario_id').references(() => usuarios.id),
+    usuarioId: text('usuario_id').references((): AnySQLiteColumn => usuarios.id),
     ...syncColumns
 }, (table) => ({
     macIdx: uniqueIndex('mac_address_idx').on(table.macAddress),
@@ -46,7 +54,7 @@ export const usuarios = sqliteTable('usuarios', {
     passwordHash: text('password_hash').notNull(),
     rol: text('rol').notNull().default('OPERADOR'),
     nombreCompleto: text('nombre_completo').notNull(),
-    dispositivoId: text('dispositivo_id').references(() => dispositivos.id),
+    dispositivoId: text('dispositivo_id').references((): AnySQLiteColumn => dispositivos.id),
     estaActivo: integer('esta_activo', { mode: 'boolean' }).notNull().default(true),
     ...syncColumns
 }, (table) => ({
@@ -87,7 +95,8 @@ export const clientes = sqliteTable('clientes', {
     estadoCivil: text('estado_civil').default('SOLTERO(A)'),
     domicilio: text('domicilio'),
     telefono: text('telefono'),
-    ...syncColumns
+    ...syncColumns,
+    ...optimisticSyncColumns
 }, (table) => ({
     documentoIdx: uniqueIndex('cliente_documento_idx').on(table.numeroDocumento),
     nombreIdx: index('cliente_nombre_idx').on(table.razonSocialNombres),
@@ -105,7 +114,8 @@ export const vehiculos = sqliteTable('vehiculos', {
     categoria: text('categoria').default('L3 - B'),
     anioFabricacion: text('anio_fabricacion'),
     anioModelo: text('anio_modelo'),
-    ...syncColumns
+    ...syncColumns,
+    ...optimisticSyncColumns
 }, (table) => ({
     vinIdx: uniqueIndex('vehiculo_vin_idx').on(table.chasisVin),
     placaIdx: index('vehiculo_placa_idx').on(table.placa),
@@ -184,7 +194,8 @@ export const tramites = sqliteTable('tramites', {
 
     observacionPlaca: text('observacion_placa'),
 
-    ...syncColumns
+    ...syncColumns,
+    ...optimisticSyncColumns
 }, (table) => ({
     codigoVerifIdx: index('tramite_codigo_idx').on(table.codigoVerificacion),
 
@@ -217,7 +228,8 @@ export const tramiteDetalles = sqliteTable('tramite_detalles', {
     aclaracionDice: text('aclaracion_dice'),
     aclaracionDebeDecir: text('aclaracion_debe_decir'),
 
-    ...syncColumns
+    ...syncColumns,
+    ...optimisticSyncColumns
 }, (table) => ({
     tramiteDetalleUniqIdx: uniqueIndex('detalle_tramite_idx').on(table.tramiteId),
 }));
