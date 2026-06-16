@@ -195,7 +195,7 @@ export function TramitesListPage() {
 
           {/* AGENTE: Rejilla de filtros individuales, reordenada y expandida */}
           {showAdvanced && (
-            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-x-4 gap-y-5">
+            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-x-4 gap-y-5 animate-in fade-in slide-in-from-top-4 duration-300 ease-out">
               {/* FILA 1 */}
             <div className="flex flex-col lg:col-span-2">
               <label className="text-xs font-semibold text-gray-600 mb-1.5 uppercase">
