@@ -7,6 +7,16 @@ import {
 } from "../../services/syncService";
 import type { SyncEntityName } from "../../types/sync.types";
 
+export class PullApplyError extends Error {
+  constructor(
+    message: string,
+    public readonly originalError?: unknown,
+  ) {
+    super(message);
+    this.name = "PullApplyError";
+  }
+}
+
 const executeWithRetry = async (
   db: any,
   query: string,
@@ -17,7 +27,7 @@ const executeWithRetry = async (
   for (let i = 0; i < retries; i++) {
     try {
       await db.execute(query, params);
-      return true; // Éxito total
+      return;
     } catch (error: any) {
       lastError = error;
       const msg = error?.message || "";
@@ -26,13 +36,73 @@ const executeWithRetry = async (
       if (msg.includes("database is locked") || msg.includes("busy")) {
         await new Promise((res) => setTimeout(res, 50 + Math.random() * 100));
       } else {
-        // ESCUDO TOTAL: Si SQLite rechaza la fila (ej. huérfana), la ignoramos y seguimos.
-        console.warn(`⚠️ [PULL SYNC] Fila ignorada por la BD: ${msg}`);
-        return false;
+        throw new PullApplyError(
+          `SQLite rechazo una fila durante el PULL. Cursor conservado para reintento: ${msg}`,
+          error,
+        );
       }
     }
   }
-  return false;
+  throw new PullApplyError(
+    `SQLite siguio bloqueada despues de ${retries} reintentos. Cursor conservado para reintento.`,
+    lastError,
+  );
+};
+
+const versionParams = (record: any) => [
+  Number(record.version ?? 1),
+  Number(record.baseVersion ?? record.base_version ?? 0),
+  record.updatedByUserId ?? record.updated_by_user_id ?? null,
+  record.updatedByDeviceMac ?? record.updated_by_device_mac ?? null,
+];
+
+const createLocalPullConflictIfNeeded = async (
+  sqlite: any,
+  tableName: string,
+  remote: any,
+  identify: (record: any) => string,
+) => {
+  const id = remote.id;
+  if (!id) return false;
+
+  const localRows: any[] = await sqlite.select(
+    `SELECT * FROM ${tableName} WHERE id = $1 LIMIT 1`,
+    [id],
+  );
+  const local = localRows[0];
+  if (!local || !["LOCAL_INSERT", "LOCAL_UPDATE"].includes(local.sync_status)) {
+    return false;
+  }
+
+  const remoteVersion = Number(remote.version ?? 0);
+  const localBaseVersion = Number(local.base_version ?? local.version ?? 0);
+  if (remoteVersion <= localBaseVersion) {
+    return false;
+  }
+
+  await sqlite.execute(
+    `INSERT INTO sync_conflictos (id, tabla_afectada, registro_id, identificador_visual, datos_locales, datos_remotos, resuelto, fecha_conflicto)
+     VALUES ($1, $2, $3, $4, $5, $6, 0, $7)
+     ON CONFLICT(id) DO UPDATE SET
+       tabla_afectada=excluded.tabla_afectada,
+       registro_id=excluded.registro_id,
+       identificador_visual=excluded.identificador_visual,
+       datos_locales=excluded.datos_locales,
+       datos_remotos=excluded.datos_remotos,
+       resuelto=0,
+       fecha_conflicto=excluded.fecha_conflicto`,
+    [
+      crypto.randomUUID(),
+      tableName,
+      id,
+      identify(remote),
+      JSON.stringify(local),
+      JSON.stringify(remote),
+      Date.now(),
+    ],
+  );
+  await sqlite.execute(`UPDATE ${tableName} SET sync_status = 'CONFLICT' WHERE id = $1`, [id]);
+  return true;
 };
 
 export async function processPullSync(sqlite: any, pullData: any) {
@@ -172,14 +242,18 @@ export async function processPullSync(sqlite: any, pullData: any) {
 
     // 3. Maestros
     for (const cli of pullData.clientes || []) {
+      if (await createLocalPullConflictIfNeeded(sqlite, "clientes", cli, (record) => record.numeroDocumento ?? record.numero_documento ?? record.id)) {
+        continue;
+      }
       await executeWithRetry(
         sqlite,
-        `INSERT INTO clientes (id, tipo_documento, numero_documento, razon_social_nombres, estado_civil, domicilio, telefono, created_at, updated_at, deleted_at, sync_status) 
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'SYNCED')
+        `INSERT INTO clientes (id, tipo_documento, numero_documento, razon_social_nombres, estado_civil, domicilio, telefono, created_at, updated_at, deleted_at, sync_status, version, base_version, updated_by_user_id, updated_by_device_mac) 
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'SYNCED', $11, $12, $13, $14)
          ON CONFLICT(id) DO UPDATE SET 
          tipo_documento=excluded.tipo_documento, numero_documento=excluded.numero_documento, razon_social_nombres=excluded.razon_social_nombres, 
          estado_civil=excluded.estado_civil, domicilio=excluded.domicilio, telefono=excluded.telefono, created_at=excluded.created_at, 
-         updated_at=excluded.updated_at, deleted_at=excluded.deleted_at, sync_status=excluded.sync_status
+         updated_at=excluded.updated_at, deleted_at=excluded.deleted_at, sync_status=excluded.sync_status,
+         version=excluded.version, base_version=excluded.base_version, updated_by_user_id=excluded.updated_by_user_id, updated_by_device_mac=excluded.updated_by_device_mac
          WHERE clientes.sync_status = 'SYNCED'`,
         [
           str(cli.id),
@@ -192,19 +266,24 @@ export async function processPullSync(sqlite: any, pullData: any) {
           str(cli.createdAt ?? cli.created_at),
           str(cli.updatedAt ?? cli.updated_at),
           str(cli.deletedAt ?? cli.deleted_at),
+          ...versionParams(cli),
         ],
       );
     }
 
     for (const v of pullData.vehiculos || []) {
+      if (await createLocalPullConflictIfNeeded(sqlite, "vehiculos", v, (record) => record.placa ?? record.chasisVin ?? record.chasis_vin ?? record.id)) {
+        continue;
+      }
       await executeWithRetry(
         sqlite,
-        `INSERT INTO vehiculos (id, chasis_vin, placa, motor, marca, modelo, color, carroceria, categoria, anio_fabricacion, anio_modelo, created_at, updated_at, deleted_at, sync_status) 
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, 'SYNCED')
+        `INSERT INTO vehiculos (id, chasis_vin, placa, motor, marca, modelo, color, carroceria, categoria, anio_fabricacion, anio_modelo, created_at, updated_at, deleted_at, sync_status, version, base_version, updated_by_user_id, updated_by_device_mac) 
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, 'SYNCED', $15, $16, $17, $18)
          ON CONFLICT(id) DO UPDATE SET 
          chasis_vin=excluded.chasis_vin, placa=excluded.placa, motor=excluded.motor, marca=excluded.marca, modelo=excluded.modelo, 
          color=excluded.color, carroceria=excluded.carroceria, categoria=excluded.categoria, anio_fabricacion=excluded.anio_fabricacion, anio_modelo=excluded.anio_modelo, 
-         created_at=excluded.created_at, updated_at=excluded.updated_at, deleted_at=excluded.deleted_at, sync_status=excluded.sync_status
+         created_at=excluded.created_at, updated_at=excluded.updated_at, deleted_at=excluded.deleted_at, sync_status=excluded.sync_status,
+         version=excluded.version, base_version=excluded.base_version, updated_by_user_id=excluded.updated_by_user_id, updated_by_device_mac=excluded.updated_by_device_mac
          WHERE vehiculos.sync_status = 'SYNCED'`,
         [
           str(v.id),
@@ -221,6 +300,7 @@ export async function processPullSync(sqlite: any, pullData: any) {
           str(v.createdAt ?? v.created_at),
           str(v.updatedAt ?? v.updated_at),
           str(v.deletedAt ?? v.deleted_at),
+          ...versionParams(v),
         ],
       );
     }
@@ -340,10 +420,13 @@ export async function processPullSync(sqlite: any, pullData: any) {
 
     // 4. Core Trámites (Si alguno falla, lo omitimos, el resto pasa)
     for (const t of pullData.tramites || []) {
+      if (await createLocalPullConflictIfNeeded(sqlite, "tramites", t, (record) => record.nTitulo ?? record.n_titulo ?? record.codigoVerificacion ?? record.codigo_verificacion ?? record.id)) {
+        continue;
+      }
       await executeWithRetry(
         sqlite,
-        `INSERT INTO tramites (id, codigo_verificacion, tramite_anio, cliente_id, vehiculo_id, tipo_tramite_id, situacion_id, usuario_creador_id, sucursal_id, n_titulo, n_formato, fecha_presentacion, observaciones_generales, tarjeta_en_oficina, fecha_tarjeta_en_oficina, placa_en_oficina, fecha_placa_en_oficina, entrego_tarjeta, fecha_entrega_tarjeta, metodo_entrega_tarjeta, entrego_placa, fecha_entrega_placa, metodo_entrega_placa, observacion_placa, created_at, updated_at, deleted_at, sync_status) 
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, 'SYNCED')
+        `INSERT INTO tramites (id, codigo_verificacion, tramite_anio, cliente_id, vehiculo_id, tipo_tramite_id, situacion_id, usuario_creador_id, sucursal_id, n_titulo, n_formato, fecha_presentacion, observaciones_generales, tarjeta_en_oficina, fecha_tarjeta_en_oficina, placa_en_oficina, fecha_placa_en_oficina, entrego_tarjeta, fecha_entrega_tarjeta, metodo_entrega_tarjeta, entrego_placa, fecha_entrega_placa, metodo_entrega_placa, observacion_placa, created_at, updated_at, deleted_at, sync_status, version, base_version, updated_by_user_id, updated_by_device_mac) 
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, 'SYNCED', $28, $29, $30, $31)
          ON CONFLICT(id) DO UPDATE SET 
          codigo_verificacion=excluded.codigo_verificacion, tramite_anio=excluded.tramite_anio, cliente_id=excluded.cliente_id, vehiculo_id=excluded.vehiculo_id, 
          tipo_tramite_id=excluded.tipo_tramite_id, situacion_id=excluded.situacion_id, usuario_creador_id=excluded.usuario_creador_id, sucursal_id=excluded.sucursal_id, 
@@ -352,7 +435,8 @@ export async function processPullSync(sqlite: any, pullData: any) {
          fecha_placa_en_oficina=excluded.fecha_placa_en_oficina, entrego_tarjeta=excluded.entrego_tarjeta, fecha_entrega_tarjeta=excluded.fecha_entrega_tarjeta, 
          metodo_entrega_tarjeta=excluded.metodo_entrega_tarjeta, entrego_placa=excluded.entrego_placa, fecha_entrega_placa=excluded.fecha_entrega_placa, 
          metodo_entrega_placa=excluded.metodo_entrega_placa, observacion_placa=excluded.observacion_placa, created_at=excluded.created_at, 
-         updated_at=excluded.updated_at, deleted_at=excluded.deleted_at, sync_status=excluded.sync_status
+         updated_at=excluded.updated_at, deleted_at=excluded.deleted_at, sync_status=excluded.sync_status,
+         version=excluded.version, base_version=excluded.base_version, updated_by_user_id=excluded.updated_by_user_id, updated_by_device_mac=excluded.updated_by_device_mac
          WHERE tramites.sync_status = 'SYNCED'`,
         [
           str(t.id),
@@ -382,22 +466,27 @@ export async function processPullSync(sqlite: any, pullData: any) {
           str(t.createdAt ?? t.created_at),
           str(t.updatedAt ?? t.updated_at),
           str(t.deletedAt ?? t.deleted_at),
+          ...versionParams(t),
         ],
       );
     }
 
     for (const td of pullData.tramiteDetalles || []) {
+      if (await createLocalPullConflictIfNeeded(sqlite, "tramite_detalles", td, (record) => record.tramiteId ?? record.tramite_id ?? record.id)) {
+        continue;
+      }
       await executeWithRetry(
         sqlite,
-        `INSERT INTO tramite_detalles (id, tramite_id, empresa_gestora_id, representante_legal_id, presentante_id, tipo_boleta, numero_boleta, fecha_boleta, dua, num_formato_inmatriculacion, numero_recibo_tramite, clausula_monto, clausula_forma_pago, clausula_pago_bancarizado, aclaracion_dice, aclaracion_debe_decir, created_at, updated_at, deleted_at, sync_status) 
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, 'SYNCED')
+        `INSERT INTO tramite_detalles (id, tramite_id, empresa_gestora_id, representante_legal_id, presentante_id, tipo_boleta, numero_boleta, fecha_boleta, dua, num_formato_inmatriculacion, numero_recibo_tramite, clausula_monto, clausula_forma_pago, clausula_pago_bancarizado, aclaracion_dice, aclaracion_debe_decir, created_at, updated_at, deleted_at, sync_status, version, base_version, updated_by_user_id, updated_by_device_mac) 
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, 'SYNCED', $20, $21, $22, $23)
          ON CONFLICT(id) DO UPDATE SET 
          tramite_id=excluded.tramite_id, empresa_gestora_id=excluded.empresa_gestora_id, representante_legal_id=excluded.representante_legal_id, 
          presentante_id=excluded.presentante_id, tipo_boleta=excluded.tipo_boleta, numero_boleta=excluded.numero_boleta, fecha_boleta=excluded.fecha_boleta, 
          dua=excluded.dua, num_formato_inmatriculacion=excluded.num_formato_inmatriculacion, numero_recibo_tramite=excluded.numero_recibo_tramite, 
          clausula_monto=excluded.clausula_monto, clausula_forma_pago=excluded.clausula_forma_pago, clausula_pago_bancarizado=excluded.clausula_pago_bancarizado, 
          aclaracion_dice=excluded.aclaracion_dice, aclaracion_debe_decir=excluded.aclaracion_debe_decir, created_at=excluded.created_at, 
-         updated_at=excluded.updated_at, deleted_at=excluded.deleted_at, sync_status=excluded.sync_status
+         updated_at=excluded.updated_at, deleted_at=excluded.deleted_at, sync_status=excluded.sync_status,
+         version=excluded.version, base_version=excluded.base_version, updated_by_user_id=excluded.updated_by_user_id, updated_by_device_mac=excluded.updated_by_device_mac
          WHERE tramite_detalles.sync_status = 'SYNCED'`,
         [
           str(td.id),
@@ -419,6 +508,7 @@ export async function processPullSync(sqlite: any, pullData: any) {
           str(td.createdAt ?? td.created_at),
           str(td.updatedAt ?? td.updated_at),
           str(td.deletedAt ?? td.deleted_at),
+          ...versionParams(td),
         ],
       );
     }
@@ -503,14 +593,37 @@ export const executePull = async (
         });
 
         const records = response.records || [];
-        if (records.length > 0) {
-          await processPullSync(sqlite, buildEntityPullData(entityName, records));
-          aggregateData[localKey].push(...records);
-        }
+        let pageCommitted = false;
 
-        if (response.nextCursor) {
-          await saveStoredCursor(sqlite, entityName, response.nextCursor);
-          cursor = response.nextCursor;
+        try {
+          await sqlite.execute("BEGIN IMMEDIATE;", []);
+
+          if (records.length > 0) {
+            await processPullSync(sqlite, buildEntityPullData(entityName, records));
+            aggregateData[localKey].push(...records);
+          }
+
+          if (response.nextCursor) {
+            await saveStoredCursor(sqlite, entityName, response.nextCursor);
+            cursor = response.nextCursor;
+          }
+
+          await sqlite.execute("COMMIT;", []);
+          pageCommitted = true;
+        } catch (pageError: any) {
+          if (!pageCommitted) {
+            try {
+              await sqlite.execute("ROLLBACK;", []);
+            } catch (rollbackError) {
+              console.warn("No se pudo revertir la pagina de pull", rollbackError);
+            }
+          }
+
+          const msg = pageError?.message || String(pageError);
+          throw new PullApplyError(
+            `No se pudo aplicar la pagina de ${entityName}. No se avanzo el cursor local. Detalle: ${msg}`,
+            pageError,
+          );
         }
 
         hasMore = response.hasMore && Boolean(response.nextCursor);
