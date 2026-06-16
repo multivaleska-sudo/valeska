@@ -19,12 +19,14 @@ import {
   CalendarDays,
   Clock,
   ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { useTramitesListLogic } from "../../logic/tramites/useTramitesListLogic";
 import { useBarcodeScanner } from "../../logic/tramites/useBarcodeScanner";
 
 export function TramitesListPage() {
   const navigate = useNavigate();
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [scanNotice, setScanNotice] = useState<string | null>(null);
   const {
     filtros,
@@ -128,9 +130,6 @@ export function TramitesListPage() {
               >
                 <RefreshCw size={16} /> Limpiar filtros
               </button>
-              <button className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-colors shadow-sm">
-                <Search size={16} /> Buscar
-              </button>
             </div>
           </div>
 
@@ -190,16 +189,14 @@ export function TramitesListPage() {
                 >
                   <CalendarDays size={14} /> Este mes
                 </button>
-                <button className="h-10 px-4 bg-gray-50 border border-gray-200 rounded-lg text-sm font-semibold text-gray-700 hover:bg-gray-100 transition-colors flex items-center gap-2">
-                  <Clock size={14} /> Trámites recientes
-                </button>
               </div>
             </div>
           </div>
 
           {/* AGENTE: Rejilla de filtros individuales, reordenada y expandida */}
-          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-x-4 gap-y-5">
-            {/* FILA 1 */}
+          {showAdvanced && (
+            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-x-4 gap-y-5">
+              {/* FILA 1 */}
             <div className="flex flex-col lg:col-span-2">
               <label className="text-xs font-semibold text-gray-600 mb-1.5 uppercase">
                 Nombre / Apellido Cliente
@@ -375,10 +372,14 @@ export function TramitesListPage() {
               />
             </div>
           </div>
+          )}
 
           {/* AGENTE: Botón expandible de Búsqueda avanzada visual */}
-          <div className="mt-5 border-t border-gray-100 pt-4 flex items-center gap-2 cursor-pointer text-gray-600 hover:text-blue-600 transition-colors font-medium text-sm">
-            <ChevronDown size={16} /> Búsqueda avanzada
+          <div 
+            onClick={() => setShowAdvanced(!showAdvanced)}
+            className="mt-5 border-t border-gray-100 pt-4 flex items-center gap-2 cursor-pointer text-gray-600 hover:text-blue-600 transition-colors font-medium text-sm select-none"
+          >
+            {showAdvanced ? <ChevronUp size={16} /> : <ChevronDown size={16} />} Búsqueda avanzada
           </div>
         </div>
 
