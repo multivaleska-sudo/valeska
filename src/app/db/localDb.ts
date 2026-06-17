@@ -25,8 +25,9 @@ export const getDb = async (): Promise<Database> => {
       get(target, prop, receiver) {
         const originalMethod = Reflect.get(target, prop, receiver);
         
-        // Interceptamos execute y select para forzar la espera si la compuerta está cerrada
-        if (prop === "execute" || prop === "select") {
+        // Interceptamos solo execute para forzar la espera de escrituras si la compuerta está cerrada.
+        // Los select (lecturas) pasan de largo porque SQLite WAL permite lectura concurrente.
+        if (prop === "execute") {
           return async (...args: any[]) => {
             await waitForLocalDbIdle();
             // @ts-ignore
