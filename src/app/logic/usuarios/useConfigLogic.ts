@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { confirm } from "@tauri-apps/plugin-dialog";
-import Database from "@tauri-apps/plugin-sql";
+import { getDb } from "../../db/localDb";
 import * as bcrypt from "bcryptjs";
 import { sileo } from "sileo";
 import {
@@ -62,7 +62,7 @@ export function useConfigLogic() {
         setAutoSync(syncPref !== "false"); // Por defecto es true
 
         // Cargar datos del dispositivo y sucursal desde SQLite
-        const sqlite = await Database.load("sqlite:valeska.db");
+        const sqlite = await getDb();
         try {
           const identity = await invoke<any>("get_device_identity");
           setDetectedMacAddress(
@@ -128,7 +128,7 @@ export function useConfigLogic() {
     e.preventDefault();
     setIsSavingProfile(true);
     try {
-      const sqlite = await Database.load("sqlite:valeska.db");
+      const sqlite = await getDb();
       await sqlite.execute(
         "UPDATE usuarios SET nombre_completo = $1, updated_at = $2 WHERE id = $3",
         [nombre, new Date().toISOString(), userId],
@@ -176,7 +176,7 @@ export function useConfigLogic() {
 
     setIsSavingSecurity(true);
     try {
-      const sqlite = await Database.load("sqlite:valeska.db");
+      const sqlite = await getDb();
       const result: any[] = await sqlite.select(
         "SELECT password_hash FROM usuarios WHERE id = $1",
         [userId],
@@ -224,7 +224,7 @@ export function useConfigLogic() {
 
       // 2. Guardamos cambios en SQLite
       if (dispositivoId) {
-        const sqlite = await Database.load("sqlite:valeska.db");
+        const sqlite = await getDb();
         await sqlite.execute(
           "UPDATE dispositivos SET nombre_equipo = $1, sucursal_id = $2, updated_at = $3 WHERE id = $4",
           [
@@ -256,7 +256,7 @@ export function useConfigLogic() {
   const handleRefreshSyncDiagnostics = async () => {
     setIsLoadingDiagnostics(true);
     try {
-      const sqlite = await Database.load("sqlite:valeska.db");
+      const sqlite = await getDb();
       const diagnostics = await collectLocalSyncDiagnostics(sqlite);
       setSyncDiagnostics(diagnostics);
       return diagnostics;
@@ -316,7 +316,7 @@ export function useConfigLogic() {
 
     setIsRepairingSync(true);
     try {
-      const sqlite = await Database.load("sqlite:valeska.db");
+      const sqlite = await getDb();
       await forceTramiteResync(sqlite, { apiUrl: API_URL }, userId);
       const refreshed = await collectLocalSyncDiagnostics(sqlite);
       setSyncDiagnostics(refreshed);
@@ -334,6 +334,27 @@ export function useConfigLogic() {
       });
     } finally {
       setIsRepairingSync(false);
+    }
+  };
+
+  const handleLimpiarConflictosHuerfanos = async () => {
+    const accepted = await confirm(
+      "¿Seguro que deseas vaciar la tabla de conflictos? Esto borrara permanentemente cualquier conflicto huérfano local, ideal antes de una nueva importación masiva.",
+      { title: "Limpiar Conflictos Huérfanos", kind: "warning" }
+    );
+    if (!accepted) return;
+    try {
+      const sqlite = await getDb();
+      await sqlite.execute("DELETE FROM sync_conflictos");
+      const refreshed = await collectLocalSyncDiagnostics(sqlite);
+      setSyncDiagnostics(refreshed);
+      sileo.success({
+        title: "Limpieza Completada",
+        description: "Se han eliminado todos los conflictos locales."
+      });
+    } catch (e: any) {
+      console.error(e);
+      sileo.error({ title: "Error", description: e?.message || "No se pudo limpiar." });
     }
   };
 
@@ -371,5 +392,6 @@ export function useConfigLogic() {
     handleRefreshSyncDiagnostics,
     handleExportSyncDiagnostics,
     handleForceTramiteResync,
+    handleLimpiarConflictosHuerfanos,
   };
 }

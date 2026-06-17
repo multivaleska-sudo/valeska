@@ -1,9 +1,10 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
-import Database from "@tauri-apps/plugin-sql";
+import { getDb } from "../../db/localDb";
 import { save, confirm } from "@tauri-apps/plugin-dialog";
 import { writeFile } from "@tauri-apps/plugin-fs";
 import * as XLSX from "xlsx";
 import { sileo } from "sileo";
+import { softDeleteTramiteLocally } from "./deleteTramiteLocal";
 
 export interface TramiteRow {
   id: string;
@@ -63,7 +64,7 @@ export function useTramitesListLogic() {
 
   const fetchCatalogos = useCallback(async () => {
     try {
-      const sqlite = await Database.load("sqlite:valeska.db");
+      const sqlite = await getDb();
 
       const resSits: any[] = await sqlite.select(
         "SELECT nombre FROM catalogo_situaciones WHERE activo = 1 ORDER BY nombre ASC",
@@ -82,7 +83,7 @@ export function useTramitesListLogic() {
   const fetchTramites = useCallback(async () => {
     setIsLoading(true);
     try {
-      const sqlite = await Database.load("sqlite:valeska.db");
+      const sqlite = await getDb();
       const query = `
                 SELECT 
                     t.id,
@@ -156,46 +157,8 @@ export function useTramitesListLogic() {
     if (!isConfirmed) return;
 
     try {
-      const db = await Database.load("sqlite:valeska.db");
-      const now = Date.now();
-
-      const tRes = await db.select<any[]>(
-        "SELECT cliente_id, vehiculo_id FROM tramites WHERE id = $1",
-        [id],
-      );
-      if (tRes.length === 0) return;
-      const { cliente_id, vehiculo_id } = tRes[0];
-
-      await db.execute(
-        "UPDATE tramites SET deleted_at=$1, sync_status='LOCAL_UPDATE' WHERE id=$2",
-        [now, id],
-      );
-      await db.execute(
-        "UPDATE tramite_detalles SET deleted_at=$1, sync_status='LOCAL_UPDATE' WHERE tramite_id=$2",
-        [now, id],
-      );
-
-      const cCount = await db.select<any[]>(
-        "SELECT id FROM tramites WHERE cliente_id=$1 AND deleted_at IS NULL",
-        [cliente_id],
-      );
-      if (cCount.length === 0) {
-        await db.execute(
-          "UPDATE clientes SET deleted_at=$1, sync_status='LOCAL_UPDATE' WHERE id=$2",
-          [now, cliente_id],
-        );
-      }
-
-      const vCount = await db.select<any[]>(
-        "SELECT id FROM tramites WHERE vehiculo_id=$1 AND deleted_at IS NULL",
-        [vehiculo_id],
-      );
-      if (vCount.length === 0) {
-        await db.execute(
-          "UPDATE vehiculos SET deleted_at=$1, sync_status='LOCAL_UPDATE' WHERE id=$2",
-          [now, vehiculo_id],
-        );
-      }
+      const db = await getDb();
+      await softDeleteTramiteLocally(db, id);
 
       sileo.success({
         title: "Trámite Eliminado",
@@ -317,7 +280,7 @@ export function useTramitesListLogic() {
     // Pequeña pausa para permitir que React renderice el Overlay antes de bloquear el hilo principal
     await new Promise((resolve) => setTimeout(resolve, 100));
     try {
-      const db = await Database.load("sqlite:valeska.db");
+      const db = await getDb();
       const tables: any[] = await db.select(
         "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
       );

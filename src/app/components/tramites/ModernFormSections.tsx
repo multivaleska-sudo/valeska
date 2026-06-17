@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Search, Plus, Edit3 } from "lucide-react";
-import Database from "@tauri-apps/plugin-sql";
+import { getDb } from "../../db/localDb";
 
 export const SectionCard = ({
   title,
@@ -235,7 +235,7 @@ export const ModernDynamicRepresentantes = ({
 
     if (field === "dni" && (val.length === 8 || val.length === 9)) {
       try {
-        const sqlite = await Database.load("sqlite:valeska.db");
+        const sqlite = await getDb();
         const res: any[] = await sqlite.select(
           `SELECT primer_apellido, segundo_apellido, nombres FROM presentantes WHERE dni = $1 LIMIT 1`,
           [val],

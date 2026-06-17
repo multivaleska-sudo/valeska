@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import Database from "@tauri-apps/plugin-sql";
+import { getDb } from "../../db/localDb";
 import { TramiteFormData } from "../../types/tramites/tramite.types";
 import { sileo } from "sileo";
 
@@ -15,7 +15,7 @@ export function useTramiteDetail(id: string | undefined) {
     }
 
     try {
-      const sqlite = await Database.load("sqlite:valeska.db");
+      const sqlite = await getDb();
 
       const query = `
         SELECT 

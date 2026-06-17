@@ -1,10 +1,12 @@
 import { Outlet } from "react-router";
 import { Topbar } from "./Topbar";
 import { Sidebar } from "./Sidebar";
-import { useState, useEffect, use } from "react";
+import { useState, useEffect } from "react";
 import { useAuthLogic } from "../logic/auth/useAuthLogic";
 import { useSyncLogic } from "../logic/sync/useSyncLogic";
 import { Loader2 } from "lucide-react";
+
+const SYNC_INTERVAL_MS = 15000;
 
 export function AppShell() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -26,13 +28,16 @@ export function AppShell() {
       }
 
       if (autoSync) {
-        triggerSync({ title: "Sincronización Automática (Rutina)" });
+        triggerSync({ title: "Sincronización Automática", source: "auto", silent: true });
       }
     };
 
     const initialTimeout = setTimeout(runBackgroundSync, 5000);
 
-    const syncInterval = setInterval(runBackgroundSync, 300000);
+    const syncInterval = setInterval(
+      runBackgroundSync,
+      SYNC_INTERVAL_MS + Math.floor(Math.random() * 5000),
+    );
 
     window.addEventListener("valeska_request_sync", runBackgroundSync);
 
@@ -66,3 +71,4 @@ export function AppShell() {
     </div>
   );
 }
+

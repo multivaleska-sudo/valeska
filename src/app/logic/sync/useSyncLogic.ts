@@ -1,17 +1,17 @@
-import { useState, useEffect, useCallback, useRef } from "react";
-import Database from "@tauri-apps/plugin-sql";
+import { useState, useEffect, useCallback } from "react";
+import { getUnsafeDb } from "../../db/localDb";
 import { sileo } from "sileo";
 import { executePush } from "./pushActions";
 import { executePull } from "./pullActions";
+import { isLocalDbBusy, runExclusiveLocalDbOperation } from "./localDbOperationGate";
 import { SyncHttpError, clearInvalidSyncSession } from "../../services/syncService";
 
 const API_URL = (import.meta as any).env.VITE_API_URL;
-const SYNC_INTERVAL_MS = 15000;
-
 declare global {
   interface Window {
     __valeskaSyncInFlight?: boolean;
     __valeskaSyncPending?: boolean;
+    __valeskaImportInFlight?: boolean;
   }
 }
 
@@ -27,29 +27,43 @@ export interface SyncLog {
 }
 
 export interface SyncContext {
-  title: string;
+  title?: string;
   details?: string;
   forceFullSync?: boolean;
   overrideUserId?: string;
   overrideUserName?: string;
+  source?: "manual" | "auto" | "excel-import";
+  silent?: boolean;
 }
 
-const hasSyncToken = () => {
-  const directToken = localStorage.getItem("valeska_access_token");
-  if (directToken) return true;
-
-  const sessionStr = localStorage.getItem("valeska_session_user");
-  if (!sessionStr) return false;
-
-  try {
-    return Boolean(JSON.parse(sessionStr)?.accessToken);
-  } catch {
-    return false;
-  }
-};
+export const shouldDeferSyncForImport = (
+  context: SyncContext | undefined,
+  state: { importInFlight?: boolean },
+) => Boolean(state.importInFlight && context?.source !== "excel-import");
 
 const isAuthSyncError = (error: any) =>
   error instanceof SyncHttpError && error.status === 401;
+
+const sumCounts = (counts: Record<string, number | undefined> = {}) =>
+  Object.values(counts).reduce((total, count) => total + (count || 0), 0);
+
+const buildStatsBucket = (counts: Record<string, number | undefined> = {}) => {
+  const sucursales = counts.sucursal || 0;
+  const dispositivos = counts.dispositivo || 0;
+  const usuarios = counts.usuario || 0;
+  const tramites = (counts.tramite || 0) + (counts.tramite_detalle || 0);
+  const conflictos = counts.sync_conflicto || 0;
+  const known = sucursales + dispositivos + usuarios + tramites + conflictos;
+
+  return {
+    sucursales,
+    dispositivos,
+    usuarios,
+    tramites,
+    otros: Math.max(0, sumCounts(counts) - known),
+    conflictos,
+  };
+};
 
 export function useSyncLogic() {
   const [isSyncing, setIsSyncing] = useState(false);
@@ -60,12 +74,6 @@ export function useSyncLogic() {
     pull: { sucursales: 0, dispositivos: 0, usuarios: 0, tramites: 0, otros: 0, conflictos: 0 },
   });
   const [syncHistory, setSyncHistory] = useState<SyncLog[]>([]);
-
-  const isSyncingRef = useRef(false);
-
-  useEffect(() => {
-    isSyncingRef.current = isSyncing;
-  }, [isSyncing]);
 
   useEffect(() => {
     const handleUpdate = () => {
@@ -84,6 +92,13 @@ export function useSyncLogic() {
   }, []);
 
   const triggerSync = useCallback(async (context?: SyncContext) => {
+    if (shouldDeferSyncForImport(context, { importInFlight: window.__valeskaImportInFlight || isLocalDbBusy() })) {
+      window.__valeskaSyncPending = true;
+      return false;
+    }
+
+    return runExclusiveLocalDbOperation(`sync:${context?.source || "manual"}`, async () => {
+
     if (window.__valeskaSyncInFlight) {
       window.__valeskaSyncPending = true;
       return false;
@@ -94,7 +109,7 @@ export function useSyncLogic() {
     setIsSyncing(true);
     setSyncError(null);
 
-    const isAutoSync = context?.title === "Sincronización Automática";
+    const isAutoSync = context?.source === "auto" || context?.silent === true;
 
     try {
       let userId = context?.overrideUserId || "";
@@ -108,7 +123,7 @@ export function useSyncLogic() {
         userName = session.nombre || session.username;
       }
 
-      const sqlite = await Database.load("sqlite:valeska.db");
+      const sqlite = await getUnsafeDb();
       const dispResult: any[] = await sqlite.select("SELECT nombre_equipo FROM dispositivos LIMIT 1");
       const machineName = dispResult[0]?.nombre_equipo || "PC-DESCONOCIDA";
 
@@ -133,6 +148,8 @@ export function useSyncLogic() {
       try {
         const pullResult = await executePull(config, userId, sqlite);
         pullData = pullResult.data;
+        pullData.__pulledByEntity = pullResult.pulledByEntity || {};
+        pullData.__totalPulled = pullResult.totalPulled || 0;
       } catch (pullError: any) {
         console.warn("Fallo de conexión en PULL. Ignorando porque el PUSH fue exitoso...", pullError);
         pullErrorMsg = pullError.message || "Error al descargar actualizaciones.";
@@ -148,22 +165,13 @@ export function useSyncLogic() {
       localStorage.setItem("valeska_last_sync_duration_ms", String(Math.round(performance.now() - syncStartedAt)));
 
       const currentStats = {
-        push: { sucursales: 0, dispositivos: 0, usuarios: 0, tramites: 0, otros: pushResult.pushedCount, conflictos: 0 },
-        pull: {
-          sucursales: pullData?.sucursales?.length || 0,
-          dispositivos: pullData?.dispositivos?.length || 0,
-          usuarios: pullData?.usuarios?.length || 0,
-          tramites: pullData?.tramites?.length || 0,
-          otros: 0,
-          conflictos: pullData?.conflictos?.length || 0,
-        },
+        push: buildStatsBucket(pushResult.pushedByEntity || {}),
+        pull: buildStatsBucket(pullData?.__pulledByEntity || {}),
       };
       localStorage.setItem("valeska_sync_stats", JSON.stringify(currentStats));
 
-      const totalPulled =
-        (pullData?.tramites?.length || 0) + (pullData?.clientes?.length || 0) +
-        (pullData?.vehiculos?.length || 0) + (pullData?.usuarios?.length || 0) +
-        (pullData?.plantillasDocumentos?.length || 0);
+      const totalPulled = pullData?.__totalPulled || sumCounts(pullData?.__pulledByEntity || {});
+      const totalChanged = (pushResult.pushedCount || 0) + totalPulled + (pushResult.conflictCount || 0);
 
       const logTitle = context?.title || "Sincronización General Completada";
       let logDetails = `Subidos: ${pushResult.pushedCount} regs. | Descargados: ${totalPulled} regs.`;
@@ -175,9 +183,11 @@ export function useSyncLogic() {
         title: logTitle, details: logDetails,
       };
 
-      const prevHistoryRaw = localStorage.getItem("valeska_sync_history");
-      const prevHistory: SyncLog[] = prevHistoryRaw ? JSON.parse(prevHistoryRaw) : [];
-      localStorage.setItem("valeska_sync_history", JSON.stringify([newLog, ...prevHistory].slice(0, 50)));
+      if (!isAutoSync || totalChanged > 0 || pullErrorMsg) {
+        const prevHistoryRaw = localStorage.getItem("valeska_sync_history");
+        const prevHistory: SyncLog[] = prevHistoryRaw ? JSON.parse(prevHistoryRaw) : [];
+        localStorage.setItem("valeska_sync_history", JSON.stringify([newLog, ...prevHistory].slice(0, 50)));
+      }
 
       window.dispatchEvent(new Event("valeska_sync_completed"));
       window.dispatchEvent(new Event("valeska_reload_tramites"));
@@ -223,29 +233,16 @@ export function useSyncLogic() {
       window.__valeskaSyncInFlight = false;
       if (window.__valeskaSyncPending) {
         window.__valeskaSyncPending = false;
-        window.setTimeout(() => {
-          window.dispatchEvent(new Event("valeska_request_sync"));
-        }, 500);
+        if (context?.source !== "excel-import") {
+          window.setTimeout(() => {
+            window.dispatchEvent(new Event("valeska_request_sync"));
+          }, 500);
+        }
       }
     }
+    });
   }, []);
 
-  useEffect(() => {
-    const handleAutoSync = () => {
-      if (!isSyncingRef.current && hasSyncToken()) {
-        triggerSync({ title: "Sincronización Automática", details: "Mantenimiento en segundo plano" });
-      }
-    };
-
-    window.addEventListener("valeska_request_sync", handleAutoSync);
-
-    const intervalId = setInterval(handleAutoSync, SYNC_INTERVAL_MS + Math.floor(Math.random() * 5000));
-
-    return () => {
-      window.removeEventListener("valeska_request_sync", handleAutoSync);
-      clearInterval(intervalId);
-    };
-  }, [triggerSync]);
 
   return {
     isSyncing,

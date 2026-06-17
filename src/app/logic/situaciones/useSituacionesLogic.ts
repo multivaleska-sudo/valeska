@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import Database from "@tauri-apps/plugin-sql";
+import { getDb } from "../../db/localDb";
 import { sileo } from "sileo";
 
 export interface SituacionStat {
@@ -16,7 +16,7 @@ export function useSituacionesLogic() {
   const loadData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const sqlite = await Database.load("sqlite:valeska.db");
+      const sqlite = await getDb();
       const query = `
                 SELECT 
                     cs.id,

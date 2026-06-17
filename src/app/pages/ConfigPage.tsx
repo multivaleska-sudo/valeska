@@ -14,6 +14,8 @@ import {
   Activity,
   FileDown,
   Wrench,
+  Settings,
+  Trash2,
 } from "lucide-react";
 import { useConfigLogic } from "../logic/usuarios/useConfigLogic";
 import { useAppUpdater } from "../logic/updates/useAppUpdater";
@@ -53,6 +55,7 @@ export function ConfigPage() {
     handleRefreshSyncDiagnostics,
     handleExportSyncDiagnostics,
     handleForceTramiteResync,
+    handleLimpiarConflictosHuerfanos,
   } = useConfigLogic();
   const {
     isChecking,
@@ -464,10 +467,47 @@ export function ConfigPage() {
                           </button>
                         </div>
 
+                        <div className="flex">
+                           <button
+                            type="button"
+                            onClick={handleLimpiarConflictosHuerfanos}
+                            disabled={isLoadingDiagnostics || isRepairingSync || syncDiagnostics.conflictCount === 0}
+                            className="w-full bg-rose-600 text-white px-4 py-3 rounded-2xl font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-2 hover:bg-rose-700 transition-colors disabled:opacity-60"
+                           >
+                            <Trash2 size={15} />
+                            Limpiar Conflictos Huérfanos
+                           </button>
+                        </div>
+
                         {syncDiagnostics.pendingCounts.length > 0 && (
                           <p className="text-xs font-bold text-rose-600">
                             Reparacion bloqueada: hay cambios locales pendientes por subir.
                           </p>
+                        )}
+
+                        {syncDiagnostics.versionedRows.length > 0 && (
+                          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4">
+                            <p className="text-[10px] font-black text-slate-600 uppercase tracking-[0.2em]">
+                              Versiones y borrados
+                            </p>
+                            <div className="mt-3 max-h-48 overflow-auto space-y-2">
+                              {syncDiagnostics.versionedRows.slice(0, 12).map((row) => (
+                                <div
+                                  key={`${row.tableName}-${row.id}`}
+                                  className="text-[11px] font-bold text-slate-700 bg-white border border-slate-100 rounded-xl p-2"
+                                >
+                                  <div className="flex justify-between gap-2">
+                                    <span>{row.tableName}</span>
+                                    <span>{row.syncStatus}</span>
+                                  </div>
+                                  <div className="mt-1 text-slate-500 break-all">
+                                    {row.id} | v{row.version}/base {row.baseVersion}
+                                    {row.deletedAt ? ` | deleted_at ${row.deletedAt}` : ""}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
                         )}
                       </div>
                     )}

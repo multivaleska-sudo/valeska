@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import Database from "@tauri-apps/plugin-sql";
+import { getDb } from "../../db/localDb";
 import { sileo } from "sileo";
 
 export interface PerfilGestor {
@@ -21,7 +21,7 @@ export function usePerfilesLogic() {
     const loadPerfiles = useCallback(async () => {
         try {
             setIsLoading(true);
-            const db = await Database.load("sqlite:valeska.db");
+            const db = await getDb();
             const result = await db.select<PerfilGestor[]>(
                 "SELECT id, calidad, nombre, concesionario, importador FROM perfiles_gestor WHERE deleted_at IS NULL ORDER BY nombre ASC"
             );
@@ -40,7 +40,7 @@ export function usePerfilesLogic() {
 
     const handleSave = async (data: Partial<PerfilGestor>) => {
         try {
-            const db = await Database.load("sqlite:valeska.db");
+            const db = await getDb();
             const now = Date.now();
 
             if (editingPerfil) {
@@ -74,7 +74,7 @@ export function usePerfilesLogic() {
     const confirmDelete = async () => {
         if (!perfilToDelete) return;
         try {
-            const db = await Database.load("sqlite:valeska.db");
+            const db = await getDb();
             const now = Date.now();
             await db.execute(
                 "UPDATE perfiles_gestor SET deleted_at = $1, sync_status = 'LOCAL_UPDATE' WHERE id = $2",

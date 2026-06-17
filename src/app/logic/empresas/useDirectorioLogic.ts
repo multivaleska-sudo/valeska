@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import Database from "@tauri-apps/plugin-sql";
+import { getDb } from "../../db/localDb";
 import { sileo } from "sileo";
 
 export interface Presentante {
@@ -64,7 +64,7 @@ export function useDirectorioLogic() {
   const loadData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const db = await Database.load("sqlite:valeska.db");
+      const db = await getDb();
 
       const query = `
         SELECT 
@@ -147,7 +147,7 @@ export function useDirectorioLogic() {
   const buscarEmpresaPorRuc = async (ruc: string) => {
     if (ruc.length !== 11) return;
     try {
-      const db = await Database.load("sqlite:valeska.db");
+      const db = await getDb();
       const res: any[] = await db.select(
         "SELECT id, razon_social, direccion FROM empresas_gestoras WHERE ruc = $1",
         [ruc],
@@ -191,7 +191,7 @@ export function useDirectorioLogic() {
 
     setIsSaving(true);
     try {
-      const db = await Database.load("sqlite:valeska.db");
+      const db = await getDb();
       const now = Date.now();
 
       if (formPresentante.id) {
@@ -236,7 +236,7 @@ export function useDirectorioLogic() {
 
     setIsSaving(true);
     try {
-      const db = await Database.load("sqlite:valeska.db");
+      const db = await getDb();
       const now = Date.now();
 
       // Convertir a mayúsculas antes de ir a BD
@@ -343,7 +343,7 @@ export function useDirectorioLogic() {
     if (!window.confirm(confirmMsg)) return;
 
     try {
-      const db = await Database.load("sqlite:valeska.db");
+      const db = await getDb();
       const now = Date.now();
 
       await db.execute(

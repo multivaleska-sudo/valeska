@@ -1,4 +1,4 @@
-import { buildPushPayload, markRecordsAsSynced } from "./syncUtils";
+import { buildPushPayload, markRecordsAsConflicted, markRecordsAsSynced } from "./syncUtils";
 import {
   LOCAL_KEY_TO_SYNC_ENTITY,
   SYNC_ENTITY_TO_LOCAL_KEY,
@@ -12,6 +12,7 @@ import {
 import type { SyncEntityName } from "../../types/sync.types";
 
 const CHUNK_SIZE = 500;
+type EntityCountMap = Partial<Record<SyncEntityName, number>>;
 
 const ENTITY_TABLES: Record<SyncEntityName, string> = {
   sucursal: "sucursales",
@@ -77,17 +78,70 @@ const insertLocalConflictFromError = async (
   );
 };
 
+const insertLocalConflictsFromStatus = async (
+  sqlite: any,
+  entityName: SyncEntityName,
+  records: any[],
+  conflictIds: string[] = [],
+) => {
+  const tableName = ENTITY_TABLES[entityName];
+  const conflictedRecords = records.filter((record) => record?.id);
+  if (conflictedRecords.length === 0) return;
+
+  for (let index = 0; index < conflictedRecords.length; index += 1) {
+    const record = conflictedRecords[index];
+    await sqlite.execute(
+      `INSERT INTO sync_conflictos
+        (id, tabla_afectada, registro_id, identificador_visual, datos_locales, datos_remotos, resuelto, fecha_conflicto)
+       VALUES ($1, $2, $3, $4, $5, $6, 0, $7)
+       ON CONFLICT(id) DO UPDATE SET
+         tabla_afectada = excluded.tabla_afectada,
+         registro_id = excluded.registro_id,
+         identificador_visual = excluded.identificador_visual,
+         datos_locales = excluded.datos_locales,
+         datos_remotos = excluded.datos_remotos,
+         resuelto = 0,
+         fecha_conflicto = excluded.fecha_conflicto`,
+      [
+        conflictIds[index] || crypto.randomUUID(),
+        tableName,
+        record.id,
+        record.nTitulo || record.numeroDocumento || record.placa || record.tramiteId || `Conflicto ${entityName}`,
+        JSON.stringify(record),
+        JSON.stringify({ pendiente_pull_conflicto: true }),
+        Date.now(),
+      ],
+    );
+  }
+};
+
 export const executePush = async (
   config: { apiUrl: string },
   _userId: string,
   sqlite: any,
 ) => {
   const fullPayload = (await buildPushPayload(sqlite)) as Record<string, any[]>;
+  const pushedByEntity: EntityCountMap = {};
+  const acceptedByEntity: EntityCountMap = {};
+  const conflictedByEntity: EntityCountMap = {};
+  const aggregateAcceptedRecordIds: string[] = [];
+  const aggregateConflictedRecordIds: string[] = [];
 
   const hasDataToPush = Object.values(fullPayload).some(
     (arr: any) => arr && arr.length > 0,
   );
-  if (!hasDataToPush) return { success: true, pushedCount: 0 };
+  if (!hasDataToPush) {
+    return {
+      success: true,
+      pushedCount: 0,
+      conflictCount: 0,
+      pushedByEntity,
+      acceptedByEntity,
+      conflictedByEntity,
+      acceptedRecordIds: aggregateAcceptedRecordIds,
+      conflictedRecordIds: aggregateConflictedRecordIds,
+    };
+  }
 
   const syncSessionId = crypto.randomUUID();
   let totalPushed = 0;
@@ -114,6 +168,7 @@ export const executePush = async (
 
       try {
         const accepted = await pushSyncChunk(config.apiUrl, {
+          syncProtocolVersion: 2,
           syncSessionId,
           entityName,
           chunkIndex,
@@ -150,19 +205,44 @@ export const executePush = async (
           );
         }
 
+        const hasGranularStatus =
+          Boolean(finalStatus.acceptedRecordIds?.length) ||
+          Boolean(finalStatus.conflictedRecordIds?.length);
+        const acceptedRecordIds = hasGranularStatus
+          ? finalStatus.acceptedRecordIds || []
+          : recordIds;
+        const conflictedRecordIds = finalStatus.conflictedRecordIds || [];
+        acceptedByEntity[entityName] =
+          (acceptedByEntity[entityName] || 0) + acceptedRecordIds.length;
+        conflictedByEntity[entityName] =
+          (conflictedByEntity[entityName] || 0) + conflictedRecordIds.length;
+        pushedByEntity[entityName] =
+          (pushedByEntity[entityName] || 0) + acceptedRecordIds.length;
+        aggregateAcceptedRecordIds.push(...acceptedRecordIds);
+        aggregateConflictedRecordIds.push(...conflictedRecordIds);
+
         if (entityName === "sync_conflicto") {
-          if (recordIds.length > 0) {
+          if (acceptedRecordIds.length > 0) {
             await sqlite.execute(
-              `UPDATE sync_conflictos SET resuelto = 1 WHERE id IN (${recordIds
+              `UPDATE sync_conflictos SET resuelto = 1 WHERE id IN (${acceptedRecordIds
                 .map((id) => `'${id}'`)
                 .join(",")})`,
             );
           }
         } else {
-          await markRecordsAsSynced(sqlite, ENTITY_TABLES[entityName], recordIds);
+          await markRecordsAsSynced(sqlite, ENTITY_TABLES[entityName], acceptedRecordIds);
+          await markRecordsAsConflicted(sqlite, ENTITY_TABLES[entityName], conflictedRecordIds);
+          if (conflictedRecordIds.length > 0) {
+            await insertLocalConflictsFromStatus(
+              sqlite,
+              entityName,
+              chunk.filter((record: any) => conflictedRecordIds.includes(record.id)),
+              finalStatus.conflictIds || [],
+            );
+          }
         }
 
-        totalPushed += chunk.length;
+        totalPushed += acceptedRecordIds.length;
       } catch (error: any) {
         const message = error?.message || `Error al subir ${entityName}`;
 
@@ -186,7 +266,16 @@ export const executePush = async (
     }
   }
 
-  return { success: true, pushedCount: totalPushed };
+  return {
+    success: true,
+    pushedCount: totalPushed,
+    conflictCount: aggregateConflictedRecordIds.length,
+    pushedByEntity,
+    acceptedByEntity,
+    conflictedByEntity,
+    acceptedRecordIds: aggregateAcceptedRecordIds,
+    conflictedRecordIds: aggregateConflictedRecordIds,
+  };
 };
 
 export const getSyncEntityFromLocalKey = (localKey: string) =>

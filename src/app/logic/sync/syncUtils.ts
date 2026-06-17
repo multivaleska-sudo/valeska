@@ -7,10 +7,39 @@ export const formatDateForNest = (val: any) => {
     return new Date(val).toISOString();
 };
 
+const VERSIONED_SYNC_TABLES = new Set([
+    "clientes",
+    "vehiculos",
+    "tramites",
+    "tramite_detalles",
+]);
+
 export const markRecordsAsSynced = async (sqlite: any, tableName: string, ids: string[]) => {
     if (!ids || ids.length === 0) return;
     const formattedIds = ids.map(id => `'${id}'`).join(',');
+
+    if (VERSIONED_SYNC_TABLES.has(tableName)) {
+        await sqlite.execute(`UPDATE ${tableName}
+            SET version = CASE
+                    WHEN sync_status = 'LOCAL_INSERT' THEN CASE WHEN version < 1 THEN 1 ELSE version END
+                    ELSE version + 1
+                END,
+                base_version = CASE
+                    WHEN sync_status = 'LOCAL_INSERT' THEN CASE WHEN version < 1 THEN 1 ELSE version END
+                    ELSE version + 1
+                END,
+                sync_status = 'SYNCED'
+            WHERE id IN (${formattedIds})`);
+        return;
+    }
+
     await sqlite.execute(`UPDATE ${tableName} SET sync_status = 'SYNCED' WHERE id IN (${formattedIds})`);
+};
+
+export const markRecordsAsConflicted = async (sqlite: any, tableName: string, ids: string[]) => {
+    if (!ids || ids.length === 0) return;
+    const formattedIds = ids.map(id => `'${id}'`).join(',');
+    await sqlite.execute(`UPDATE ${tableName} SET sync_status = 'CONFLICT' WHERE id IN (${formattedIds})`);
 };
 
 const versionFields = (row: any) => ({
@@ -117,6 +146,7 @@ export async function buildPushPayload(sqlite: any) {
             updatedAt: formatDateForNest(c.updated_at),
             deletedAt: formatDateForNest(c.deleted_at),
             syncStatus: c.sync_status,
+            ...versionFields(c),
         })),
         vehiculos: vehiculosRaw.map((v) => ({
             id: v.id,

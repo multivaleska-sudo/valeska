@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import Database from "@tauri-apps/plugin-sql";
+import { getDb } from "../../db/localDb";
 import { sileo } from "sileo";
 
 export interface MessageTemplate {
@@ -16,7 +16,7 @@ export function useWasapLogic() {
   const loadTemplates = useCallback(async () => {
     setIsLoading(true);
     try {
-      const sqlite = await Database.load("sqlite:valeska.db");
+      const sqlite = await getDb();
 
       // Solo cargamos los que no están eliminados lógicamente
       const result: any[] = await sqlite.select(
@@ -51,7 +51,7 @@ export function useWasapLogic() {
     editingId: string | null,
   ) => {
     try {
-      const sqlite = await Database.load("sqlite:valeska.db");
+      const sqlite = await getDb();
       const now = Date.now();
 
       if (editingId) {
@@ -93,7 +93,7 @@ export function useWasapLogic() {
 
   const deleteTemplate = async (id: string) => {
     try {
-      const sqlite = await Database.load("sqlite:valeska.db");
+      const sqlite = await getDb();
       const now = Date.now();
 
       // SOFT DELETE (Ocultamos el registro y avisamos a la nube que fue modificado)

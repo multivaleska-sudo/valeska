@@ -230,6 +230,12 @@ pub fn run() {
             description: "agregar_metadata_sync_optimista",
             sql: include_str!("../../src/app/db/migrations/0017_optimistic_sync_metadata.sql"),
             kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 19,
+            description: "normalizar_base_version_de_registros_sincronizados",
+            sql: include_str!("../../src/app/db/migrations/0018_normalize_synced_base_versions.sql"),
+            kind: MigrationKind::Up,
         }
     ];
 

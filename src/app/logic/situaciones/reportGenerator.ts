@@ -2,7 +2,7 @@ import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import { ask, save } from "@tauri-apps/plugin-dialog";
 import { writeFile } from "@tauri-apps/plugin-fs";
-import Database from "@tauri-apps/plugin-sql";
+import { getDb } from "../../db/localDb";
 import { sileo } from "sileo";
 
 export const generateSituacionesReport = async () => {
@@ -16,7 +16,7 @@ export const generateSituacionesReport = async () => {
 
     if (!confirmed) return;
 
-    const sqlite = await Database.load("sqlite:valeska.db");
+    const sqlite = await getDb();
     const query = `
         SELECT 
             cs.nombre, 
