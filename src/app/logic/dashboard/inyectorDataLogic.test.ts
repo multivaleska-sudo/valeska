@@ -276,4 +276,80 @@ describe("insertarLotesUltra", () => {
     expect(savepointAttempts).toBe(2);
     expect(calls.filter((query) => query.startsWith("SAVEPOINT"))).toHaveLength(2);
   });
+
+  it("updates an existing tramite on reimport instead of creating a duplicate", async () => {
+    const calls: Array<{ query: string; params?: any[] }> = [];
+    const db = {
+      async execute(query: string, params?: any[]) {
+        calls.push({ query, params });
+      },
+      async select(query: string) {
+        if (query.includes("FROM tramites t")) {
+          return [
+            {
+              id: "tramite-existente",
+              detalle_id: "detalle-existente",
+              sync_status: "SYNCED",
+              version: 4,
+              base_version: 4,
+            },
+          ];
+        }
+        return [];
+      },
+    };
+
+    const result = await insertarLotesUltra(
+      db as any,
+      [
+        {
+          filaId: 2,
+          clienteNombre: "Cliente Demo",
+          dni: "12345678",
+          telefono: "999999999",
+          empresaNombre: null,
+          presentanteNombre: null,
+          chasis: "VIN-1",
+          placa: "ABC123",
+          motor: "MOTOR-1",
+          marca: "Marca",
+          modelo: "Modelo",
+          color: "Rojo",
+          anioVehiculo: "2026",
+          tipoTramiteNombre: "Transferencia",
+          situacionNombre: "Pendiente",
+          tramiteAnio: "2026",
+          fechaPresentacion: "2026-06-16",
+          nTitulo: "31233",
+          observacionesGenerales: "Actualizado por Excel",
+          fechaEntregaTarjeta: null,
+          fechaEntregaPlaca: null,
+          codigoVerificacion: "COD-1",
+          tipoBoleta: null,
+          numeroBoleta: null,
+          fechaBoleta: null,
+          dua: null,
+          numFormatoInmatriculacion: null,
+          clausulaMonto: null,
+          clausulaFormaPago: null,
+          clausulaPagoBancarizado: null,
+          aclaracionDice: null,
+          aclaracionDebeDecir: null,
+        },
+      ],
+      { usuarioId: "user-1", sucursalId: "sucursal-1" },
+      {
+        ...emptyCache(),
+        clientesMap: new Map([["12345678", "cliente-1"]]),
+        chasisMap: new Map([["VIN-1", "vehiculo-1"]]),
+        tipoMap: new Map([["Transferencia", "tipo-1"]]),
+        situacionMap: new Map([["Pendiente", "situacion-1"]]),
+      },
+    );
+
+    expect(result.exitosos).toBe(1);
+    expect(calls.some(({ query }) => query.includes("INSERT INTO tramites"))).toBe(false);
+    expect(calls.some(({ query }) => query.includes("UPDATE tramites SET"))).toBe(true);
+    expect(calls.some(({ query }) => query.includes("UPDATE tramite_detalles SET"))).toBe(true);
+  });
 });
