@@ -346,3 +346,41 @@ export async function waitForPushCompletion(
 
   return getPushStatus(apiUrl, outboxId);
 }
+
+export async function resolveSyncConflict(
+  apiUrl: string,
+  conflictId: string,
+  dto: {
+    strategy: 'ACCEPT_REMOTE' | 'ACCEPT_LOCAL' | 'MERGE';
+    resolvedData?: Record<string, unknown>;
+    expectedRecordVersion?: number;
+    resolutionNote?: string;
+  },
+  token: string,
+  macAddress: string,
+) {
+  const url = `${apiUrl}/sync/conflicts/${conflictId}/resolve`;
+
+  const response = await fetch(url, {
+    method: "POST", // Fallback allowed per instruction
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+      "x-device-mac": macAddress,
+    },
+    body: JSON.stringify(dto),
+  });
+
+  if (!response.ok) {
+    let errorMessage = "Error al resolver conflicto en servidor";
+    try {
+      const errorBody = await response.json();
+      errorMessage = errorBody.message || errorMessage;
+    } catch {
+      errorMessage = `${errorMessage} (${response.status})`;
+    }
+    throw new Error(errorMessage);
+  }
+
+  return response.json();
+}

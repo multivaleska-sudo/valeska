@@ -288,11 +288,41 @@ export function useConflictosLogic() {
         "SELECT datos_locales, datos_remotos FROM sync_conflictos WHERE id = $1 LIMIT 1",
         [conflictoId],
       );
+      if (conflictRows.length === 0) throw new Error("Conflicto no encontrado");
       const localData = JSON.parse(conflictRows[0]?.datos_locales || "{}");
       const remoteData = JSON.parse(conflictRows[0]?.datos_remotos || "{}");
       if (isRemoteConflictPlaceholder(remoteData)) {
         throw new Error("El detalle remoto del conflicto aun se esta sincronizando. Ejecuta sincronizacion y vuelve a intentar.");
       }
+
+      // Llamada directa al API
+      const sessionRaw = localStorage.getItem("valeska_session_user");
+      const session = sessionRaw ? JSON.parse(sessionRaw) : null;
+      const token = localStorage.getItem("valeska_access_token") || session?.accessToken;
+      const deviceMac = localStorage.getItem("valeska_device_mac") || ""; // We might need a better way if missing
+      
+      const API_URL = (import.meta as any).env.VITE_API_URL;
+      const strategyMap: Record<ConflictResolutionMode, 'ACCEPT_REMOTE' | 'ACCEPT_LOCAL' | 'MERGE'> = {
+        remote: 'ACCEPT_REMOTE',
+        local: 'ACCEPT_LOCAL',
+        merge: 'MERGE'
+      };
+
+      try {
+        const { resolveSyncConflict } = await import("../../services/syncService");
+        await resolveSyncConflict(
+          API_URL, 
+          conflictoId, 
+          { strategy: strategyMap[mode], resolvedData: mode === "remote" ? undefined : resolvedData }, 
+          token, 
+          deviceMac
+        );
+      } catch (err: any) {
+        if (!err.message.includes('ya estaba resuelto')) {
+           throw err; // Solo ignoramos si la API dice que ya estaba resuelto
+        }
+      }
+
       const update = buildConflictResolutionUpdate({
         tableName: tablaAfectada,
         mode,
@@ -306,7 +336,7 @@ export function useConflictosLogic() {
       await sqlite.execute(update.query, update.values);
 
       await sqlite.execute(
-        "UPDATE sync_conflictos SET resuelto = 1, datos_locales = $1, fecha_conflicto = $2 WHERE id = $3",
+        "UPDATE sync_conflictos SET resuelto = 1, sync_status = 'SYNCED', datos_locales = $1, fecha_conflicto = $2 WHERE id = $3",
         [JSON.stringify(mode === "remote" ? remoteData : mode === "local" ? localData : resolvedData), now, conflictoId],
       );
 
@@ -316,8 +346,8 @@ export function useConflictosLogic() {
     };
 
     return sileo.promise(promise(), {
-      loading: { title: "Resolviendo conflicto..." },
-      success: { title: "Conflicto resuelto y registro actualizado" },
+      loading: { title: "Resolviendo conflicto en servidor..." },
+      success: { title: "Conflicto resuelto y sincronizado" },
       error: { title: "No se pudo resolver el conflicto" },
     });
   };
@@ -330,10 +360,33 @@ export function useConflictosLogic() {
         "SELECT * FROM sync_conflictos WHERE resuelto = 0 ORDER BY fecha_conflicto ASC",
       );
 
+      // Credenciales para la API
+      const sessionRaw = localStorage.getItem("valeska_session_user");
+      const session = sessionRaw ? JSON.parse(sessionRaw) : null;
+      const token = localStorage.getItem("valeska_access_token") || session?.accessToken;
+      const deviceMac = localStorage.getItem("valeska_device_mac") || "";
+      const API_URL = (import.meta as any).env.VITE_API_URL;
+      const { resolveSyncConflict } = await import("../../services/syncService");
+
       let resolved = 0;
       for (const row of rows) {
         const remoteData = JSON.parse(row.datos_remotos || "{}");
         if (isRemoteConflictPlaceholder(remoteData)) continue;
+
+        try {
+          await resolveSyncConflict(
+            API_URL, 
+            row.id, 
+            { strategy: 'ACCEPT_REMOTE' }, 
+            token, 
+            deviceMac
+          );
+        } catch (err: any) {
+          if (!err.message.includes('ya estaba resuelto')) {
+             console.error("Error resolviendo conflicto listo:", err);
+             continue; // Si falla en servidor, no lo marcamos resuelto local
+          }
+        }
 
         const localData = JSON.parse(row.datos_locales || "{}");
         const update = buildConflictResolutionUpdate({
@@ -347,7 +400,7 @@ export function useConflictosLogic() {
         });
         await sqlite.execute(update.query, update.values);
         await sqlite.execute(
-          "UPDATE sync_conflictos SET resuelto = 1, datos_locales = $1, fecha_conflicto = $2 WHERE id = $3",
+          "UPDATE sync_conflictos SET resuelto = 1, sync_status = 'SYNCED', datos_locales = $1, fecha_conflicto = $2 WHERE id = $3",
           [JSON.stringify(remoteData), now, row.id],
         );
         resolved++;
@@ -359,7 +412,7 @@ export function useConflictosLogic() {
     };
 
     return sileo.promise(promise(), {
-      loading: { title: "Resolviendo conflictos listos..." },
+      loading: { title: "Resolviendo conflictos listos en servidor..." },
       success: { title: "Conflictos listos resueltos con nube" },
       error: { title: "No se pudo resolver conflictos en lote" },
     });
