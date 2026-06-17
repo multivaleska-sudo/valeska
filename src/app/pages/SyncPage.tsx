@@ -23,14 +23,14 @@ export function SyncPage() {
     triggerSync,
   } = useSyncLogic();
 
-  const totalPushed =
-    (syncStats?.push?.sucursales || 0) +
-    (syncStats?.push?.dispositivos || 0) +
-    (syncStats?.push?.usuarios || 0);
-  const totalPulled =
-    (syncStats?.pull?.sucursales || 0) +
-    (syncStats?.pull?.dispositivos || 0) +
-    (syncStats?.pull?.usuarios || 0);
+  const totalPushed = Object.values(syncStats?.push || {}).reduce(
+    (total, count) => total + (count || 0),
+    0,
+  );
+  const totalPulled = Object.values(syncStats?.pull || {}).reduce(
+    (total, count) => total + (count || 0),
+    0,
+  );
 
   return (
     <div className="p-8 space-y-6 bg-[#F6F7FB] min-h-screen font-sans animate-in fade-in duration-500">
@@ -73,6 +73,7 @@ export function SyncPage() {
               triggerSync({
                 title: "Sincronización Manual Forzada",
                 details: "Solicitada por el usuario.",
+                source: "manual",
               })
             }
             disabled={isSyncing}
