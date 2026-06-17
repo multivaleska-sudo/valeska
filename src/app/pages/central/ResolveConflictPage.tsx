@@ -42,9 +42,7 @@ export function ResolveConflictPage() {
 
     return keys.filter((key) => {
       // Ignoramos metadata de la comprobación
-      if (
-        ["updated_at", "created_at", "sync_status", "deleted_at"].includes(key)
-      )
+      if (["updated_at", "created_at", "sync_status"].includes(key))
         return false;
 
       const localVal = JSON.stringify(conflicto.datosLocales[key]);
@@ -66,9 +64,34 @@ export function ResolveConflictPage() {
       conflicto.tablaAfectada,
       conflicto.registroId,
       selectedValues,
+      "merge",
     );
 
     // Regresamos a la lista
+    navigate("/central/conflictos");
+  };
+
+  const handleUseRemote = async () => {
+    if (!conflicto) return;
+    await resolveConflicto(
+      conflicto.id,
+      conflicto.tablaAfectada,
+      conflicto.registroId,
+      conflicto.datosRemotos,
+      "remote",
+    );
+    navigate("/central/conflictos");
+  };
+
+  const handleUseLocal = async () => {
+    if (!conflicto) return;
+    await resolveConflicto(
+      conflicto.id,
+      conflicto.tablaAfectada,
+      conflicto.registroId,
+      conflicto.datosLocales,
+      "local",
+    );
     navigate("/central/conflictos");
   };
 
@@ -127,10 +150,10 @@ export function ResolveConflictPage() {
             Los datos principales coinciden.
           </p>
           <button
-            onClick={handleResolve}
+            onClick={handleUseRemote}
             className="px-4 py-2 bg-[#2563EB] text-white rounded-md hover:bg-[#1D4ED8]"
           >
-            Marcar como Resuelto
+            Usar nube
           </button>
         </div>
       ) : (
@@ -206,7 +229,7 @@ export function ResolveConflictPage() {
             })}
           </div>
 
-          <div className="mt-8 pt-6 border-t border-[#E5E7EB] flex justify-end gap-3">
+          <div className="mt-8 pt-6 border-t border-[#E5E7EB] flex flex-wrap justify-end gap-3">
             <button
               onClick={() => navigate("/central/conflictos")}
               className="px-4 py-2 border border-[#E5E7EB] text-[#374151] rounded-md hover:bg-gray-50 transition-colors font-medium"
@@ -214,11 +237,23 @@ export function ResolveConflictPage() {
               Cancelar
             </button>
             <button
+              onClick={handleUseRemote}
+              className="px-4 py-2 border border-[#D1D5DB] text-[#374151] rounded-md hover:bg-gray-50 transition-colors font-medium"
+            >
+              Usar nube
+            </button>
+            <button
+              onClick={handleUseLocal}
+              className="px-4 py-2 border border-[#FCA5A5] text-[#991B1B] rounded-md hover:bg-red-50 transition-colors font-medium"
+            >
+              Usar mi versiÃ³n
+            </button>
+            <button
               onClick={handleResolve}
               className="px-6 py-2 bg-[#2563EB] text-white rounded-md hover:bg-[#1D4ED8] transition-colors shadow-sm font-medium flex items-center gap-2"
             >
               <CheckCircle2 size={18} />
-              Resolver y Guardar
+              Fusionar manualmente
             </button>
           </div>
         </div>
