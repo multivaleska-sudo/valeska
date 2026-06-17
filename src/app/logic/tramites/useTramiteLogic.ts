@@ -822,7 +822,15 @@ export function useTramiteLogic(initialData?: Partial<TramiteFormData>) {
         new CustomEvent("valeska_request_sync", {
           detail: {
             silent: true,
-            onlyEntities: ["tramite", "tramite_detalle"],
+            onlyEntities: [
+              "cliente",
+              "vehiculo",
+              "empresa_gestora",
+              "presentante",
+              "representante_legal",
+              "tramite",
+              "tramite_detalle"
+            ],
             skipPull: true,
           },
         })
