@@ -4,6 +4,7 @@ import { useNavigate, useParams } from "react-router";
 import {
   useConflictosLogic,
   Conflicto,
+  isRemoteConflictPlaceholder,
 } from "../../logic/central/useConflictosLogic";
 
 export function ResolveConflictPage() {
@@ -103,6 +104,29 @@ export function ResolveConflictPage() {
     return (
       <div className="p-8 text-center text-red-500">
         Conflicto no encontrado.
+      </div>
+    );
+  }
+
+  if (isRemoteConflictPlaceholder(conflicto.datosRemotos)) {
+    return (
+      <div className="space-y-6 p-6 max-w-4xl mx-auto">
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => navigate("/central/conflictos")}
+            className="p-2 hover:bg-white rounded-md transition-colors"
+          >
+            <ArrowLeft className="w-5 h-5 text-[#6B7280]" />
+          </button>
+          <div className="flex-1">
+            <h1 className="text-2xl font-semibold text-[#111827]">
+              Sincronizando detalle del conflicto
+            </h1>
+            <p className="text-sm text-[#6B7280] mt-1">
+              Este conflicto todavia no tiene la version remota completa. Ejecuta una sincronizacion y vuelve a abrirlo.
+            </p>
+          </div>
+        </div>
       </div>
     );
   }
