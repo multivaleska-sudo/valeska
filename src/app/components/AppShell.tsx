@@ -6,7 +6,9 @@ import { useAuthLogic } from "../logic/auth/useAuthLogic";
 import { useSyncLogic } from "../logic/sync/useSyncLogic";
 import { Loader2 } from "lucide-react";
 
-const SYNC_INTERVAL_MS = 15000;
+const INITIAL_SYNC_DELAY_MS = 15000;
+const SYNC_INTERVAL_MS = 60000;
+const SYNC_JITTER_MS = 30000;
 
 export function AppShell() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -21,6 +23,8 @@ export function AppShell() {
 
   useEffect(() => {
     const runBackgroundSync = (e?: Event | CustomEvent) => {
+      if (!e && document.hidden) return;
+
       const autoSync = localStorage.getItem("valeska_autosync") !== "false";
       if (e && "detail" in e && e.detail) {
         triggerSync(e.detail);
@@ -32,11 +36,11 @@ export function AppShell() {
       }
     };
 
-    const initialTimeout = setTimeout(runBackgroundSync, 5000);
+    const initialTimeout = setTimeout(runBackgroundSync, INITIAL_SYNC_DELAY_MS + Math.floor(Math.random() * 10000));
 
     const syncInterval = setInterval(
       runBackgroundSync,
-      SYNC_INTERVAL_MS + Math.floor(Math.random() * 5000),
+      SYNC_INTERVAL_MS + Math.floor(Math.random() * SYNC_JITTER_MS),
     );
 
     window.addEventListener("valeska_request_sync", runBackgroundSync);
