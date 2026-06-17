@@ -65,8 +65,8 @@ export const LOCAL_KEY_TO_SYNC_ENTITY = Object.fromEntries(
 
 export const SYNC_PULL_ORDER: SyncEntityName[] = [
   "sucursal",
-  "usuario",
   "dispositivo",
+  "usuario",
   "message_template",
   "plantilla_documento",
   "catalogo_tipo_tramite",
@@ -247,6 +247,13 @@ export async function saveStoredCursor(
        last_id = excluded.last_id,
        updated_at = excluded.updated_at`,
     [entityName, cursor.cursorTimestamp, cursor.lastId, Date.now()],
+  );
+}
+
+export async function resetSecurityPullCursors(sqlite: any) {
+  await sqlite.execute(
+    "DELETE FROM sync_cursors WHERE entity_name IN ($1, $2)",
+    ["usuario", "dispositivo"],
   );
 }
 
