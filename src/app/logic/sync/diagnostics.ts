@@ -23,6 +23,15 @@ export interface LocalSyncDiagnostics {
     tableName: string;
     count: number;
   }>;
+  versionedRows: Array<{
+    tableName: string;
+    id: string;
+    syncStatus: string;
+    version: number;
+    baseVersion: number;
+    deletedAt: string | number | null;
+    updatedAt: string | number;
+  }>;
   recentPushErrors: Array<{
     id: string;
     entityName: string;
@@ -59,6 +68,13 @@ const PENDING_TABLES = [
   "plantillas_documentos",
   "message_templates",
   "perfiles_gestor",
+];
+
+const VERSIONED_TABLES = [
+  "clientes",
+  "vehiculos",
+  "tramites",
+  "tramite_detalles",
 ];
 
 export const SYNC_REPAIR_ENTITIES = [
@@ -117,6 +133,26 @@ export async function collectLocalSyncDiagnostics(sqlite: any): Promise<LocalSyn
     }
   }
 
+  const versionedRows = [];
+  for (const tableName of VERSIONED_TABLES) {
+    const rows = await sqlite.select(`
+      SELECT
+        '${tableName}' AS tableName,
+        id,
+        sync_status AS syncStatus,
+        version,
+        base_version AS baseVersion,
+        deleted_at AS deletedAt,
+        updated_at AS updatedAt
+      FROM ${tableName}
+      WHERE sync_status IS NOT NULL
+        AND (sync_status <> 'SYNCED' OR deleted_at IS NOT NULL OR base_version <> version)
+      ORDER BY updated_at DESC
+      LIMIT 50
+    `);
+    versionedRows.push(...rows);
+  }
+
   const cursors = await sqlite.select(`
     SELECT entity_name AS entityName, cursor_timestamp AS cursorTimestamp, last_id AS lastId, updated_at AS updatedAt
     FROM sync_cursors
@@ -147,6 +183,7 @@ export async function collectLocalSyncDiagnostics(sqlite: any): Promise<LocalSyn
     },
     cursors,
     pendingCounts,
+    versionedRows,
     recentPushErrors,
     conflictCount,
     lastSyncDurationMs: durationRaw ? Number(durationRaw) : null,
