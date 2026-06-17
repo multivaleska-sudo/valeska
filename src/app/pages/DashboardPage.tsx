@@ -43,6 +43,8 @@ export function DashboardPage() {
     exitosos: number;
     totalErrores: number;
     detalles: any;
+    erroresPorFila?: any[];
+    createdByEntity?: Record<string, number>;
   } | null>(null);
 
   useEffect(() => {
@@ -85,12 +87,16 @@ export function DashboardPage() {
         errores.duplicadosMotor.length +
         errores.duplicadosBDChasis.length +
         errores.duplicadosBDMotor.length +
-        errores.otros.length;
+        (errores.sinIdentificadorVehiculo?.length || 0) +
+        errores.otros.length +
+        (resultado.erroresPorFila?.length || 0);
 
       setInjectionSummary({
         exitosos: resultado.exitosos,
         totalErrores,
         detalles: errores,
+        erroresPorFila: resultado.erroresPorFila || [],
+        createdByEntity: resultado.createdByEntity || {},
       });
 
       if (resultado.exitosos > 0 && totalErrores === 0) {
@@ -519,6 +525,44 @@ export function DashboardPage() {
                                   </span>
                                 ),
                               )}
+                            </div>
+                          </div>
+                        )}
+
+                        {injectionSummary.detalles.sinIdentificadorVehiculo?.length > 0 && (
+                          <div className="pt-2">
+                            <span className="font-semibold text-red-600 block mb-1">
+                              • Vehículo sin identificador (falta Chasis/VIN y Motor):
+                            </span>
+                            <div className="flex flex-wrap gap-1">
+                              {injectionSummary.detalles.sinIdentificadorVehiculo.map(
+                                (f: number) => (
+                                  <span
+                                    key={f}
+                                    className="px-2 py-1 bg-red-100 text-red-800 rounded text-xs font-medium border border-red-200"
+                                  >
+                                    Fila {f}
+                                  </span>
+                                ),
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {(injectionSummary.erroresPorFila?.length || 0) > 0 && (
+                          <div className="pt-2">
+                            <span className="font-semibold text-red-600 block mb-1">
+                              • Errores internos de guardado:
+                            </span>
+                            <div className="space-y-1">
+                              {injectionSummary.erroresPorFila?.map((error) => (
+                                <p
+                                  key={`${error.filaId}-${error.entidad}-${error.causa}`}
+                                  className="text-xs text-red-700"
+                                >
+                                  Fila {error.filaId} / {error.entidad}: {error.causa}
+                                </p>
+                              ))}
                             </div>
                           </div>
                         )}
