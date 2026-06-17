@@ -4,6 +4,7 @@ import { Sidebar } from "./Sidebar";
 import { useState, useEffect } from "react";
 import { useAuthLogic } from "../logic/auth/useAuthLogic";
 import { useSyncLogic } from "../logic/sync/useSyncLogic";
+import { usePassivePolling } from "../logic/sync/usePassivePolling";
 import { Loader2 } from "lucide-react";
 
 const INITIAL_SYNC_DELAY_MS = 15000;
@@ -16,6 +17,8 @@ export function AppShell() {
   const { checkInitialSetup, isLoading } = useAuthLogic();
 
   const { triggerSync } = useSyncLogic();
+  
+  usePassivePolling();
 
   useEffect(() => {
     checkInitialSetup();
@@ -32,7 +35,7 @@ export function AppShell() {
       }
 
       if (autoSync) {
-        triggerSync({ title: "Sincronización Automática", source: "auto", silent: true });
+        triggerSync({ title: "Sincronización Automática", source: "auto", silent: true, skipPull: true });
       }
     };
 
