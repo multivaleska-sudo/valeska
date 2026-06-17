@@ -10,6 +10,7 @@ declare global {
   interface Window {
     __valeskaSyncInFlight?: boolean;
     __valeskaSyncPending?: boolean;
+    __valeskaImportInFlight?: boolean;
   }
 }
 
@@ -33,6 +34,11 @@ export interface SyncContext {
   source?: "manual" | "auto" | "excel-import";
   silent?: boolean;
 }
+
+export const shouldDeferSyncForImport = (
+  context: SyncContext | undefined,
+  state: { importInFlight?: boolean },
+) => Boolean(state.importInFlight && context?.source !== "excel-import");
 
 const isAuthSyncError = (error: any) =>
   error instanceof SyncHttpError && error.status === 401;
@@ -85,6 +91,11 @@ export function useSyncLogic() {
   }, []);
 
   const triggerSync = useCallback(async (context?: SyncContext) => {
+    if (shouldDeferSyncForImport(context, { importInFlight: window.__valeskaImportInFlight })) {
+      window.__valeskaSyncPending = true;
+      return false;
+    }
+
     if (window.__valeskaSyncInFlight) {
       window.__valeskaSyncPending = true;
       return false;
@@ -219,9 +230,11 @@ export function useSyncLogic() {
       window.__valeskaSyncInFlight = false;
       if (window.__valeskaSyncPending) {
         window.__valeskaSyncPending = false;
-        window.setTimeout(() => {
-          window.dispatchEvent(new Event("valeska_request_sync"));
-        }, 500);
+        if (context?.source !== "excel-import") {
+          window.setTimeout(() => {
+            window.dispatchEvent(new Event("valeska_request_sync"));
+          }, 500);
+        }
       }
     }
   }, []);
@@ -236,4 +249,3 @@ export function useSyncLogic() {
     triggerSync,
   };
 }
-
