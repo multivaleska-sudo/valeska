@@ -47,21 +47,54 @@ export interface RegistroExcel {
 
 export interface ResultadoImportacion {
   exitosos: number;
+  rowsRead: number;
+  rowsImported: number;
+  rowsSkipped: number;
+  erroresPorFila: ImportRowError[];
+  createdByEntity: Record<string, number>;
   errores: {
     duplicadosChasis: number[];
     duplicadosMotor: number[];
     duplicadosBDChasis: number[];
     duplicadosBDMotor: number[];
+    sinIdentificadorVehiculo: number[];
     otros: number[];
   };
+}
+
+export interface ImportRowError {
+  filaId: number;
+  entidad: string;
+  campo?: string;
+  valor?: unknown;
+  causa: string;
 }
 
 // =============================
 // PARSERS Y NORMALIZADORES ROBUSTOS
 // =============================
 
+export const repairMojibakeText = (value: unknown) => {
+  if (typeof value !== "string") return value;
+  let text = value;
+
+  for (let i = 0; i < 2; i += 1) {
+    if (!/[\u00C3\u00C2\u00E2\u00F0]/.test(text)) break;
+    try {
+      const bytes = Uint8Array.from(Array.from(text, (char) => char.charCodeAt(0) & 0xff));
+      const repaired = new TextDecoder("utf-8", { fatal: false }).decode(bytes);
+      if (repaired === text || repaired.includes("\uFFFD")) break;
+      text = repaired;
+    } catch {
+      break;
+    }
+  }
+
+  return text.replace(/\u00A0/g, " ").trim();
+};
+
 const normalizeKey = (key: string) => {
-  return key
+  return String(repairMojibakeText(key))
     .toLowerCase()
     .replace(/nº|n°|nro/g, "n") // Limpieza agresiva de simbolos de número
     .replace(/º|°/g, "o")
@@ -81,14 +114,14 @@ const getVal = (row: any, ...keysToFind: string[]) => {
 
 const parseText = (v: any): string | null => {
   if (v === null || v === undefined) return null;
-  const val = v.toString().trim();
+  const val = String(repairMojibakeText(v)).trim();
   return val === "" ? null : val;
 };
 
 // PARSER DE FECHA: DEVUELVE YYYY-MM-DD PARA QUE REACT NO SE ROMPA
 const parseFecha = (v: any): string | null => {
   if (!v) return null;
-  let str = v.toString().trim();
+  let str = String(repairMojibakeText(v)).trim();
 
   // 1. Número serial de Excel (ej: 45312)
   if (!isNaN(Number(str)) && Number(str) > 10000) {
@@ -130,7 +163,7 @@ const parseFecha = (v: any): string | null => {
 // PARSER DE AÑO ESTRICTO
 const parseYear = (v: any): string | null => {
   if (!v) return null;
-  const str = v.toString();
+  const str = String(repairMojibakeText(v));
   // Extrae estrictamente los 4 números que representan el año, ignorando texto basura o letras
   const match = str.match(/\b(19|20)\d{2}\b/);
   return match ? match[0] : null;
@@ -229,6 +262,7 @@ export const validarExcel = async (file: File, db: Database, cache: any) => {
     duplicadosMotor: [] as number[],
     duplicadosBDChasis: [] as number[],
     duplicadosBDMotor: [] as number[],
+    sinIdentificadorVehiculo: [] as number[],
     otros: [] as number[],
   };
 
@@ -290,9 +324,17 @@ export const validarExcel = async (file: File, db: Database, cache: any) => {
       // RECHAZO ABSOLUTO
       if (!clienteNombre || !dni || !tipoTramiteNombre || !situacionNombre) {
         console.warn(
-          `🛑 [Fila ${filaId}] Rechazada por falta de DNI, Cliente, Trámite o Estado.`,
+          `[RECHAZADO] [Fila ${filaId}] Rechazada por falta de DNI, Cliente, Trámite o Estado.`,
         );
         errores.otros.push(filaId);
+        continue;
+      }
+
+      if (!chasis && !motor) {
+        console.warn(
+          `[Fila ${filaId}] Rechazada por falta de Chasis/VIN y Motor.`,
+        );
+        errores.sinIdentificadorVehiculo.push(filaId);
         continue;
       }
 
@@ -439,6 +481,17 @@ export const insertarLotesUltra = async (
 ) => {
   const chunkSize = 20; // Reducido para mayor estabilidad
   let exitosos = 0;
+  const erroresPorFila: ImportRowError[] = [];
+  const createdByEntity: Record<string, number> = {
+    clientes: 0,
+    empresas_gestoras: 0,
+    presentantes: 0,
+    vehiculos: 0,
+    catalogo_tipos_tramite: 0,
+    catalogo_situaciones: 0,
+    tramites: 0,
+    tramite_detalles: 0,
+  };
 
   for (let i = 0; i < validos.length; i += chunkSize) {
     const chunk = validos.slice(i, i + chunkSize);
@@ -446,11 +499,26 @@ export const insertarLotesUltra = async (
 
     for (const r of chunk) {
       const now = Date.now();
+      const savepoint = `import_row_${r.filaId}`;
+      let currentEntity = "fila";
+      const createdCacheEntries: Array<() => void> = [];
+      const createdThisRow: Record<string, number> = {
+        clientes: 0,
+        empresas_gestoras: 0,
+        presentantes: 0,
+        vehiculos: 0,
+        catalogo_tipos_tramite: 0,
+        catalogo_situaciones: 0,
+        tramites: 0,
+        tramite_detalles: 0,
+      };
 
       try {
+        await db.execute(`SAVEPOINT ${savepoint}`);
         // Cliente
         let clienteId = cache.clientesMap.get(r.dni);
         if (!clienteId) {
+          currentEntity = "clientes";
           clienteId = crypto.randomUUID();
           await executeWithRetry(
             db,
@@ -467,6 +535,8 @@ export const insertarLotesUltra = async (
             ]),
           );
           cache.clientesMap.set(r.dni, clienteId);
+          createdCacheEntries.push(() => cache.clientesMap.delete(r.dni));
+          createdThisRow.clientes++;
         }
 
         // Empresa Gestora
@@ -474,6 +544,7 @@ export const insertarLotesUltra = async (
         if (r.empresaNombre) {
           empresaId = cache.empresasMap.get(r.empresaNombre);
           if (!empresaId) {
+            currentEntity = "empresas_gestoras";
             empresaId = crypto.randomUUID();
             await executeWithRetry(
               db,
@@ -489,6 +560,8 @@ export const insertarLotesUltra = async (
               ]),
             );
             cache.empresasMap.set(r.empresaNombre, empresaId);
+            createdCacheEntries.push(() => cache.empresasMap.delete(r.empresaNombre));
+            createdThisRow.empresas_gestoras++;
           }
         }
 
@@ -497,6 +570,7 @@ export const insertarLotesUltra = async (
         if (r.presentanteNombre) {
           presentanteId = cache.presentantesMap.get(r.presentanteNombre);
           if (!presentanteId) {
+            currentEntity = "presentantes";
             presentanteId = crypto.randomUUID();
             await executeWithRetry(
               db,
@@ -513,17 +587,20 @@ export const insertarLotesUltra = async (
               ]),
             );
             cache.presentantesMap.set(r.presentanteNombre, presentanteId);
+            createdCacheEntries.push(() => cache.presentantesMap.delete(r.presentanteNombre));
+            createdThisRow.presentantes++;
           }
         }
 
         // Vehículo
+        currentEntity = "vehiculos";
         const vehiculoId = crypto.randomUUID();
         await executeWithRetry(
           db,
           `INSERT INTO vehiculos (id, chasis_vin, placa, motor, marca, modelo, color, carroceria, anio_modelo, anio_fabricacion, created_at, updated_at, sync_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           safeParams([
             vehiculoId,
-            r.chasis || "SIN CHASIS",
+            r.chasis,
             r.placa,
             r.motor,
             r.marca,
@@ -537,10 +614,12 @@ export const insertarLotesUltra = async (
             "LOCAL_INSERT",
           ]),
         );
+        createdThisRow.vehiculos++;
 
         // Catálogos
         let tipoId = cache.tipoMap.get(r.tipoTramiteNombre);
         if (!tipoId) {
+          currentEntity = "catalogo_tipos_tramite";
           tipoId = crypto.randomUUID();
           await executeWithRetry(
             db,
@@ -548,10 +627,13 @@ export const insertarLotesUltra = async (
             safeParams([tipoId, r.tipoTramiteNombre, now, now, "LOCAL_INSERT"]),
           );
           cache.tipoMap.set(r.tipoTramiteNombre, tipoId);
+          createdCacheEntries.push(() => cache.tipoMap.delete(r.tipoTramiteNombre));
+          createdThisRow.catalogo_tipos_tramite++;
         }
 
         let situacionId = cache.situacionMap.get(r.situacionNombre);
         if (!situacionId) {
+          currentEntity = "catalogo_situaciones";
           situacionId = crypto.randomUUID();
           await executeWithRetry(
             db,
@@ -565,9 +647,12 @@ export const insertarLotesUltra = async (
             ]),
           );
           cache.situacionMap.set(r.situacionNombre, situacionId);
+          createdCacheEntries.push(() => cache.situacionMap.delete(r.situacionNombre));
+          createdThisRow.catalogo_situaciones++;
         }
 
         // Trámite Principal
+        currentEntity = "tramites";
         const tramiteId = crypto.randomUUID();
         await executeWithRetry(
           db,
@@ -592,6 +677,8 @@ export const insertarLotesUltra = async (
         );
 
         // Detalles del Trámite
+        createdThisRow.tramites++;
+        currentEntity = "tramite_detalles";
         await executeWithRetry(
           db,
           `INSERT INTO tramite_detalles (id, tramite_id, empresa_gestora_id, presentante_id, tipo_boleta, numero_boleta, fecha_boleta, dua, num_formato_inmatriculacion, clausula_monto, clausula_forma_pago, clausula_pago_bancarizado, aclaracion_dice, aclaracion_debe_decir, created_at, updated_at, sync_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -615,11 +702,35 @@ export const insertarLotesUltra = async (
             "LOCAL_INSERT",
           ]),
         );
+        createdThisRow.tramite_detalles++;
 
+        await db.execute(`RELEASE ${savepoint}`);
+        for (const [entity, count] of Object.entries(createdThisRow)) {
+          createdByEntity[entity] = (createdByEntity[entity] || 0) + count;
+        }
         exitosos++;
       } catch (err: any) {
+        try {
+          await db.execute(`ROLLBACK TO ${savepoint}`);
+        } catch {
+          // Si SQLite ya cerro el savepoint, mantenemos la causa original.
+        }
+        try {
+          await db.execute(`RELEASE ${savepoint}`);
+        } catch {
+          // Evita ocultar el error real de la fila.
+        }
+        for (const rollbackCacheEntry of createdCacheEntries.reverse()) {
+          rollbackCacheEntry();
+        }
+
+        erroresPorFila.push({
+          filaId: r.filaId,
+          entidad: currentEntity,
+          causa: err?.message || String(err),
+        });
         console.error(
-          `🔥 Fila ${r.filaId} omitida por error en SQLite:`,
+          `[ERROR] Fila ${r.filaId} omitida por error en SQLite:`,
           err.message || err,
         );
       }
@@ -633,7 +744,7 @@ export const insertarLotesUltra = async (
     }
   }
 
-  return exitosos;
+  return { exitosos, erroresPorFila, createdByEntity };
 };
 
 // =============================
@@ -664,7 +775,7 @@ export const importarPipeline = async (
   const { validos, errores } = await validarExcel(file, db, cache);
 
   if (onProgress) onProgress(50);
-  const exitosos = await insertarLotesUltra(
+  const insertResult = await insertarLotesUltra(
     db,
     validos,
     ctx,
@@ -674,5 +785,39 @@ export const importarPipeline = async (
 
   if (onProgress) onProgress(100);
 
-  return { exitosos, errores };
+  if (insertResult.exitosos > 0 && typeof window !== "undefined") {
+    window.dispatchEvent(
+      new CustomEvent("valeska_request_sync", {
+        detail: {
+          title: "Sincronización por Excel",
+          details: `Importación Excel: ${insertResult.exitosos} trámites guardados localmente.`,
+          source: "excel-import",
+          silent: false,
+        },
+      }),
+    );
+  }
+
+  return {
+    exitosos: insertResult.exitosos,
+    rowsRead: validos.length +
+      errores.duplicadosChasis.length +
+      errores.duplicadosMotor.length +
+      errores.duplicadosBDChasis.length +
+      errores.duplicadosBDMotor.length +
+      errores.sinIdentificadorVehiculo.length +
+      errores.otros.length,
+    rowsImported: insertResult.exitosos,
+    rowsSkipped:
+      errores.duplicadosChasis.length +
+      errores.duplicadosMotor.length +
+      errores.duplicadosBDChasis.length +
+      errores.duplicadosBDMotor.length +
+      errores.sinIdentificadorVehiculo.length +
+      errores.otros.length +
+      insertResult.erroresPorFila.length,
+    erroresPorFila: insertResult.erroresPorFila,
+    createdByEntity: insertResult.createdByEntity,
+    errores,
+  };
 };
