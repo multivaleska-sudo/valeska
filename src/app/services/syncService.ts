@@ -217,6 +217,32 @@ export async function pullSyncEntity<TRecord = Record<string, unknown>>(
   return response.json();
 }
 
+export async function getSyncState(
+  apiUrl: string,
+  entities: string[],
+): Promise<any> {
+  const params = new URLSearchParams({
+    entities: entities.join(','),
+  });
+
+  const response = await fetch(`${apiUrl}/sync/state?${params.toString()}`, {
+    method: "GET",
+    headers: await buildSyncHeaders(),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => null);
+    if (response.status === 401) clearInvalidSyncSession();
+    throw new SyncHttpError(
+      errorData?.message || `HTTP ${response.status} consultando estado de sync`,
+      response.status,
+      errorData,
+    );
+  }
+
+  return response.json();
+}
+
 export async function getStoredCursor(
   sqlite: any,
   entityName: SyncEntityName,
