@@ -5486,7 +5486,7 @@ dependencies = [
 
 [[package]]
 name = "valeska"
-version = "6.0.0"
+version = "7.0.0"
 dependencies = [
  "aes-gcm",
  "dotenvy_macro",
