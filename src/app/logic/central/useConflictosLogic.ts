@@ -12,6 +12,8 @@ export interface Conflicto {
   fechaConflicto: number;
 }
 
+export type ConflictResolutionMode = "remote" | "local" | "merge";
+
 const TABLE_FIELD_MAP: Record<string, Record<string, string>> = {
   clientes: {
     tipoDocumento: "tipo_documento",
@@ -24,6 +26,8 @@ const TABLE_FIELD_MAP: Record<string, Record<string, string>> = {
     estado_civil: "estado_civil",
     domicilio: "domicilio",
     telefono: "telefono",
+    deletedAt: "deleted_at",
+    deleted_at: "deleted_at",
   },
   vehiculos: {
     chasisVin: "chasis_vin",
@@ -39,6 +43,8 @@ const TABLE_FIELD_MAP: Record<string, Record<string, string>> = {
     anio_fabricacion: "anio_fabricacion",
     anioModelo: "anio_modelo",
     anio_modelo: "anio_modelo",
+    deletedAt: "deleted_at",
+    deleted_at: "deleted_at",
   },
   tramites: {
     codigoVerificacion: "codigo_verificacion",
@@ -83,6 +89,8 @@ const TABLE_FIELD_MAP: Record<string, Record<string, string>> = {
     metodo_entrega_placa: "metodo_entrega_placa",
     observacionPlaca: "observacion_placa",
     observacion_placa: "observacion_placa",
+    deletedAt: "deleted_at",
+    deleted_at: "deleted_at",
   },
   tramite_detalles: {
     tramiteId: "tramite_id",
@@ -114,11 +122,79 @@ const TABLE_FIELD_MAP: Record<string, Record<string, string>> = {
     aclaracion_dice: "aclaracion_dice",
     aclaracionDebeDecir: "aclaracion_debe_decir",
     aclaracion_debe_decir: "aclaracion_debe_decir",
+    deletedAt: "deleted_at",
+    deleted_at: "deleted_at",
   },
 };
 
 const getVersion = (value: Record<string, any>) =>
   Number(value.version ?? value.baseVersion ?? value.base_version ?? 1);
+
+const resolveSourceData = (
+  mode: ConflictResolutionMode,
+  localData: Record<string, any>,
+  remoteData: Record<string, any>,
+  resolvedData: Record<string, any>,
+) => {
+  if (mode === "remote") return remoteData;
+  if (mode === "local") return localData;
+  return resolvedData;
+};
+
+export function buildConflictResolutionUpdate({
+  tableName,
+  mode,
+  registroId,
+  localData,
+  remoteData,
+  resolvedData,
+  now,
+}: {
+  tableName: string;
+  mode: ConflictResolutionMode;
+  registroId: string;
+  localData: Record<string, any>;
+  remoteData: Record<string, any>;
+  resolvedData: Record<string, any>;
+  now: number;
+}) {
+  const fieldMap = TABLE_FIELD_MAP[tableName];
+  if (!fieldMap) {
+    throw new Error(`Tabla de conflicto no permitida: ${tableName}`);
+  }
+
+  const remoteVersion = getVersion(remoteData);
+  const sourceData = resolveSourceData(mode, localData, remoteData, resolvedData);
+  const assignments = Object.entries(sourceData)
+    .map(([key, value]) => ({ column: fieldMap[key], key, value }))
+    .filter((entry): entry is { column: string; key: string; value: any } =>
+      Boolean(entry.column),
+    );
+  const syncStatus = mode === "remote" ? "SYNCED" : "LOCAL_UPDATE";
+  const baseVersion = remoteVersion;
+  const version = mode === "remote" ? remoteVersion : undefined;
+  const setClauses = assignments
+    .map((entry, index) => `${entry.column} = $${index + 1}`)
+    .join(", ");
+  const values = assignments.map((entry) => entry.value);
+  const metadataPrefix = values.length;
+  const query = `UPDATE ${tableName}
+    SET ${setClauses ? `${setClauses},` : ""}
+        updated_at = $${metadataPrefix + 1},
+        sync_status = $${metadataPrefix + 2},
+        base_version = $${metadataPrefix + 3},
+        version = CASE WHEN $${metadataPrefix + 2} = 'SYNCED' THEN $${metadataPrefix + 3} ELSE version END
+    WHERE id = $${metadataPrefix + 4}`;
+
+  return {
+    query,
+    values: [...values, now, syncStatus, baseVersion, registroId],
+    assignments: assignments.map(({ column, value }) => ({ column, value })),
+    syncStatus,
+    baseVersion,
+    version,
+  };
+}
 
 export function useConflictosLogic() {
   const [conflictos, setConflictos] = useState<Conflicto[]>([]);
@@ -193,57 +269,37 @@ export function useConflictosLogic() {
     tablaAfectada: string,
     registroId: string,
     resolvedData: Record<string, any>,
+    mode: ConflictResolutionMode = "merge",
   ) => {
     const promise = async () => {
       const sqlite = await Database.load("sqlite:valeska.db");
-      const fieldMap = TABLE_FIELD_MAP[tablaAfectada];
-      if (!fieldMap) {
-        throw new Error(`Tabla de conflicto no permitida: ${tablaAfectada}`);
-      }
-
       const now = Date.now();
       const conflictRows: any[] = await sqlite.select(
-        "SELECT datos_remotos FROM sync_conflictos WHERE id = $1 LIMIT 1",
+        "SELECT datos_locales, datos_remotos FROM sync_conflictos WHERE id = $1 LIMIT 1",
         [conflictoId],
       );
+      const localData = JSON.parse(conflictRows[0]?.datos_locales || "{}");
       const remoteData = JSON.parse(conflictRows[0]?.datos_remotos || "{}");
-      const remoteVersion = getVersion(remoteData);
-      const entriesToUpdate = Object.entries(resolvedData)
-        .map(([key, value]) => ({ column: fieldMap[key], key, value }))
-        .filter((entry): entry is { column: string; key: string; value: any } =>
-          Boolean(entry.column),
-        );
+      const update = buildConflictResolutionUpdate({
+        tableName: tablaAfectada,
+        mode,
+        registroId,
+        localData,
+        remoteData,
+        resolvedData,
+        now,
+      });
 
-      if (entriesToUpdate.length > 0) {
-        const useRemoteAsSynced = entriesToUpdate.every(({ column, key, value }) => {
-          const remoteValue = remoteData[key] ?? remoteData[column];
-          return JSON.stringify(value) === JSON.stringify(remoteValue);
-        });
-        const setClauses = entriesToUpdate
-          .map((entry, index) => `${entry.column} = $${index + 1}`)
-          .join(", ");
-        const values = entriesToUpdate.map((entry) => entry.value);
-        const finalQuery = `UPDATE ${tablaAfectada}
-          SET ${setClauses},
-              updated_at = $${values.length + 1},
-              sync_status = $${values.length + 2},
-              base_version = $${values.length + 3},
-              version = CASE WHEN $${values.length + 2} = 'SYNCED' THEN $${values.length + 3} ELSE version END
-          WHERE id = $${values.length + 4}`;
-
-        await sqlite.execute(finalQuery, [
-          ...values,
-          now,
-          useRemoteAsSynced ? "SYNCED" : "LOCAL_UPDATE",
-          remoteVersion,
-          registroId,
-        ]);
-      }
+      await sqlite.execute(update.query, update.values);
 
       await sqlite.execute(
         "UPDATE sync_conflictos SET resuelto = 1, datos_locales = $1, fecha_conflicto = $2 WHERE id = $3",
-        [JSON.stringify(resolvedData), now, conflictoId],
+        [JSON.stringify(mode === "remote" ? remoteData : mode === "local" ? localData : resolvedData), now, conflictoId],
       );
+
+      if (mode !== "remote" && typeof window !== "undefined") {
+        window.dispatchEvent(new Event("valeska_request_sync"));
+      }
     };
 
     return sileo.promise(promise(), {
