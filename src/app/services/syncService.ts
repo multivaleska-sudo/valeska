@@ -323,10 +323,11 @@ export async function updatePushChunkStatus(
 export async function waitForPushCompletion(
   apiUrl: string,
   outboxId: string,
-  options: { attempts?: number; delayMs?: number } = {},
+  options: { attempts?: number; delayMs?: number; maxDelayMs?: number } = {},
 ) {
-  const attempts = options.attempts ?? 30;
-  const delayMs = options.delayMs ?? 800;
+  const attempts = options.attempts ?? 20;
+  let delayMs = options.delayMs ?? 1200;
+  const maxDelayMs = options.maxDelayMs ?? 5000;
 
   for (let attempt = 0; attempt < attempts; attempt += 1) {
     const status = await getPushStatus(apiUrl, outboxId);
@@ -338,7 +339,9 @@ export async function waitForPushCompletion(
       return status;
     }
 
-    await new Promise((resolve) => setTimeout(resolve, delayMs));
+    const jitterMs = Math.floor(Math.random() * 250);
+    await new Promise((resolve) => setTimeout(resolve, delayMs + jitterMs));
+    delayMs = Math.min(maxDelayMs, Math.round(delayMs * 1.5));
   }
 
   return getPushStatus(apiUrl, outboxId);

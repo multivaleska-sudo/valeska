@@ -223,10 +223,12 @@ export const executePush = async (
 
         if (entityName === "sync_conflicto") {
           if (acceptedRecordIds.length > 0) {
+            const placeholders = acceptedRecordIds.map(() => "?").join(",");
             await sqlite.execute(
-              `UPDATE sync_conflictos SET resuelto = 1 WHERE id IN (${acceptedRecordIds
-                .map((id) => `'${id}'`)
-                .join(",")})`,
+              `UPDATE sync_conflictos 
+               SET resuelto = 1, sync_status = 'SYNCED' 
+               WHERE id IN (${placeholders})`,
+              acceptedRecordIds
             );
           }
         } else {

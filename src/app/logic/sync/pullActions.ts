@@ -6,6 +6,7 @@ import {
   saveStoredCursor,
 } from "../../services/syncService";
 import type { SyncEntityName } from "../../types/sync.types";
+import { ensureSyncConflictosSyncStatusColumn } from "./syncUtils";
 
 export class PullApplyError extends Error {
   constructor(
@@ -126,26 +127,33 @@ const createLocalPullConflictIfNeeded = async (
     return false;
   }
 
+  const existingOpen: any[] = await sqlite.select(
+    `SELECT id
+     FROM sync_conflictos
+     WHERE tabla_afectada = $1
+       AND registro_id = $2
+       AND resuelto = 0
+     LIMIT 1`,
+    [tableName, id],
+  );
+
+  const conflictId = existingOpen[0]?.id || crypto.randomUUID();
+
   await sqlite.execute(
-    `INSERT INTO sync_conflictos (id, tabla_afectada, registro_id, identificador_visual, datos_locales, datos_remotos, resuelto, fecha_conflicto)
-     VALUES ($1, $2, $3, $4, $5, $6, 0, $7)
+    `INSERT INTO sync_conflictos
+      (id, tabla_afectada, registro_id, identificador_visual,
+       datos_locales, datos_remotos, resuelto, fecha_conflicto, sync_status)
+     VALUES ($1, $2, $3, $4, $5, $6, 0, $7, 'LOCAL_INSERT')
      ON CONFLICT(id) DO UPDATE SET
-       tabla_afectada=excluded.tabla_afectada,
-       registro_id=excluded.registro_id,
-       identificador_visual=excluded.identificador_visual,
-       datos_locales=excluded.datos_locales,
-       datos_remotos=excluded.datos_remotos,
-       resuelto=0,
-       fecha_conflicto=excluded.fecha_conflicto`,
-    [
-      crypto.randomUUID(),
-      tableName,
-      id,
-      identify(remote),
-      JSON.stringify(local),
-      JSON.stringify(remote),
-      Date.now(),
-    ],
+       datos_locales = excluded.datos_locales,
+       datos_remotos = excluded.datos_remotos,
+       resuelto = 0,
+       fecha_conflicto = excluded.fecha_conflicto,
+       sync_status = CASE
+         WHEN sync_conflictos.sync_status = 'SYNCED' THEN 'LOCAL_UPDATE'
+         ELSE sync_conflictos.sync_status
+       END`,
+    [conflictId, tableName, id, identify(remote), JSON.stringify(local), JSON.stringify(remote), Date.now()],
   );
   await sqlite.execute(`UPDATE ${tableName} SET sync_status = 'CONFLICT' WHERE id = $1`, [id]);
   return true;
@@ -230,6 +238,8 @@ const ensureTramiteDependencies = async (sqlite: any, record: any) => {
 export async function processPullSync(sqlite: any, pullData: any) {
   const fk = (val: any) => (!val || val === "" ? null : val);
   const str = (val: any) => (val === undefined ? null : val);
+
+  await ensureSyncConflictosSyncStatusColumn(sqlite);
 
   // Las foreign keys permanecen activas; las referencias circulares se difieren.
   try {
@@ -741,11 +751,12 @@ export async function processPullSync(sqlite: any, pullData: any) {
     for (const conf of pullData.conflictos || []) {
       await executeWithRetry(
         sqlite,
-        `INSERT INTO sync_conflictos (id, tabla_afectada, registro_id, identificador_visual, datos_locales, datos_remotos, resuelto, fecha_conflicto) 
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        `INSERT INTO sync_conflictos (id, tabla_afectada, registro_id, identificador_visual, datos_locales, datos_remotos, resuelto, fecha_conflicto, sync_status) 
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'SYNCED')
          ON CONFLICT(id) DO UPDATE SET 
          tabla_afectada=excluded.tabla_afectada, registro_id=excluded.registro_id, identificador_visual=excluded.identificador_visual, 
-         datos_locales=excluded.datos_locales, datos_remotos=excluded.datos_remotos, resuelto=excluded.resuelto, fecha_conflicto=excluded.fecha_conflicto`,
+         datos_locales=excluded.datos_locales, datos_remotos=excluded.datos_remotos, resuelto=excluded.resuelto, fecha_conflicto=excluded.fecha_conflicto,
+         sync_status='SYNCED'`,
         [
           str(conf.id),
           str(conf.tablaAfectada ?? conf.tabla_afectada),
