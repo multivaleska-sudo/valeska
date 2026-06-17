@@ -4,12 +4,12 @@ import {
   SYNC_ENTITY_TO_LOCAL_KEY,
   SYNC_PUSH_ORDER,
   SyncHttpError,
-  pushSyncChunk,
+  pushSyncBatch,
   recordPushChunk,
   updatePushChunkStatus,
   waitForPushCompletion,
 } from "../../services/syncService";
-import type { SyncEntityName } from "../../types/sync.types";
+import type { SyncEntityName, PushSyncChunkDto } from "../../types/sync.types";
 
 const CHUNK_SIZE = 500;
 type EntityCountMap = Partial<Record<SyncEntityName, number>>;
@@ -128,10 +128,10 @@ export const executePush = async (
   const aggregateAcceptedRecordIds: string[] = [];
   const aggregateConflictedRecordIds: string[] = [];
 
-  const entitiesToPush = onlyEntities || SYNC_PUSH_ORDER;
+  const entitiesToPush: SyncEntityName[] = onlyEntities || SYNC_PUSH_ORDER;
 
   const hasDataToPush = entitiesToPush.some(
-    (entity) => fullPayload[SYNC_ENTITY_TO_LOCAL_KEY[entity]] && fullPayload[SYNC_ENTITY_TO_LOCAL_KEY[entity]].length > 0,
+    (entity: SyncEntityName) => fullPayload[SYNC_ENTITY_TO_LOCAL_KEY[entity]] && fullPayload[SYNC_ENTITY_TO_LOCAL_KEY[entity]].length > 0,
   );
   if (!hasDataToPush) {
     return {
@@ -149,16 +149,20 @@ export const executePush = async (
   const syncSessionId = crypto.randomUUID();
   let totalPushed = 0;
 
+  const allChunks: PushSyncChunkDto[] = [];
+  const chunkRecordIdsMap: Record<string, string[]> = {}; // Para saber qué IDs corresponden a qué chunk (usando un key como "entityName_chunkIndex")
+
+  // Recolectar chunks
   for (const entityName of entitiesToPush) {
     const localKey = SYNC_ENTITY_TO_LOCAL_KEY[entityName];
     const records = fullPayload[localKey];
     if (!records || records.length === 0) continue;
 
     const chunks = chunkArray(records, CHUNK_SIZE);
-
     for (let chunkIndex = 0; chunkIndex < chunks.length; chunkIndex += 1) {
       const chunk = chunks[chunkIndex];
       const recordIds = chunk.map((record: any) => record.id).filter(Boolean);
+      chunkRecordIdsMap[`${entityName}_${chunkIndex}`] = recordIds;
 
       await recordPushChunk(sqlite, {
         id: crypto.randomUUID(),
@@ -169,27 +173,55 @@ export const executePush = async (
         recordIds,
       });
 
-      try {
-        const accepted = await pushSyncChunk(config.apiUrl, {
-          syncProtocolVersion: 2,
-          syncSessionId,
-          entityName,
-          chunkIndex,
-          totalChunks: chunks.length,
-          records: chunk,
-        });
+      allChunks.push({
+        syncProtocolVersion: 2,
+        syncSessionId,
+        entityName,
+        chunkIndex,
+        totalChunks: chunks.length,
+        records: chunk,
+      });
+    }
+  }
 
+  if (allChunks.length === 0) {
+    return {
+      success: true,
+      pushedCount: 0,
+      conflictCount: 0,
+      pushedByEntity,
+      acceptedByEntity,
+      conflictedByEntity,
+      acceptedRecordIds: aggregateAcceptedRecordIds,
+      conflictedRecordIds: aggregateConflictedRecordIds,
+    };
+  }
+
+  // Enviar batch atómico
+  try {
+    const batchResult = await pushSyncBatch(config.apiUrl, { chunks: allChunks });
+    
+    // Procesar respuestas del batch
+  for (const chunk of allChunks) {
+    const entityName = chunk.entityName as SyncEntityName;
+    const chunkIndex = chunk.chunkIndex;
+    const recordIds = chunkRecordIdsMap[`${entityName}_${chunkIndex}`];
+    
+    // Buscar el outbox en la respuesta del batch
+    const outboxInfo = batchResult.outboxes.find(o => o.entityName === entityName && o.syncSessionId === syncSessionId);
+      
+      if (outboxInfo) {
         await updatePushChunkStatus(sqlite, {
           syncSessionId,
           entityName,
           chunkIndex,
-          outboxId: accepted.outboxId,
-          status: accepted.status,
+          outboxId: outboxInfo.outboxId,
+          status: outboxInfo.status,
         });
 
         const finalStatus = await waitForPushCompletion(
           config.apiUrl,
-          accepted.outboxId,
+          outboxInfo.outboxId,
         );
 
         await updatePushChunkStatus(sqlite, {
@@ -215,12 +247,10 @@ export const executePush = async (
           ? finalStatus.acceptedRecordIds || []
           : recordIds;
         const conflictedRecordIds = finalStatus.conflictedRecordIds || [];
-        acceptedByEntity[entityName] =
-          (acceptedByEntity[entityName] || 0) + acceptedRecordIds.length;
-        conflictedByEntity[entityName] =
-          (conflictedByEntity[entityName] || 0) + conflictedRecordIds.length;
-        pushedByEntity[entityName] =
-          (pushedByEntity[entityName] || 0) + acceptedRecordIds.length;
+        
+        acceptedByEntity[entityName] = (acceptedByEntity[entityName] || 0) + acceptedRecordIds.length;
+        conflictedByEntity[entityName] = (conflictedByEntity[entityName] || 0) + conflictedRecordIds.length;
+        pushedByEntity[entityName] = (pushedByEntity[entityName] || 0) + acceptedRecordIds.length;
         aggregateAcceptedRecordIds.push(...acceptedRecordIds);
         aggregateConflictedRecordIds.push(...conflictedRecordIds);
 
@@ -241,34 +271,35 @@ export const executePush = async (
             await insertLocalConflictsFromStatus(
               sqlite,
               entityName,
-              chunk.filter((record: any) => conflictedRecordIds.includes(record.id)),
+              chunk.records.filter((record: any) => conflictedRecordIds.includes(record.id)),
               finalStatus.conflictIds || [],
             );
           }
         }
 
         totalPushed += acceptedRecordIds.length;
-      } catch (error: any) {
-        const message = error?.message || `Error al subir ${entityName}`;
-
-        await updatePushChunkStatus(sqlite, {
-          syncSessionId,
-          entityName,
-          chunkIndex,
-          status: error?.status === 0 ? "FAILED" : "FAILED",
-          lastError: message,
-        });
-
-        if (
-          error instanceof SyncHttpError &&
-          [400, 401, 403].includes(error.status)
-        ) {
-          await insertLocalConflictFromError(sqlite, entityName, error);
-        }
-
-        throw error;
       }
     }
+  } catch (error: any) {
+    const message = error?.message || `Error al subir batch`;
+    for (const chunk of allChunks) {
+      const entityName = chunk.entityName as SyncEntityName;
+      await updatePushChunkStatus(sqlite, {
+        syncSessionId,
+        entityName,
+        chunkIndex: chunk.chunkIndex,
+        status: error?.status === 0 ? "FAILED" : "FAILED",
+        lastError: message,
+      });
+
+      if (
+        error instanceof SyncHttpError &&
+        [400, 401, 403].includes(error.status)
+      ) {
+        await insertLocalConflictFromError(sqlite, entityName, error);
+      }
+    }
+    throw error;
   }
 
   return {
