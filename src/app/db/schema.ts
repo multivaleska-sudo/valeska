@@ -260,6 +260,7 @@ export const syncConflictos = sqliteTable('sync_conflictos', {
     datosRemotos: text('datos_remotos').notNull(),
     resuelto: integer('resuelto', { mode: 'boolean' }).notNull().default(false),
     fechaConflicto: integer('fecha_conflicto', { mode: 'timestamp' }).notNull(),
+    syncStatus: text('sync_status').notNull().default('LOCAL_INSERT'),
 }, (table) => ({
     resueltoIdx: index('conflicto_resuelto_idx').on(table.resuelto),
     registroIdx: index('conflicto_registro_idx').on(table.registroId),
