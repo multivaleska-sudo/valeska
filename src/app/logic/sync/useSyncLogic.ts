@@ -3,6 +3,7 @@ import Database from "@tauri-apps/plugin-sql";
 import { sileo } from "sileo";
 import { executePush } from "./pushActions";
 import { executePull } from "./pullActions";
+import { isLocalDbBusy, runExclusiveLocalDbOperation } from "./localDbOperationGate";
 import { SyncHttpError, clearInvalidSyncSession } from "../../services/syncService";
 
 const API_URL = (import.meta as any).env.VITE_API_URL;
@@ -91,10 +92,12 @@ export function useSyncLogic() {
   }, []);
 
   const triggerSync = useCallback(async (context?: SyncContext) => {
-    if (shouldDeferSyncForImport(context, { importInFlight: window.__valeskaImportInFlight })) {
+    if (shouldDeferSyncForImport(context, { importInFlight: window.__valeskaImportInFlight || isLocalDbBusy() })) {
       window.__valeskaSyncPending = true;
       return false;
     }
+
+    return runExclusiveLocalDbOperation(`sync:${context?.source || "manual"}`, async () => {
 
     if (window.__valeskaSyncInFlight) {
       window.__valeskaSyncPending = true;
@@ -237,6 +240,7 @@ export function useSyncLogic() {
         }
       }
     }
+    });
   }, []);
 
 
