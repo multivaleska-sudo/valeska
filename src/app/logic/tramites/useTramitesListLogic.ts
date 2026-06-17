@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
-import Database from "@tauri-apps/plugin-sql";
+import { getDb } from "../../db/localDb";
 import { save, confirm } from "@tauri-apps/plugin-dialog";
 import { writeFile } from "@tauri-apps/plugin-fs";
 import * as XLSX from "xlsx";
@@ -64,7 +64,7 @@ export function useTramitesListLogic() {
 
   const fetchCatalogos = useCallback(async () => {
     try {
-      const sqlite = await Database.load("sqlite:valeska.db");
+      const sqlite = await getDb();
 
       const resSits: any[] = await sqlite.select(
         "SELECT nombre FROM catalogo_situaciones WHERE activo = 1 ORDER BY nombre ASC",
@@ -83,7 +83,7 @@ export function useTramitesListLogic() {
   const fetchTramites = useCallback(async () => {
     setIsLoading(true);
     try {
-      const sqlite = await Database.load("sqlite:valeska.db");
+      const sqlite = await getDb();
       const query = `
                 SELECT 
                     t.id,
@@ -157,7 +157,7 @@ export function useTramitesListLogic() {
     if (!isConfirmed) return;
 
     try {
-      const db = await Database.load("sqlite:valeska.db");
+      const db = await getDb();
       await softDeleteTramiteLocally(db, id);
 
       sileo.success({
@@ -280,7 +280,7 @@ export function useTramitesListLogic() {
     // Pequeña pausa para permitir que React renderice el Overlay antes de bloquear el hilo principal
     await new Promise((resolve) => setTimeout(resolve, 100));
     try {
-      const db = await Database.load("sqlite:valeska.db");
+      const db = await getDb();
       const tables: any[] = await db.select(
         "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
       );

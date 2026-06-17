@@ -11,7 +11,7 @@ import {
   Loader2,
 } from "lucide-react";
 import * as RadioGroup from "@radix-ui/react-radio-group";
-import Database from "@tauri-apps/plugin-sql";
+import { getDb } from "../../db/localDb";
 import { TemplateData } from "../../types/documents/template.types";
 
 interface GenerateDocumentModalProps {
@@ -32,7 +32,7 @@ export function GenerateDocumentModal({
   useEffect(() => {
     const fetchTemplates = async () => {
       try {
-        const sqlite = await Database.load("sqlite:valeska.db");
+        const sqlite = await getDb();
         const result: any[] = await sqlite.select(
           "SELECT * FROM plantillas_documentos WHERE activo = 1 AND deleted_at IS NULL ORDER BY nombre_documento ASC",
         );

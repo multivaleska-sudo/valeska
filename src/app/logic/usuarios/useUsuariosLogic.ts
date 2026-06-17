@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import Database from "@tauri-apps/plugin-sql";
+import { getDb } from "../../db/localDb";
 import * as bcrypt from "bcryptjs";
 import { invoke } from "@tauri-apps/api/core";
 import { save } from "@tauri-apps/plugin-dialog";
@@ -24,7 +24,7 @@ export function useUsuariosLogic() {
   const fetchUsers = async () => {
     setIsLoading(true);
     try {
-      const sqlite = await Database.load("sqlite:valeska.db");
+      const sqlite = await getDb();
       const result: UserDB[] = await sqlite.select(
         "SELECT * FROM usuarios WHERE deleted_at IS NULL ORDER BY created_at DESC",
       );
@@ -99,7 +99,7 @@ export function useUsuariosLogic() {
     currentStatus: boolean | number,
   ) => {
     try {
-      const sqlite = await Database.load("sqlite:valeska.db");
+      const sqlite = await getDb();
       const newStatus = currentStatus ? 0 : 1;
       await sqlite.execute(
         "UPDATE usuarios SET esta_activo = $1, updated_at = $2, sync_status = 'LOCAL_UPDATE' WHERE id = $3",
@@ -135,7 +135,7 @@ export function useUsuariosLogic() {
     }
 
     try {
-      const sqlite = await Database.load("sqlite:valeska.db");
+      const sqlite = await getDb();
       const now = Date.now();
 
       await sqlite.execute(
@@ -164,7 +164,7 @@ export function useUsuariosLogic() {
 
   const saveUser = async (userData: any, isEditing: boolean) => {
     try {
-      const sqlite = await Database.load("sqlite:valeska.db");
+      const sqlite = await getDb();
       const now = new Date().toISOString();
       const username = String(userData.email || "").trim();
 
@@ -256,7 +256,7 @@ export function useUsuariosLogic() {
 
   const resetToTemporaryPassword = async (id: string) => {
     try {
-      const sqlite = await Database.load("sqlite:valeska.db");
+      const sqlite = await getDb();
       const tempPassword = "Valeska" + Math.floor(1000 + Math.random() * 9000);
 
       const salt = bcrypt.genSaltSync(10);
@@ -287,7 +287,7 @@ export function useUsuariosLogic() {
 
   const transferAdmin = async (currentAdminId: string, newAdminId: string) => {
     try {
-      const sqlite = await Database.load("sqlite:valeska.db");
+      const sqlite = await getDb();
       await sqlite.execute(
         "UPDATE usuarios SET rol = 'OPERADOR', sync_status = 'LOCAL_UPDATE' WHERE id = $1",
         [currentAdminId],
@@ -320,7 +320,7 @@ export function useUsuariosLogic() {
 
   const exportProvisioningFile = async (userId: string) => {
     try {
-      const sqlite = await Database.load("sqlite:valeska.db");
+      const sqlite = await getDb();
 
       const userResult: any[] = await sqlite.select(
         "SELECT * FROM usuarios WHERE id = $1",

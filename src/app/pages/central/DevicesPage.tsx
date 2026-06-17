@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { ArrowLeft, Monitor, CheckCircle2, XCircle } from "lucide-react";
 import { useNavigate } from "react-router";
-import Database from "@tauri-apps/plugin-sql";
+import { getDb } from "../../db/localDb";
 
 interface Dispositivo {
   id: string;
@@ -20,7 +20,7 @@ export function DevicesPage() {
   useEffect(() => {
     const fetchDevices = async () => {
       try {
-        const sqlite = await Database.load("sqlite:valeska.db");
+        const sqlite = await getDb();
         const result: any[] = await sqlite.select(`
           SELECT 
             d.id, 

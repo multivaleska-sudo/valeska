@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
 import { invoke } from "@tauri-apps/api/core";
-import Database from "@tauri-apps/plugin-sql";
+import { getDb } from "../../db/localDb";
 import { drizzle } from "drizzle-orm/sqlite-proxy";
 import { eq } from "drizzle-orm";
 import * as bcrypt from "bcryptjs";
@@ -10,8 +10,8 @@ import { sileo } from "sileo";
 import { executePush } from "../sync/pushActions";
 import { executePull } from "../sync/pullActions";
 
-const getDb = async () => {
-  const sqlite = await Database.load("sqlite:valeska.db");
+const getDrizzleDb = async () => {
+  const sqlite = await getDb();
   return drizzle(
     async (sql, params, method) => {
       try {
@@ -405,7 +405,7 @@ export function useAuthLogic() {
    */
   const checkInitialSetup = async () => {
     try {
-      const sqlite = await Database.load("sqlite:valeska.db");
+      const sqlite = await getDb();
       const allUsers: any[] = await sqlite.select(
         "SELECT id FROM usuarios LIMIT 1",
       );
@@ -479,14 +479,14 @@ export function useAuthLogic() {
     setError(null);
     try {
       const { provisionData, identifier } = await parseProvisioningFile(filePath);
-      const sqlite = await Database.load("sqlite:valeska.db");
+      const sqlite = await getDb();
       const existingUser = await findLocalUserByIdentifier(sqlite, identifier);
 
       if (existingUser) {
         return { status: "existing_user", identifier: existingUser.username };
       }
 
-      const db = await getDb();
+      const db = await getDrizzleDb();
 
       const usedProvision = await db
         .select()
@@ -653,7 +653,7 @@ export function useAuthLogic() {
         throw new Error("Credenciales invalidas o conexion a la nube fallida.");
       }
 
-      const sqlite = await Database.load("sqlite:valeska.db");
+      const sqlite = await getDb();
       await persistCloudProvisioning(sqlite, data, passwordPlain);
 
       sileo.success({
@@ -680,7 +680,7 @@ export function useAuthLogic() {
     setError(null);
     try {
       const normalizedIdentifier = identifier.trim();
-      const sqlite = await Database.load("sqlite:valeska.db");
+      const sqlite = await getDb();
       const identity = await getDeviceIdentity();
       const cloudLogin = await provisionDeviceWithBackend(
         normalizedIdentifier,
@@ -810,7 +810,7 @@ export function useAuthLogic() {
     newPasswordPlain: string,
   ) => {
     try {
-      const sqlite = await Database.load("sqlite:valeska.db");
+      const sqlite = await getDb();
       const salt = bcrypt.genSaltSync(10);
       const newHash = bcrypt.hashSync(newPasswordPlain, salt);
 

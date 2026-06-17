@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import Database from "@tauri-apps/plugin-sql";
+import { getDb } from "../../db/localDb";
 import { TramiteFormData } from "../../types/tramites/tramite.types";
 import { handlePdfAutofillAction } from "./pdfActions";
 import { sileo } from "sileo";
@@ -89,7 +89,7 @@ export function useTramiteLogic(initialData?: Partial<TramiteFormData>) {
 
   const loadCatalogos = useCallback(async () => {
     try {
-      const sqlite = await Database.load("sqlite:valeska.db");
+      const sqlite = await getDb();
       let resTipos: any[] = [];
       let resSits: any[] = [];
       let resTpl: any[] = [];
@@ -150,7 +150,7 @@ export function useTramiteLogic(initialData?: Partial<TramiteFormData>) {
         return;
       }
       try {
-        const sqlite = await Database.load("sqlite:valeska.db");
+        const sqlite = await getDb();
         const searchTerm = `%${val.toUpperCase().trim()}%`;
         const res: any[] = await sqlite.select(
           `SELECT eg.id, eg.ruc, eg.razon_social, rl.id as rep_id, rl.nombres, rl.primer_apellido, rl.segundo_apellido, rl.dni as rep_dni
@@ -208,7 +208,7 @@ export function useTramiteLogic(initialData?: Partial<TramiteFormData>) {
         return;
       }
       try {
-        const sqlite = await Database.load("sqlite:valeska.db");
+        const sqlite = await getDb();
         const searchTerm = `%${val.toUpperCase().trim()}%`;
         const resPres: any[] = await sqlite.select(
           `SELECT id, dni, primer_apellido, segundo_apellido, nombres FROM presentantes WHERE dni LIKE $1 OR nombres LIKE $2 OR primer_apellido LIKE $3 OR segundo_apellido LIKE $4 LIMIT 8`,
@@ -354,7 +354,7 @@ export function useTramiteLogic(initialData?: Partial<TramiteFormData>) {
         let finalRepLegalId = null;
         let finalComboEmpresa = empresaRaw || "";
 
-        const sqlite = await Database.load("sqlite:valeska.db");
+        const sqlite = await getDb();
         const now = Date.now();
 
         if (empresaRaw) {
@@ -450,7 +450,7 @@ export function useTramiteLogic(initialData?: Partial<TramiteFormData>) {
   const saveTramite = async () => {
     setIsSaving(true);
     try {
-      const sqlite = await Database.load("sqlite:valeska.db");
+      const sqlite = await getDb();
 
       if (formData.id) {
         const conflictRows: any[] = await sqlite.select(

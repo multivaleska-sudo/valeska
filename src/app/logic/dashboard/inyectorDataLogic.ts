@@ -1,5 +1,5 @@
 import * as XLSX from "xlsx";
-import Database from "@tauri-apps/plugin-sql";
+import { getUnsafeDb } from "../../db/localDb";
 import { runExclusiveLocalDbOperation } from "../sync/localDbOperationGate";
 
 // =============================
@@ -553,16 +553,6 @@ export const insertarLotesUltra = async (
 
   for (let i = 0; i < validos.length; i += chunkSize) {
     const chunk = validos.slice(i, i + chunkSize);
-    let batchOpen = false;
-
-    try {
-      await executeWithRetry(db, "BEGIN IMMEDIATE", []);
-      batchOpen = true;
-    } catch (err: any) {
-      if (!String(err?.message || err).includes("within a transaction")) {
-        throw err;
-      }
-    }
 
     for (const r of chunk) {
       const now = Date.now();
@@ -582,8 +572,6 @@ export const insertarLotesUltra = async (
       };
 
       try {
-        await executeWithRetry(db, `SAVEPOINT ${savepoint}`, []);
-        savepointOpen = true;
         // Cliente
         let clienteId = cache.clientesMap.get(r.dni);
         if (!clienteId) {
@@ -838,25 +826,12 @@ export const insertarLotesUltra = async (
           createdThisRow.tramite_detalles++;
         }
 
-        await executeWithRetry(db, `RELEASE ${savepoint}`, []);
-        savepointOpen = false;
         for (const [entity, count] of Object.entries(createdThisRow)) {
           createdByEntity[entity] = (createdByEntity[entity] || 0) + count;
         }
         exitosos++;
       } catch (err: any) {
-        if (savepointOpen) {
-          try {
-            await executeWithRetry(db, `ROLLBACK TO ${savepoint}`, []);
-          } catch {
-            // Si SQLite ya cerro el savepoint, mantenemos la causa original.
-          }
-          try {
-            await executeWithRetry(db, `RELEASE ${savepoint}`, []);
-          } catch {
-            // Evita ocultar el error real de la fila.
-          }
-        }
+        // En lugar de rollback, eliminamos las entradas de cache creadas en este intento
         for (const rollbackCacheEntry of createdCacheEntries.reverse()) {
           rollbackCacheEntry();
         }
@@ -879,19 +854,6 @@ export const insertarLotesUltra = async (
       );
       onProgress(50 + chunkProgress);
     }
-
-    if (batchOpen) {
-      try {
-        await executeWithRetry(db, "COMMIT", []);
-      } catch (err) {
-        try {
-          await executeWithRetry(db, "ROLLBACK", []);
-        } catch {
-          // Conserva la causa original del commit.
-        }
-        throw err;
-      }
-    }
   }
 
   return { exitosos, erroresPorFila, createdByEntity };
@@ -905,7 +867,7 @@ export const importarPipeline = async (
   onProgress?: (p: number) => void,
 ): Promise<ResultadoImportacion> => runExclusiveLocalDbOperation("excel-import", async () => {
   if (onProgress) onProgress(5);
-  const db = await Database.load("sqlite:valeska.db");
+  const db = await getUnsafeDb();
 
   try {
     await db.execute("PRAGMA journal_mode = WAL;", []);

@@ -9,7 +9,7 @@ import {
   Plus,
   Trash2,
 } from "lucide-react";
-import Database from "@tauri-apps/plugin-sql";
+import { getDb } from "../../db/localDb";
 
 interface EmpresaModalProps {
   initialRuc?: string;
@@ -61,7 +61,7 @@ export function EmpresaModal({
     const fetchEmpresaYRepresentantes = async () => {
       if (ruc.length === 11 || (initialRuc && initialRuc.length > 0)) {
         try {
-          const sqlite = await Database.load("sqlite:valeska.db");
+          const sqlite = await getDb();
 
           let res: any[] = [];
           if (ruc.length === 11) {
@@ -144,7 +144,7 @@ export function EmpresaModal({
 
     setIsSaving(true);
     try {
-      const sqlite = await Database.load("sqlite:valeska.db");
+      const sqlite = await getDb();
       const now = Date.now();
       const razonLimpia = razonSocial.trim().toUpperCase();
 

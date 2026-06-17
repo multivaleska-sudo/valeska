@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import Database from "@tauri-apps/plugin-sql";
+import { getDb } from "../../db/localDb";
 import { sileo } from "sileo";
 
 export interface Conflicto {
@@ -213,7 +213,7 @@ export function useConflictosLogic() {
 
   const loadConflictCount = useCallback(async () => {
     try {
-      const sqlite = await Database.load("sqlite:valeska.db");
+      const sqlite = await getDb();
       const res: any[] = await sqlite.select(
         "SELECT COUNT(id) as count FROM sync_conflictos WHERE resuelto = 0",
       );
@@ -226,7 +226,7 @@ export function useConflictosLogic() {
   const loadConflictos = useCallback(async () => {
     setIsLoading(true);
     try {
-      const sqlite = await Database.load("sqlite:valeska.db");
+      const sqlite = await getDb();
       const res: any[] = await sqlite.select(
         "SELECT * FROM sync_conflictos WHERE resuelto = 0 ORDER BY fecha_conflicto DESC",
       );
@@ -250,7 +250,7 @@ export function useConflictosLogic() {
 
   const getConflictoById = async (id: string): Promise<Conflicto | null> => {
     try {
-      const sqlite = await Database.load("sqlite:valeska.db");
+      const sqlite = await getDb();
       const res: any[] = await sqlite.select(
         "SELECT * FROM sync_conflictos WHERE id = $1 LIMIT 1",
         [id],
@@ -282,7 +282,7 @@ export function useConflictosLogic() {
     mode: ConflictResolutionMode = "merge",
   ) => {
     const promise = async () => {
-      const sqlite = await Database.load("sqlite:valeska.db");
+      const sqlite = await getDb();
       const now = Date.now();
       const conflictRows: any[] = await sqlite.select(
         "SELECT datos_locales, datos_remotos FROM sync_conflictos WHERE id = $1 LIMIT 1",
@@ -324,7 +324,7 @@ export function useConflictosLogic() {
 
   const resolveReadyConflictsWithRemote = async () => {
     const promise = async () => {
-      const sqlite = await Database.load("sqlite:valeska.db");
+      const sqlite = await getDb();
       const now = Date.now();
       const rows: any[] = await sqlite.select(
         "SELECT * FROM sync_conflictos WHERE resuelto = 0 ORDER BY fecha_conflicto ASC",
@@ -367,7 +367,7 @@ export function useConflictosLogic() {
 
   const cleanupOrphanImportConflicts = async () => {
     const promise = async () => {
-      const sqlite = await Database.load("sqlite:valeska.db");
+      const sqlite = await getDb();
       const rows: any[] = await sqlite.select(
         "SELECT id, tabla_afectada, registro_id FROM sync_conflictos WHERE resuelto = 0",
       );

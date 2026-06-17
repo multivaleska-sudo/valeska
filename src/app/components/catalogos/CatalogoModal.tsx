@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { X, Layers, Loader2, CheckCircle2 } from "lucide-react";
-import Database from "@tauri-apps/plugin-sql";
+import { getDb } from "../../db/localDb";
 
 interface CatalogoModalProps {
   tipo: "tipo_tramite" | "situacion";
@@ -30,7 +30,7 @@ export function CatalogoModal({
 
     setIsSaving(true);
     try {
-      const sqlite = await Database.load("sqlite:valeska.db");
+      const sqlite = await getDb();
       const id = crypto.randomUUID();
       const now = new Date().toISOString();
       const nombreLimpio = nombre.trim().toUpperCase();

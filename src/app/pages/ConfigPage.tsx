@@ -14,6 +14,8 @@ import {
   Activity,
   FileDown,
   Wrench,
+  Settings,
+  Trash2,
 } from "lucide-react";
 import { useConfigLogic } from "../logic/usuarios/useConfigLogic";
 import { useAppUpdater } from "../logic/updates/useAppUpdater";
@@ -53,6 +55,7 @@ export function ConfigPage() {
     handleRefreshSyncDiagnostics,
     handleExportSyncDiagnostics,
     handleForceTramiteResync,
+    handleLimpiarConflictosHuerfanos,
   } = useConfigLogic();
   const {
     isChecking,
@@ -462,6 +465,18 @@ export function ConfigPage() {
                             )}
                             Resincronizar
                           </button>
+                        </div>
+
+                        <div className="flex">
+                           <button
+                            type="button"
+                            onClick={handleLimpiarConflictosHuerfanos}
+                            disabled={isLoadingDiagnostics || isRepairingSync || syncDiagnostics.conflictCount === 0}
+                            className="w-full bg-rose-600 text-white px-4 py-3 rounded-2xl font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-2 hover:bg-rose-700 transition-colors disabled:opacity-60"
+                           >
+                            <Trash2 size={15} />
+                            Limpiar Conflictos Huérfanos
+                           </button>
                         </div>
 
                         {syncDiagnostics.pendingCounts.length > 0 && (

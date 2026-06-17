@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import Database from "@tauri-apps/plugin-sql";
+import { getDb } from "../../db/localDb";
 import { sileo } from "sileo";
 import { TipoTramite, Situacion } from "../../types/catalogos/catalogo.types";
 
@@ -9,7 +9,7 @@ export function useCatalogosLogic() {
 
   const loadCatalogos = useCallback(async () => {
     try {
-      const sqlite = await Database.load("sqlite:valeska.db");
+      const sqlite = await getDb();
 
       const resTipos: any[] = await sqlite.select(
         "SELECT id, nombre, activo FROM catalogo_tipos_tramite WHERE deleted_at IS NULL ORDER BY nombre ASC",
@@ -45,7 +45,7 @@ export function useCatalogosLogic() {
 
   const saveTramite = (tramite: TipoTramite) => {
     const promise = async () => {
-      const sqlite = await Database.load("sqlite:valeska.db");
+      const sqlite = await getDb();
       const now = Date.now();
       const isActivo = tramite.activo ? 1 : 0;
 
@@ -73,7 +73,7 @@ export function useCatalogosLogic() {
 
   const saveSituacion = (situacion: Situacion) => {
     const promise = async () => {
-      const sqlite = await Database.load("sqlite:valeska.db");
+      const sqlite = await getDb();
       const now = Date.now();
       const isActivo = situacion.activo ? 1 : 0;
 
@@ -113,7 +113,7 @@ export function useCatalogosLogic() {
     currentStatus: boolean,
   ) => {
     const promise = async () => {
-      const sqlite = await Database.load("sqlite:valeska.db");
+      const sqlite = await getDb();
       const now = Date.now();
       const nuevoEstado = !currentStatus ? 1 : 0;
 
@@ -140,7 +140,7 @@ export function useCatalogosLogic() {
 
   const deleteItem = (id: string, tab: "tramites" | "situaciones") => {
     const promise = async () => {
-      const sqlite = await Database.load("sqlite:valeska.db");
+      const sqlite = await getDb();
       const now = Date.now();
 
       if (tab === "tramites") {

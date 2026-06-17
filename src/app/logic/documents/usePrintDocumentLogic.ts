@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router";
-import Database from "@tauri-apps/plugin-sql";
+import { getDb } from "../../db/localDb";
 import { sileo } from "sileo";
 
 export function usePrintDocumentLogic() {
@@ -17,7 +17,7 @@ export function usePrintDocumentLogic() {
   useEffect(() => {
     const generateDocument = async () => {
       try {
-        const sqlite = await Database.load("sqlite:valeska.db");
+        const sqlite = await getDb();
 
         const tplRes: any[] = await sqlite.select(
           "SELECT * FROM plantillas_documentos WHERE id = $1",

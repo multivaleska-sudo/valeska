@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import Database from "@tauri-apps/plugin-sql";
+import { getUnsafeDb } from "../../db/localDb";
 import { sileo } from "sileo";
 import { executePush } from "./pushActions";
 import { executePull } from "./pullActions";
@@ -123,7 +123,7 @@ export function useSyncLogic() {
         userName = session.nombre || session.username;
       }
 
-      const sqlite = await Database.load("sqlite:valeska.db");
+      const sqlite = await getUnsafeDb();
       const dispResult: any[] = await sqlite.select("SELECT nombre_equipo FROM dispositivos LIMIT 1");
       const machineName = dispResult[0]?.nombre_equipo || "PC-DESCONOCIDA";
 

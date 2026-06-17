@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router";
-import Database from "@tauri-apps/plugin-sql";
+import { getDb } from "../../db/localDb";
 import { TEMPLATE_VARIABLES } from "../../constants/templateVariables";
 import { sileo } from "sileo";
 
@@ -29,7 +29,7 @@ export function useTemplateEditorLogic() {
       }
 
       try {
-        const sqlite = await Database.load("sqlite:valeska.db");
+        const sqlite = await getDb();
         const result: any[] = await sqlite.select(
           "SELECT * FROM plantillas_documentos WHERE id = $1",
           [id],
@@ -116,7 +116,7 @@ export function useTemplateEditorLogic() {
     }
 
     try {
-      const sqlite = await Database.load("sqlite:valeska.db");
+      const sqlite = await getDb();
       const now = Date.now(); // Usamos entero para evitar choques de compatibilidad con timestamps
 
       if (id === "new") {

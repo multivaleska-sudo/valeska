@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { AlertCircle, Monitor, ChevronRight, ArrowUpRight } from "lucide-react";
 import { useNavigate } from "react-router";
-import Database from "@tauri-apps/plugin-sql";
+import { getDb } from "../../db/localDb";
 import { useConflictosLogic } from "../../logic/central/useConflictosLogic";
 
 export function CentralPage() {
@@ -14,7 +14,7 @@ export function CentralPage() {
 
     const loadDeviceCount = async () => {
       try {
-        const sqlite = await Database.load("sqlite:valeska.db");
+        const sqlite = await getDb();
         const res: any[] = await sqlite.select(
           "SELECT COUNT(id) as count FROM dispositivos WHERE deleted_at IS NULL",
         );

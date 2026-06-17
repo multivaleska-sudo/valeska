@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router";
-import Database from "@tauri-apps/plugin-sql";
+import { getDb } from "../../db/localDb";
 import { TemplateData } from "../../types/documents/template.types";
 import { sileo } from "sileo";
 
@@ -20,7 +20,7 @@ export function useDocumentCenterLogic() {
   const fetchTemplates = useCallback(async () => {
     setIsLoading(true);
     try {
-      const sqlite = await Database.load("sqlite:valeska.db");
+      const sqlite = await getDb();
 
       const query = `
         SELECT * FROM plantillas_documentos 
@@ -102,7 +102,7 @@ export function useDocumentCenterLogic() {
 
   const handleCreateNewTemplate = async (nombre: string, htmlBase: string) => {
     try {
-      const sqlite = await Database.load("sqlite:valeska.db");
+      const sqlite = await getDb();
       const newId = crypto.randomUUID();
       const now = Date.now(); // Estandarizado a milisegundos
 
@@ -131,7 +131,7 @@ export function useDocumentCenterLogic() {
 
   const handleDeleteTemplate = async (templateId: string) => {
     try {
-      const sqlite = await Database.load("sqlite:valeska.db");
+      const sqlite = await getDb();
       const now = Date.now(); // Formato compatible con tu schema.ts
 
       // Actualizamos a milisegundos y disparamos sync_status

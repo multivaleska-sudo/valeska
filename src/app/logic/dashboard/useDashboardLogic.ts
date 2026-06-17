@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
-import Database from "@tauri-apps/plugin-sql";
+import { getDb } from "../../db/localDb";
 import { sileo } from "sileo";
 
 export interface DashboardStats {
@@ -42,7 +42,7 @@ export function useDashboardLogic() {
   const loadDashboardData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const sqlite = await Database.load("sqlite:valeska.db");
+      const sqlite = await getDb();
 
       const clientesRes: any[] = await sqlite.select(
         "SELECT COUNT(id) as count FROM clientes WHERE deleted_at IS NULL",
