@@ -5,7 +5,13 @@ import { useConflictosLogic } from "../../logic/central/useConflictosLogic";
 
 export function ConflictListPage() {
   const navigate = useNavigate();
-  const { conflictos, isLoading, loadConflictos } = useConflictosLogic();
+  const {
+    conflictos,
+    isLoading,
+    loadConflictos,
+    resolveReadyConflictsWithRemote,
+    cleanupOrphanImportConflicts,
+  } = useConflictosLogic();
 
   useEffect(() => {
     loadConflictos();
@@ -28,6 +34,21 @@ export function ConflictListPage() {
             Revisar y resolver discrepancias de sincronización
           </p>
         </div>
+      </div>
+
+      <div className="flex flex-wrap justify-end gap-2">
+        <button
+          onClick={cleanupOrphanImportConflicts}
+          className="px-3 py-2 border border-[#E5E7EB] text-[#374151] rounded-md hover:bg-white transition-colors text-sm font-medium"
+        >
+          Limpiar huerfanos
+        </button>
+        <button
+          onClick={resolveReadyConflictsWithRemote}
+          className="px-3 py-2 bg-[#2563EB] text-white rounded-md hover:bg-[#1D4ED8] transition-colors text-sm font-medium"
+        >
+          Usar nube listos
+        </button>
       </div>
 
       <div className="bg-white rounded-lg border border-[#E5E7EB] overflow-hidden min-h-[300px]">
