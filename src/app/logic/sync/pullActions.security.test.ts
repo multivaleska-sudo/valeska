@@ -18,7 +18,10 @@ function createFakeSqlite() {
         throw new Error(`dispositivo.usuario_id must be deferred, got ${String(params[6])}`);
       }
     },
-    async select() {
+    async select(query: string, params: unknown[] = []) {
+      if (query.includes("WHERE id = $1 LIMIT 1") && !query.includes("FROM tramites WHERE id")) {
+        return [{ id: params[0] }];
+      }
       return [];
     },
   };
@@ -74,6 +77,46 @@ describe("processPullSync security relationships", () => {
     ).toBe(true);
   });
 
+  it("reports the missing tramite dependency before applying the row", async () => {
+    const sqlite = {
+      async execute(query: string) {
+        if (query.includes("INSERT INTO tramites")) {
+          throw new Error("FOREIGN KEY constraint failed");
+        }
+      },
+      async select(query: string, params: unknown[] = []) {
+        if (query.includes("FROM tramites WHERE id")) return [];
+        if (query.includes("FROM clientes WHERE id")) return [];
+        if (query.includes("FROM vehiculos WHERE id")) return [{ id: params[0] }];
+        if (query.includes("FROM catalogo_tipos_tramite WHERE id")) return [{ id: params[0] }];
+        if (query.includes("FROM catalogo_situaciones WHERE id")) return [{ id: params[0] }];
+        if (query.includes("FROM usuarios WHERE id")) return [{ id: params[0] }];
+        if (query.includes("FROM sucursales WHERE id")) return [{ id: params[0] }];
+        return [];
+      },
+    };
+
+    await expect(
+      processPullSync(sqlite, {
+        tramites: [
+          {
+            id: "tramite-1",
+            tramiteAnio: "2026",
+            clienteId: "cliente-faltante",
+            vehiculoId: "vehiculo-1",
+            tipoTramiteId: "tipo-1",
+            situacionId: "sit-1",
+            usuarioCreadorId: "user-1",
+            sucursalId: "sucursal-1",
+            fechaPresentacion: "2026-06-16",
+            createdAt: 1,
+            updatedAt: 1,
+          },
+        ],
+      }),
+    ).rejects.toThrow("falta cliente_id cliente-faltante");
+  });
+
   it("stores base_version equal to version for synced tramite records pulled from server", async () => {
     const sqlite = createFakeSqlite();
 
@@ -87,6 +130,8 @@ describe("processPullSync security relationships", () => {
           vehiculoId: "vehiculo-1",
           tipoTramiteId: "tipo-1",
           situacionId: "sit-1",
+          usuarioCreadorId: "user-1",
+          sucursalId: "sucursal-1",
           version: 3,
           baseVersion: 2,
           createdAt: 1,
