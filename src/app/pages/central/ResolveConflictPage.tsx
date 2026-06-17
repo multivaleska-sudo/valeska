@@ -246,7 +246,7 @@ export function ResolveConflictPage() {
               onClick={handleUseLocal}
               className="px-4 py-2 border border-[#FCA5A5] text-[#991B1B] rounded-md hover:bg-red-50 transition-colors font-medium"
             >
-              Usar mi versiÃ³n
+              Usar mi versi?n
             </button>
             <button
               onClick={handleResolve}
