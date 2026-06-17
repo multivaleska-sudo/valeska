@@ -14,6 +14,16 @@ export interface Conflicto {
 
 export type ConflictResolutionMode = "remote" | "local" | "merge";
 
+export const isRemoteConflictPlaceholder = (remoteData: Record<string, any> | null | undefined) =>
+  Boolean(remoteData?.pendiente_pull_conflicto === true);
+
+const getAllowedConflictTable = (tableName: string) => {
+  if (!TABLE_FIELD_MAP[tableName]) {
+    throw new Error(`Tabla de conflicto no permitida: ${tableName}`);
+  }
+  return tableName;
+};
+
 const TABLE_FIELD_MAP: Record<string, Record<string, string>> = {
   clientes: {
     tipoDocumento: "tipo_documento",
@@ -280,6 +290,9 @@ export function useConflictosLogic() {
       );
       const localData = JSON.parse(conflictRows[0]?.datos_locales || "{}");
       const remoteData = JSON.parse(conflictRows[0]?.datos_remotos || "{}");
+      if (isRemoteConflictPlaceholder(remoteData)) {
+        throw new Error("El detalle remoto del conflicto aun se esta sincronizando. Ejecuta sincronizacion y vuelve a intentar.");
+      }
       const update = buildConflictResolutionUpdate({
         tableName: tablaAfectada,
         mode,
@@ -309,6 +322,84 @@ export function useConflictosLogic() {
     });
   };
 
+  const resolveReadyConflictsWithRemote = async () => {
+    const promise = async () => {
+      const sqlite = await Database.load("sqlite:valeska.db");
+      const now = Date.now();
+      const rows: any[] = await sqlite.select(
+        "SELECT * FROM sync_conflictos WHERE resuelto = 0 ORDER BY fecha_conflicto ASC",
+      );
+
+      let resolved = 0;
+      for (const row of rows) {
+        const remoteData = JSON.parse(row.datos_remotos || "{}");
+        if (isRemoteConflictPlaceholder(remoteData)) continue;
+
+        const localData = JSON.parse(row.datos_locales || "{}");
+        const update = buildConflictResolutionUpdate({
+          tableName: row.tabla_afectada,
+          mode: "remote",
+          registroId: row.registro_id,
+          localData,
+          remoteData,
+          resolvedData: remoteData,
+          now,
+        });
+        await sqlite.execute(update.query, update.values);
+        await sqlite.execute(
+          "UPDATE sync_conflictos SET resuelto = 1, datos_locales = $1, fecha_conflicto = $2 WHERE id = $3",
+          [JSON.stringify(remoteData), now, row.id],
+        );
+        resolved++;
+      }
+
+      await loadConflictos();
+      await loadConflictCount();
+      return resolved;
+    };
+
+    return sileo.promise(promise(), {
+      loading: { title: "Resolviendo conflictos listos..." },
+      success: { title: "Conflictos listos resueltos con nube" },
+      error: { title: "No se pudo resolver conflictos en lote" },
+    });
+  };
+
+  const cleanupOrphanImportConflicts = async () => {
+    const promise = async () => {
+      const sqlite = await Database.load("sqlite:valeska.db");
+      const rows: any[] = await sqlite.select(
+        "SELECT id, tabla_afectada, registro_id FROM sync_conflictos WHERE resuelto = 0",
+      );
+
+      let cleaned = 0;
+      for (const row of rows) {
+        const tableName = getAllowedConflictTable(row.tabla_afectada);
+        const localRows: any[] = await sqlite.select(
+          `SELECT id, sync_status FROM ${tableName} WHERE id = $1 LIMIT 1`,
+          [row.registro_id],
+        );
+        if (localRows.length === 0 || localRows[0]?.sync_status === "SYNCED") {
+          await sqlite.execute(
+            "UPDATE sync_conflictos SET resuelto = 1, fecha_conflicto = $1 WHERE id = $2",
+            [Date.now(), row.id],
+          );
+          cleaned++;
+        }
+      }
+
+      await loadConflictos();
+      await loadConflictCount();
+      return cleaned;
+    };
+
+    return sileo.promise(promise(), {
+      loading: { title: "Limpiando conflictos huerfanos..." },
+      success: { title: "Conflictos huerfanos limpiados" },
+      error: { title: "No se pudo limpiar conflictos" },
+    });
+  };
+
   return {
     conflictos,
     conflictCount,
@@ -317,5 +408,7 @@ export function useConflictosLogic() {
     loadConflictCount,
     getConflictoById,
     resolveConflicto,
+    resolveReadyConflictsWithRemote,
+    cleanupOrphanImportConflicts,
   };
 }
