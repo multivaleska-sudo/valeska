@@ -12,6 +12,7 @@ import {
 import type { SyncEntityName } from "../../types/sync.types";
 
 const CHUNK_SIZE = 500;
+type EntityCountMap = Partial<Record<SyncEntityName, number>>;
 
 const ENTITY_TABLES: Record<SyncEntityName, string> = {
   sucursal: "sucursales",
@@ -120,11 +121,27 @@ export const executePush = async (
   sqlite: any,
 ) => {
   const fullPayload = (await buildPushPayload(sqlite)) as Record<string, any[]>;
+  const pushedByEntity: EntityCountMap = {};
+  const acceptedByEntity: EntityCountMap = {};
+  const conflictedByEntity: EntityCountMap = {};
+  const aggregateAcceptedRecordIds: string[] = [];
+  const aggregateConflictedRecordIds: string[] = [];
 
   const hasDataToPush = Object.values(fullPayload).some(
     (arr: any) => arr && arr.length > 0,
   );
-  if (!hasDataToPush) return { success: true, pushedCount: 0 };
+  if (!hasDataToPush) {
+    return {
+      success: true,
+      pushedCount: 0,
+      conflictCount: 0,
+      pushedByEntity,
+      acceptedByEntity,
+      conflictedByEntity,
+      acceptedRecordIds: aggregateAcceptedRecordIds,
+      conflictedRecordIds: aggregateConflictedRecordIds,
+    };
+  }
 
   const syncSessionId = crypto.randomUUID();
   let totalPushed = 0;
@@ -195,6 +212,14 @@ export const executePush = async (
           ? finalStatus.acceptedRecordIds || []
           : recordIds;
         const conflictedRecordIds = finalStatus.conflictedRecordIds || [];
+        acceptedByEntity[entityName] =
+          (acceptedByEntity[entityName] || 0) + acceptedRecordIds.length;
+        conflictedByEntity[entityName] =
+          (conflictedByEntity[entityName] || 0) + conflictedRecordIds.length;
+        pushedByEntity[entityName] =
+          (pushedByEntity[entityName] || 0) + acceptedRecordIds.length;
+        aggregateAcceptedRecordIds.push(...acceptedRecordIds);
+        aggregateConflictedRecordIds.push(...conflictedRecordIds);
 
         if (entityName === "sync_conflicto") {
           if (acceptedRecordIds.length > 0) {
@@ -241,7 +266,16 @@ export const executePush = async (
     }
   }
 
-  return { success: true, pushedCount: totalPushed };
+  return {
+    success: true,
+    pushedCount: totalPushed,
+    conflictCount: aggregateConflictedRecordIds.length,
+    pushedByEntity,
+    acceptedByEntity,
+    conflictedByEntity,
+    acceptedRecordIds: aggregateAcceptedRecordIds,
+    conflictedRecordIds: aggregateConflictedRecordIds,
+  };
 };
 
 export const getSyncEntityFromLocalKey = (localKey: string) =>
