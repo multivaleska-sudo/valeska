@@ -1,5 +1,6 @@
 import * as XLSX from "xlsx";
 import Database from "@tauri-apps/plugin-sql";
+import { runExclusiveLocalDbOperation } from "../sync/localDbOperationGate";
 
 // =============================
 // TIPOS E INTERFACES
@@ -82,12 +83,6 @@ export interface ImportRowWarning {
 export interface ImportWarnings {
   sinIdentificadorVehiculo: number[];
   vehiculoReutilizado: number[];
-}
-
-declare global {
-  interface Window {
-    __valeskaImportInFlight?: boolean;
-  }
 }
 
 // =============================
@@ -470,7 +465,7 @@ const executeWithRetry = async (
   db: Database,
   query: string,
   params: any[] = [],
-  retries = 5,
+  retries = 80,
 ) => {
   let lastError: any;
   for (let i = 0; i < retries; i++) {
@@ -483,13 +478,53 @@ const executeWithRetry = async (
         error?.message?.includes("database is locked") ||
         error?.message?.includes("busy")
       ) {
-        await new Promise((res) => setTimeout(res, 100 + Math.random() * 200));
+        const delay = Math.min(1000, 100 + i * 50) + Math.random() * 100;
+        await new Promise((res) => setTimeout(res, delay));
       } else {
         throw error;
       }
     }
   }
   throw lastError;
+};
+
+const findExistingTramiteForImport = async (
+  db: Database,
+  r: RegistroExcel,
+  refs: { clienteId: string; vehiculoId: string; tipoId: string },
+) => {
+  if (typeof (db as any).select !== "function") return null;
+
+  const baseSelect = `
+    SELECT t.id, t.sync_status, t.version, t.base_version, td.id AS detalle_id
+    FROM tramites t
+    INNER JOIN clientes c ON c.id = t.cliente_id
+    LEFT JOIN tramite_detalles td ON td.tramite_id = t.id
+    WHERE t.deleted_at IS NULL
+  `;
+
+  if (r.nTitulo) {
+    const rows = await (db as any).select(
+      `${baseSelect}
+       AND t.tramite_anio = ?
+       AND t.n_titulo = ?
+       AND c.numero_documento = ?
+       LIMIT 1`,
+      [r.tramiteAnio, r.nTitulo, r.dni],
+    );
+    return rows?.[0] || null;
+  }
+
+  const rows = await (db as any).select(
+    `${baseSelect}
+     AND t.cliente_id = ?
+     AND t.vehiculo_id = ?
+     AND t.tipo_tramite_id = ?
+     AND t.fecha_presentacion = ?
+     LIMIT 1`,
+    [refs.clienteId, refs.vehiculoId, refs.tipoId, r.fechaPresentacion],
+  );
+  return rows?.[0] || null;
 };
 
 // =============================
@@ -502,7 +537,7 @@ export const insertarLotesUltra = async (
   cache: any,
   onProgress?: (p: number) => void,
 ) => {
-  const chunkSize = 20; // Reducido para mayor estabilidad
+  const chunkSize = 100;
   let exitosos = 0;
   const erroresPorFila: ImportRowError[] = [];
   const createdByEntity: Record<string, number> = {
@@ -518,7 +553,6 @@ export const insertarLotesUltra = async (
 
   for (let i = 0; i < validos.length; i += chunkSize) {
     const chunk = validos.slice(i, i + chunkSize);
-    await new Promise((res) => setTimeout(res, 50));
     let batchOpen = false;
 
     try {
@@ -702,56 +736,107 @@ export const insertarLotesUltra = async (
 
         // Trámite Principal
         currentEntity = "tramites";
-        const tramiteId = crypto.randomUUID();
-        await executeWithRetry(
-          db,
-          `INSERT INTO tramites (id, tramite_anio, cliente_id, vehiculo_id, tipo_tramite_id, situacion_id, usuario_creador_id, sucursal_id, n_titulo, fecha_presentacion, observaciones_generales, codigo_verificacion, created_at, updated_at, sync_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          safeParams([
-            tramiteId,
-            r.tramiteAnio,
-            clienteId,
-            vehiculoId,
-            tipoId,
-            situacionId,
-            ctx.usuarioId,
-            ctx.sucursalId,
-            r.nTitulo,
-            r.fechaPresentacion,
-            r.observacionesGenerales,
-            r.codigoVerificacion,
-            now,
-            now,
-            "LOCAL_INSERT",
-          ]),
-        );
+        const existingTramite = await findExistingTramiteForImport(db, r, {
+          clienteId,
+          vehiculoId,
+          tipoId,
+        });
+        const tramiteId = existingTramite?.id || crypto.randomUUID();
+
+        if (existingTramite) {
+          await executeWithRetry(
+            db,
+            `UPDATE tramites SET tramite_anio = ?, cliente_id = ?, vehiculo_id = ?, tipo_tramite_id = ?, situacion_id = ?, usuario_creador_id = ?, sucursal_id = ?, n_titulo = ?, fecha_presentacion = ?, observaciones_generales = ?, codigo_verificacion = ?, updated_at = ?, deleted_at = NULL, sync_status = CASE WHEN sync_status = 'LOCAL_INSERT' THEN 'LOCAL_INSERT' ELSE 'LOCAL_UPDATE' END WHERE id = ?`,
+            safeParams([
+              r.tramiteAnio,
+              clienteId,
+              vehiculoId,
+              tipoId,
+              situacionId,
+              ctx.usuarioId,
+              ctx.sucursalId,
+              r.nTitulo,
+              r.fechaPresentacion,
+              r.observacionesGenerales,
+              r.codigoVerificacion,
+              now,
+              tramiteId,
+            ]),
+          );
+        } else {
+          await executeWithRetry(
+            db,
+            `INSERT INTO tramites (id, tramite_anio, cliente_id, vehiculo_id, tipo_tramite_id, situacion_id, usuario_creador_id, sucursal_id, n_titulo, fecha_presentacion, observaciones_generales, codigo_verificacion, created_at, updated_at, sync_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            safeParams([
+              tramiteId,
+              r.tramiteAnio,
+              clienteId,
+              vehiculoId,
+              tipoId,
+              situacionId,
+              ctx.usuarioId,
+              ctx.sucursalId,
+              r.nTitulo,
+              r.fechaPresentacion,
+              r.observacionesGenerales,
+              r.codigoVerificacion,
+              now,
+              now,
+              "LOCAL_INSERT",
+            ]),
+          );
+          createdThisRow.tramites++;
+        }
 
         // Detalles del Trámite
-        createdThisRow.tramites++;
         currentEntity = "tramite_detalles";
-        await executeWithRetry(
-          db,
-          `INSERT INTO tramite_detalles (id, tramite_id, empresa_gestora_id, presentante_id, tipo_boleta, numero_boleta, fecha_boleta, dua, num_formato_inmatriculacion, clausula_monto, clausula_forma_pago, clausula_pago_bancarizado, aclaracion_dice, aclaracion_debe_decir, created_at, updated_at, sync_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          safeParams([
-            crypto.randomUUID(),
-            tramiteId,
-            empresaId,
-            presentanteId,
-            r.tipoBoleta,
-            r.numeroBoleta,
-            r.fechaBoleta,
-            r.dua,
-            r.numFormatoInmatriculacion,
-            r.clausulaMonto,
-            r.clausulaFormaPago,
-            r.clausulaPagoBancarizado,
-            r.aclaracionDice,
-            r.aclaracionDebeDecir,
-            now,
-            now,
-            "LOCAL_INSERT",
-          ]),
-        );
-        createdThisRow.tramite_detalles++;
+        if (existingTramite?.detalle_id) {
+          await executeWithRetry(
+            db,
+            `UPDATE tramite_detalles SET empresa_gestora_id = ?, presentante_id = ?, tipo_boleta = ?, numero_boleta = ?, fecha_boleta = ?, dua = ?, num_formato_inmatriculacion = ?, clausula_monto = ?, clausula_forma_pago = ?, clausula_pago_bancarizado = ?, aclaracion_dice = ?, aclaracion_debe_decir = ?, updated_at = ?, deleted_at = NULL, sync_status = CASE WHEN sync_status = 'LOCAL_INSERT' THEN 'LOCAL_INSERT' ELSE 'LOCAL_UPDATE' END WHERE tramite_id = ?`,
+            safeParams([
+              empresaId,
+              presentanteId,
+              r.tipoBoleta,
+              r.numeroBoleta,
+              r.fechaBoleta,
+              r.dua,
+              r.numFormatoInmatriculacion,
+              r.clausulaMonto,
+              r.clausulaFormaPago,
+              r.clausulaPagoBancarizado,
+              r.aclaracionDice,
+              r.aclaracionDebeDecir,
+              now,
+              tramiteId,
+            ]),
+          );
+        } else {
+          await executeWithRetry(
+            db,
+            `INSERT INTO tramite_detalles (id, tramite_id, empresa_gestora_id, presentante_id, tipo_boleta, numero_boleta, fecha_boleta, dua, num_formato_inmatriculacion, clausula_monto, clausula_forma_pago, clausula_pago_bancarizado, aclaracion_dice, aclaracion_debe_decir, created_at, updated_at, sync_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            safeParams([
+              crypto.randomUUID(),
+              tramiteId,
+              empresaId,
+              presentanteId,
+              r.tipoBoleta,
+              r.numeroBoleta,
+              r.fechaBoleta,
+              r.dua,
+              r.numFormatoInmatriculacion,
+              r.clausulaMonto,
+              r.clausulaFormaPago,
+              r.clausulaPagoBancarizado,
+              r.aclaracionDice,
+              r.aclaracionDebeDecir,
+              now,
+              now,
+              "LOCAL_INSERT",
+            ]),
+          );
+          createdThisRow.tramite_detalles++;
+        }
 
         await executeWithRetry(db, `RELEASE ${savepoint}`, []);
         savepointOpen = false;
@@ -818,7 +903,7 @@ export const insertarLotesUltra = async (
 export const importarPipeline = async (
   file: File,
   onProgress?: (p: number) => void,
-): Promise<ResultadoImportacion> => {
+): Promise<ResultadoImportacion> => runExclusiveLocalDbOperation("excel-import", async () => {
   if (onProgress) onProgress(5);
   const db = await Database.load("sqlite:valeska.db");
 
@@ -840,20 +925,13 @@ export const importarPipeline = async (
   const { validos, errores, advertencias } = await validarExcel(file, db, cache);
 
   if (onProgress) onProgress(50);
-  if (typeof window !== "undefined") {
-    window.__valeskaImportInFlight = true;
-  }
   const insertResult = await insertarLotesUltra(
     db,
     validos,
     ctx,
     cache,
     onProgress,
-  ).finally(() => {
-    if (typeof window !== "undefined") {
-      window.__valeskaImportInFlight = false;
-    }
-  });
+  );
 
   if (onProgress) onProgress(100);
 
@@ -908,4 +986,4 @@ export const importarPipeline = async (
     errores,
     advertencias,
   };
-};
+});
