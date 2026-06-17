@@ -3,6 +3,7 @@ import {
   SYNC_PULL_ORDER,
   getStoredCursor,
   pullSyncEntity,
+  getSyncState,
   saveStoredCursor,
 } from "../../services/syncService";
 import type { SyncEntityName } from "../../types/sync.types";
@@ -802,12 +803,35 @@ export const executePull = async (
     const pulledByEntity: Partial<Record<SyncEntityName, number>> = {};
     let lastServerTimestamp = new Date().toISOString();
 
+    let remoteState: any = null;
+    if (!isRetry) {
+      try {
+        remoteState = await getSyncState(config.apiUrl, SYNC_PULL_ORDER);
+      } catch (err) {
+        console.warn("No se pudo obtener el estado remoto de sync, se hara pull completo:", err);
+      }
+    }
+
     for (const entityName of SYNC_PULL_ORDER) {
       const localKey = SYNC_ENTITY_TO_LOCAL_KEY[entityName];
       aggregateData[localKey] = [];
 
       let cursor = isRetry ? null : await getStoredCursor(sqlite, entityName);
       let hasMore = true;
+
+      if (!isRetry && remoteState && cursor && cursor.cursorTimestamp) {
+        const entityState = remoteState.entities?.find((e: any) => e.entityName === entityName);
+        if (entityState && entityState.maxTimestamp) {
+          const localTime = new Date(cursor.cursorTimestamp).getTime();
+          const remoteTime = new Date(entityState.maxTimestamp).getTime();
+          // Consideramos que el remoteTime de "1970" es igual o menor a todo,
+          // o si el localTime es mayor o igual al último modificado en remoto.
+          if (localTime >= remoteTime) {
+            console.log(`[PULL] Omitiendo ${entityName}: maxTimestamp=${entityState.maxTimestamp} <= localCursor=${cursor.cursorTimestamp}`);
+            continue;
+          }
+        }
+      }
 
       while (hasMore) {
         const response = await pullSyncEntity(config.apiUrl, {
