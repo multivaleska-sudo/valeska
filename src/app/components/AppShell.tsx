@@ -28,7 +28,7 @@ export function AppShell() {
       }
 
       if (autoSync) {
-        triggerSync({ title: "Sincronización Automática (Rutina)" });
+        triggerSync({ title: "Sincronización Automática", source: "auto", silent: true });
       }
     };
 
@@ -71,3 +71,4 @@ export function AppShell() {
     </div>
   );
 }
+
