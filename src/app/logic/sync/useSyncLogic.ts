@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Database from "@tauri-apps/plugin-sql";
 import { sileo } from "sileo";
 import { executePush } from "./pushActions";
@@ -6,8 +6,6 @@ import { executePull } from "./pullActions";
 import { SyncHttpError, clearInvalidSyncSession } from "../../services/syncService";
 
 const API_URL = (import.meta as any).env.VITE_API_URL;
-const SYNC_INTERVAL_MS = 15000;
-
 declare global {
   interface Window {
     __valeskaSyncInFlight?: boolean;
@@ -34,20 +32,6 @@ export interface SyncContext {
   overrideUserName?: string;
 }
 
-const hasSyncToken = () => {
-  const directToken = localStorage.getItem("valeska_access_token");
-  if (directToken) return true;
-
-  const sessionStr = localStorage.getItem("valeska_session_user");
-  if (!sessionStr) return false;
-
-  try {
-    return Boolean(JSON.parse(sessionStr)?.accessToken);
-  } catch {
-    return false;
-  }
-};
-
 const isAuthSyncError = (error: any) =>
   error instanceof SyncHttpError && error.status === 401;
 
@@ -60,12 +44,6 @@ export function useSyncLogic() {
     pull: { sucursales: 0, dispositivos: 0, usuarios: 0, tramites: 0, otros: 0, conflictos: 0 },
   });
   const [syncHistory, setSyncHistory] = useState<SyncLog[]>([]);
-
-  const isSyncingRef = useRef(false);
-
-  useEffect(() => {
-    isSyncingRef.current = isSyncing;
-  }, [isSyncing]);
 
   useEffect(() => {
     const handleUpdate = () => {
@@ -94,7 +72,7 @@ export function useSyncLogic() {
     setIsSyncing(true);
     setSyncError(null);
 
-    const isAutoSync = context?.title === "Sincronización Automática";
+    const isAutoSync = context?.title === "SincronizaciÃ³n AutomÃ¡tica";
 
     try {
       let userId = context?.overrideUserId || "";
@@ -102,7 +80,7 @@ export function useSyncLogic() {
 
       if (!userId) {
         const sessionStr = localStorage.getItem("valeska_session_user");
-        if (!sessionStr) throw new Error("No hay sesión activa");
+        if (!sessionStr) throw new Error("No hay sesiÃ³n activa");
         const session = JSON.parse(sessionStr);
         userId = session.id;
         userName = session.nombre || session.username;
@@ -134,7 +112,7 @@ export function useSyncLogic() {
         const pullResult = await executePull(config, userId, sqlite);
         pullData = pullResult.data;
       } catch (pullError: any) {
-        console.warn("Fallo de conexión en PULL. Ignorando porque el PUSH fue exitoso...", pullError);
+        console.warn("Fallo de conexiÃ³n en PULL. Ignorando porque el PUSH fue exitoso...", pullError);
         pullErrorMsg = pullError.message || "Error al descargar actualizaciones.";
       }
 
@@ -165,7 +143,7 @@ export function useSyncLogic() {
         (pullData?.vehiculos?.length || 0) + (pullData?.usuarios?.length || 0) +
         (pullData?.plantillasDocumentos?.length || 0);
 
-      const logTitle = context?.title || "Sincronización General Completada";
+      const logTitle = context?.title || "SincronizaciÃ³n General Completada";
       let logDetails = `Subidos: ${pushResult.pushedCount} regs. | Descargados: ${totalPulled} regs.`;
       if (context?.details) logDetails = `${context.details} | ${logDetails}`;
 
@@ -185,12 +163,12 @@ export function useSyncLogic() {
       if (!isAutoSync) {
         if (pullErrorMsg) {
           sileo.warning({
-            title: "Sincronización Parcial",
+            title: "SincronizaciÃ³n Parcial",
             description: `Se subieron los datos correctamente, pero hubo un problema al descargar las actualizaciones: ${pullErrorMsg}`
           });
         } else {
           sileo.success({
-            title: "Sincronización Exitosa",
+            title: "SincronizaciÃ³n Exitosa",
             description: `Se subieron ${pushResult.pushedCount} y descargaron ${totalPulled} registros correctamente.`
           });
         }
@@ -198,13 +176,13 @@ export function useSyncLogic() {
 
       return true;
     } catch (error: any) {
-      console.error("Error en sincronización:", error);
+      console.error("Error en sincronizaciÃ³n:", error);
       if (isAuthSyncError(error)) {
         clearInvalidSyncSession();
       }
 
       const msg = isAuthSyncError(error)
-        ? "Tu sesión cloud expiró. Inicia sesión nuevamente para renovar la sincronización."
+        ? "Tu sesiÃ³n cloud expirÃ³. Inicia sesiÃ³n nuevamente para renovar la sincronizaciÃ³n."
         : error.message || "No se pudo conectar con la nube central.";
       setSyncError(msg);
 
@@ -212,7 +190,7 @@ export function useSyncLogic() {
 
       if (!isAutoSync || !isNetworkError) {
         sileo.error({
-          title: "Fallo en Sincronización",
+          title: "Fallo en SincronizaciÃ³n",
           description: msg,
         });
       }
@@ -230,22 +208,6 @@ export function useSyncLogic() {
     }
   }, []);
 
-  useEffect(() => {
-    const handleAutoSync = () => {
-      if (!isSyncingRef.current && hasSyncToken()) {
-        triggerSync({ title: "Sincronización Automática", details: "Mantenimiento en segundo plano" });
-      }
-    };
-
-    window.addEventListener("valeska_request_sync", handleAutoSync);
-
-    const intervalId = setInterval(handleAutoSync, SYNC_INTERVAL_MS + Math.floor(Math.random() * 5000));
-
-    return () => {
-      window.removeEventListener("valeska_request_sync", handleAutoSync);
-      clearInterval(intervalId);
-    };
-  }, [triggerSync]);
 
   return {
     isSyncing,
