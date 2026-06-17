@@ -130,10 +130,20 @@ export function useDashboardLogic() {
       const syncRes: any[] = await sqlite.select(`
         SELECT 
           (SELECT COUNT(id) FROM tramites WHERE sync_status != 'SYNCED') +
+          (SELECT COUNT(id) FROM tramite_detalles WHERE sync_status != 'SYNCED') +
           (SELECT COUNT(id) FROM clientes WHERE sync_status != 'SYNCED') +
           (SELECT COUNT(id) FROM vehiculos WHERE sync_status != 'SYNCED') +
           (SELECT COUNT(id) FROM empresas_gestoras WHERE sync_status != 'SYNCED') +
-          (SELECT COUNT(id) FROM representantes_legales WHERE sync_status != 'SYNCED') 
+          (SELECT COUNT(id) FROM representantes_legales WHERE sync_status != 'SYNCED') +
+          (SELECT COUNT(id) FROM presentantes WHERE sync_status != 'SYNCED') +
+          (SELECT COUNT(id) FROM catalogo_tipos_tramite WHERE sync_status != 'SYNCED') +
+          (SELECT COUNT(id) FROM catalogo_situaciones WHERE sync_status != 'SYNCED') +
+          (SELECT COUNT(id) FROM plantillas_documentos WHERE sync_status != 'SYNCED') +
+          (SELECT COUNT(id) FROM message_templates WHERE sync_status != 'SYNCED') +
+          (SELECT COUNT(id) FROM perfiles_gestor WHERE sync_status != 'SYNCED') +
+          (SELECT COUNT(id) FROM usuarios WHERE sync_status != 'SYNCED') +
+          (SELECT COUNT(id) FROM dispositivos WHERE sync_status != 'SYNCED') +
+          (SELECT COUNT(id) FROM sucursales WHERE sync_status != 'SYNCED')
         as count
       `);
 
