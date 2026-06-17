@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildConflictResolutionUpdate } from "./useConflictosLogic";
+import { buildConflictResolutionUpdate, isRemoteConflictPlaceholder } from "./useConflictosLogic";
 
 describe("buildConflictResolutionUpdate", () => {
   it("can keep a local soft delete as a pending update over the remote version", () => {
@@ -35,5 +35,10 @@ describe("buildConflictResolutionUpdate", () => {
     expect(update.syncStatus).toBe("SYNCED");
     expect(update.version).toBe(4);
     expect(update.baseVersion).toBe(4);
+  });
+
+  it("detects placeholder remote conflict payloads that still need a pull", () => {
+    expect(isRemoteConflictPlaceholder({ pendiente_pull_conflicto: true })).toBe(true);
+    expect(isRemoteConflictPlaceholder({ id: "tramite-1", version: 3 })).toBe(false);
   });
 });
