@@ -6,6 +6,7 @@
   "scripts": {
     "build": "vite build",
     "dev": "vite",
+    "test": "vitest run",
     "tauri": "tauri"
   },
   "dependencies": {
@@ -93,7 +94,8 @@
     "dotenv-cli": "^11.0.0",
     "drizzle-kit": "^0.31.9",
     "tailwindcss": "4.1.12",
-    "vite": "^6.4.1"
+    "vite": "^6.4.1",
+    "vitest": "^4.1.9"
   },
   "peerDependencies": {
     "react": "18.3.1",
