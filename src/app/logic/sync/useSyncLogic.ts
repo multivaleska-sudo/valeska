@@ -25,15 +25,38 @@ export interface SyncLog {
 }
 
 export interface SyncContext {
-  title: string;
+  title?: string;
   details?: string;
   forceFullSync?: boolean;
   overrideUserId?: string;
   overrideUserName?: string;
+  source?: "manual" | "auto" | "excel-import";
+  silent?: boolean;
 }
 
 const isAuthSyncError = (error: any) =>
   error instanceof SyncHttpError && error.status === 401;
+
+const sumCounts = (counts: Record<string, number | undefined> = {}) =>
+  Object.values(counts).reduce((total, count) => total + (count || 0), 0);
+
+const buildStatsBucket = (counts: Record<string, number | undefined> = {}) => {
+  const sucursales = counts.sucursal || 0;
+  const dispositivos = counts.dispositivo || 0;
+  const usuarios = counts.usuario || 0;
+  const tramites = (counts.tramite || 0) + (counts.tramite_detalle || 0);
+  const conflictos = counts.sync_conflicto || 0;
+  const known = sucursales + dispositivos + usuarios + tramites + conflictos;
+
+  return {
+    sucursales,
+    dispositivos,
+    usuarios,
+    tramites,
+    otros: Math.max(0, sumCounts(counts) - known),
+    conflictos,
+  };
+};
 
 export function useSyncLogic() {
   const [isSyncing, setIsSyncing] = useState(false);
@@ -72,7 +95,7 @@ export function useSyncLogic() {
     setIsSyncing(true);
     setSyncError(null);
 
-    const isAutoSync = context?.title === "SincronizaciÃ³n AutomÃ¡tica";
+    const isAutoSync = context?.source === "auto" || context?.silent === true;
 
     try {
       let userId = context?.overrideUserId || "";
@@ -80,7 +103,7 @@ export function useSyncLogic() {
 
       if (!userId) {
         const sessionStr = localStorage.getItem("valeska_session_user");
-        if (!sessionStr) throw new Error("No hay sesiÃ³n activa");
+        if (!sessionStr) throw new Error("No hay sesión activa");
         const session = JSON.parse(sessionStr);
         userId = session.id;
         userName = session.nombre || session.username;
@@ -111,8 +134,10 @@ export function useSyncLogic() {
       try {
         const pullResult = await executePull(config, userId, sqlite);
         pullData = pullResult.data;
+        pullData.__pulledByEntity = pullResult.pulledByEntity || {};
+        pullData.__totalPulled = pullResult.totalPulled || 0;
       } catch (pullError: any) {
-        console.warn("Fallo de conexiÃ³n en PULL. Ignorando porque el PUSH fue exitoso...", pullError);
+        console.warn("Fallo de conexión en PULL. Ignorando porque el PUSH fue exitoso...", pullError);
         pullErrorMsg = pullError.message || "Error al descargar actualizaciones.";
       }
 
@@ -126,24 +151,15 @@ export function useSyncLogic() {
       localStorage.setItem("valeska_last_sync_duration_ms", String(Math.round(performance.now() - syncStartedAt)));
 
       const currentStats = {
-        push: { sucursales: 0, dispositivos: 0, usuarios: 0, tramites: 0, otros: pushResult.pushedCount, conflictos: 0 },
-        pull: {
-          sucursales: pullData?.sucursales?.length || 0,
-          dispositivos: pullData?.dispositivos?.length || 0,
-          usuarios: pullData?.usuarios?.length || 0,
-          tramites: pullData?.tramites?.length || 0,
-          otros: 0,
-          conflictos: pullData?.conflictos?.length || 0,
-        },
+        push: buildStatsBucket(pushResult.pushedByEntity || {}),
+        pull: buildStatsBucket(pullData?.__pulledByEntity || {}),
       };
       localStorage.setItem("valeska_sync_stats", JSON.stringify(currentStats));
 
-      const totalPulled =
-        (pullData?.tramites?.length || 0) + (pullData?.clientes?.length || 0) +
-        (pullData?.vehiculos?.length || 0) + (pullData?.usuarios?.length || 0) +
-        (pullData?.plantillasDocumentos?.length || 0);
+      const totalPulled = pullData?.__totalPulled || sumCounts(pullData?.__pulledByEntity || {});
+      const totalChanged = (pushResult.pushedCount || 0) + totalPulled + (pushResult.conflictCount || 0);
 
-      const logTitle = context?.title || "SincronizaciÃ³n General Completada";
+      const logTitle = context?.title || "Sincronización General Completada";
       let logDetails = `Subidos: ${pushResult.pushedCount} regs. | Descargados: ${totalPulled} regs.`;
       if (context?.details) logDetails = `${context.details} | ${logDetails}`;
 
@@ -153,9 +169,11 @@ export function useSyncLogic() {
         title: logTitle, details: logDetails,
       };
 
-      const prevHistoryRaw = localStorage.getItem("valeska_sync_history");
-      const prevHistory: SyncLog[] = prevHistoryRaw ? JSON.parse(prevHistoryRaw) : [];
-      localStorage.setItem("valeska_sync_history", JSON.stringify([newLog, ...prevHistory].slice(0, 50)));
+      if (!isAutoSync || totalChanged > 0 || pullErrorMsg) {
+        const prevHistoryRaw = localStorage.getItem("valeska_sync_history");
+        const prevHistory: SyncLog[] = prevHistoryRaw ? JSON.parse(prevHistoryRaw) : [];
+        localStorage.setItem("valeska_sync_history", JSON.stringify([newLog, ...prevHistory].slice(0, 50)));
+      }
 
       window.dispatchEvent(new Event("valeska_sync_completed"));
       window.dispatchEvent(new Event("valeska_reload_tramites"));
@@ -163,12 +181,12 @@ export function useSyncLogic() {
       if (!isAutoSync) {
         if (pullErrorMsg) {
           sileo.warning({
-            title: "SincronizaciÃ³n Parcial",
+            title: "Sincronización Parcial",
             description: `Se subieron los datos correctamente, pero hubo un problema al descargar las actualizaciones: ${pullErrorMsg}`
           });
         } else {
           sileo.success({
-            title: "SincronizaciÃ³n Exitosa",
+            title: "Sincronización Exitosa",
             description: `Se subieron ${pushResult.pushedCount} y descargaron ${totalPulled} registros correctamente.`
           });
         }
@@ -176,13 +194,13 @@ export function useSyncLogic() {
 
       return true;
     } catch (error: any) {
-      console.error("Error en sincronizaciÃ³n:", error);
+      console.error("Error en sincronización:", error);
       if (isAuthSyncError(error)) {
         clearInvalidSyncSession();
       }
 
       const msg = isAuthSyncError(error)
-        ? "Tu sesiÃ³n cloud expirÃ³. Inicia sesiÃ³n nuevamente para renovar la sincronizaciÃ³n."
+        ? "Tu sesión cloud expiró. Inicia sesión nuevamente para renovar la sincronización."
         : error.message || "No se pudo conectar con la nube central.";
       setSyncError(msg);
 
@@ -190,7 +208,7 @@ export function useSyncLogic() {
 
       if (!isAutoSync || !isNetworkError) {
         sileo.error({
-          title: "Fallo en SincronizaciÃ³n",
+          title: "Fallo en Sincronización",
           description: msg,
         });
       }
@@ -218,3 +236,4 @@ export function useSyncLogic() {
     triggerSync,
   };
 }
+
