@@ -151,8 +151,48 @@ export async function pushSyncChunk(
     const errorData = await response.json().catch(() => null);
     if (response.status === 401) clearInvalidSyncSession();
     throw new SyncHttpError(
+      `Falló push de ${chunk.entityName}`,
+      response.status,
+      errorData,
+    );
+  }
+
+  return response.json();
+}
+
+export interface PushSyncBatchDto {
+  chunks: PushSyncChunkDto[];
+}
+
+export interface PushBatchAcceptedResponse {
+  accepted: boolean;
+  isBatch: boolean;
+  outboxes: {
+    jobId: string;
+    outboxId: string;
+    syncSessionId: string;
+    entityName: string;
+    status: SyncOutboxStatus;
+    conflictCount: number;
+  }[];
+}
+
+export async function pushSyncBatch(
+  apiUrl: string,
+  batch: PushSyncBatchDto,
+): Promise<PushBatchAcceptedResponse> {
+  const response = await fetch(`${apiUrl}/sync/push/batch`, {
+    method: "POST",
+    headers: await buildSyncHeaders(),
+    body: JSON.stringify(batch),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => null);
+    if (response.status === 401) clearInvalidSyncSession();
+    throw new SyncHttpError(
       errorData?.message ||
-        `HTTP ${response.status} al subir ${chunk.entityName}`,
+        `HTTP ${response.status} al subir batch`,
       response.status,
       errorData,
     );
