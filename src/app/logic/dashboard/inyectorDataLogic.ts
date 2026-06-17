@@ -49,7 +49,9 @@ export interface ResultadoImportacion {
   exitosos: number;
   rowsRead: number;
   rowsImported: number;
+  rowsImportedWithWarnings: number;
   rowsSkipped: number;
+  warningsByRow: ImportRowWarning[];
   erroresPorFila: ImportRowError[];
   createdByEntity: Record<string, number>;
   errores: {
@@ -60,6 +62,7 @@ export interface ResultadoImportacion {
     sinIdentificadorVehiculo: number[];
     otros: number[];
   };
+  advertencias: ImportWarnings;
 }
 
 export interface ImportRowError {
@@ -68,6 +71,23 @@ export interface ImportRowError {
   campo?: string;
   valor?: unknown;
   causa: string;
+}
+
+export interface ImportRowWarning {
+  filaId: number;
+  tipo: "VEHICULO_SIN_IDENTIFICADOR" | "VEHICULO_REUTILIZADO";
+  detalle: string;
+}
+
+export interface ImportWarnings {
+  sinIdentificadorVehiculo: number[];
+  vehiculoReutilizado: number[];
+}
+
+declare global {
+  interface Window {
+    __valeskaImportInFlight?: boolean;
+  }
 }
 
 // =============================
@@ -198,7 +218,11 @@ const cargarCache = async (db: Database) => {
     clientesMap: new Map(
       (clientes as any[]).map((c) => [c.numero_documento, c.id]),
     ),
-    chasisMap: new Map((vehiculos as any[]).map((v) => [v.chasis_vin, v.id])),
+    chasisMap: new Map(
+      (vehiculos as any[])
+        .filter((v) => v.chasis_vin)
+        .map((v) => [v.chasis_vin, v.id]),
+    ),
     motorMap: new Map(
       (vehiculos as any[]).filter((v) => v.motor).map((v) => [v.motor, v.id]),
     ),
@@ -264,6 +288,10 @@ export const validarExcel = async (file: File, db: Database, cache: any) => {
     duplicadosBDMotor: [] as number[],
     sinIdentificadorVehiculo: [] as number[],
     otros: [] as number[],
+  };
+  const advertencias: ImportWarnings = {
+    sinIdentificadorVehiculo: [],
+    vehiculoReutilizado: [],
   };
 
   const chasisSet = new Set<string>();
@@ -332,32 +360,25 @@ export const validarExcel = async (file: File, db: Database, cache: any) => {
 
       if (!chasis && !motor) {
         console.warn(
-          `[Fila ${filaId}] Rechazada por falta de Chasis/VIN y Motor.`,
+          `[Fila ${filaId}] Vehiculo sin Chasis/VIN y Motor. Se importara como vehiculo incompleto.`,
         );
-        errores.sinIdentificadorVehiculo.push(filaId);
-        continue;
+        advertencias.sinIdentificadorVehiculo.push(filaId);
       }
 
       if (chasis) {
         if (chasisSet.has(chasis)) {
-          errores.duplicadosChasis.push(filaId);
-          continue;
-        }
-        if (cache.chasisMap.has(chasis)) {
-          errores.duplicadosBDChasis.push(filaId);
-          continue;
+          advertencias.vehiculoReutilizado.push(filaId);
+        } else if (cache.chasisMap.has(chasis)) {
+          advertencias.vehiculoReutilizado.push(filaId);
         }
         chasisSet.add(chasis);
       }
 
       if (motor) {
         if (motorSet.has(motor)) {
-          errores.duplicadosMotor.push(filaId);
-          continue;
-        }
-        if (cache.motorMap.has(motor)) {
-          errores.duplicadosBDMotor.push(filaId);
-          continue;
+          advertencias.vehiculoReutilizado.push(filaId);
+        } else if (cache.motorMap.has(motor)) {
+          advertencias.vehiculoReutilizado.push(filaId);
         }
         motorSet.add(motor);
       }
@@ -437,7 +458,9 @@ export const validarExcel = async (file: File, db: Database, cache: any) => {
     }
   }
 
-  return { validos, errores };
+  advertencias.vehiculoReutilizado = [...new Set(advertencias.vehiculoReutilizado)];
+
+  return { validos, errores, advertencias };
 };
 
 // =============================
@@ -446,7 +469,7 @@ export const validarExcel = async (file: File, db: Database, cache: any) => {
 const executeWithRetry = async (
   db: Database,
   query: string,
-  params: any[],
+  params: any[] = [],
   retries = 5,
 ) => {
   let lastError: any;
@@ -496,12 +519,23 @@ export const insertarLotesUltra = async (
   for (let i = 0; i < validos.length; i += chunkSize) {
     const chunk = validos.slice(i, i + chunkSize);
     await new Promise((res) => setTimeout(res, 50));
+    let batchOpen = false;
+
+    try {
+      await executeWithRetry(db, "BEGIN IMMEDIATE", []);
+      batchOpen = true;
+    } catch (err: any) {
+      if (!String(err?.message || err).includes("within a transaction")) {
+        throw err;
+      }
+    }
 
     for (const r of chunk) {
       const now = Date.now();
       const savepoint = `import_row_${r.filaId}`;
       let currentEntity = "fila";
       const createdCacheEntries: Array<() => void> = [];
+      let savepointOpen = false;
       const createdThisRow: Record<string, number> = {
         clientes: 0,
         empresas_gestoras: 0,
@@ -514,7 +548,8 @@ export const insertarLotesUltra = async (
       };
 
       try {
-        await db.execute(`SAVEPOINT ${savepoint}`);
+        await executeWithRetry(db, `SAVEPOINT ${savepoint}`, []);
+        savepointOpen = true;
         // Cliente
         let clienteId = cache.clientesMap.get(r.dni);
         if (!clienteId) {
@@ -594,27 +629,41 @@ export const insertarLotesUltra = async (
 
         // Vehículo
         currentEntity = "vehiculos";
-        const vehiculoId = crypto.randomUUID();
-        await executeWithRetry(
-          db,
-          `INSERT INTO vehiculos (id, chasis_vin, placa, motor, marca, modelo, color, carroceria, anio_modelo, anio_fabricacion, created_at, updated_at, sync_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          safeParams([
-            vehiculoId,
-            r.chasis,
-            r.placa,
-            r.motor,
-            r.marca,
-            r.modelo,
-            r.color,
-            null,
-            r.anioVehiculo,
-            r.anioVehiculo,
-            now,
-            now,
-            "LOCAL_INSERT",
-          ]),
-        );
-        createdThisRow.vehiculos++;
+        const existingVehiculoId =
+          (r.chasis ? cache.chasisMap.get(r.chasis) : null) ||
+          (r.motor ? cache.motorMap.get(r.motor) : null);
+        const vehiculoId = existingVehiculoId || crypto.randomUUID();
+
+        if (!existingVehiculoId) {
+          await executeWithRetry(
+            db,
+            `INSERT INTO vehiculos (id, chasis_vin, placa, motor, marca, modelo, color, carroceria, anio_modelo, anio_fabricacion, created_at, updated_at, sync_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            safeParams([
+              vehiculoId,
+              r.chasis,
+              r.placa,
+              r.motor,
+              r.marca,
+              r.modelo,
+              r.color,
+              null,
+              r.anioVehiculo,
+              r.anioVehiculo,
+              now,
+              now,
+              "LOCAL_INSERT",
+            ]),
+          );
+          if (r.chasis) {
+            cache.chasisMap.set(r.chasis, vehiculoId);
+            createdCacheEntries.push(() => cache.chasisMap.delete(r.chasis));
+          }
+          if (r.motor) {
+            cache.motorMap.set(r.motor, vehiculoId);
+            createdCacheEntries.push(() => cache.motorMap.delete(r.motor));
+          }
+          createdThisRow.vehiculos++;
+        }
 
         // Catálogos
         let tipoId = cache.tipoMap.get(r.tipoTramiteNombre);
@@ -704,21 +753,24 @@ export const insertarLotesUltra = async (
         );
         createdThisRow.tramite_detalles++;
 
-        await db.execute(`RELEASE ${savepoint}`);
+        await executeWithRetry(db, `RELEASE ${savepoint}`, []);
+        savepointOpen = false;
         for (const [entity, count] of Object.entries(createdThisRow)) {
           createdByEntity[entity] = (createdByEntity[entity] || 0) + count;
         }
         exitosos++;
       } catch (err: any) {
-        try {
-          await db.execute(`ROLLBACK TO ${savepoint}`);
-        } catch {
-          // Si SQLite ya cerro el savepoint, mantenemos la causa original.
-        }
-        try {
-          await db.execute(`RELEASE ${savepoint}`);
-        } catch {
-          // Evita ocultar el error real de la fila.
+        if (savepointOpen) {
+          try {
+            await executeWithRetry(db, `ROLLBACK TO ${savepoint}`, []);
+          } catch {
+            // Si SQLite ya cerro el savepoint, mantenemos la causa original.
+          }
+          try {
+            await executeWithRetry(db, `RELEASE ${savepoint}`, []);
+          } catch {
+            // Evita ocultar el error real de la fila.
+          }
         }
         for (const rollbackCacheEntry of createdCacheEntries.reverse()) {
           rollbackCacheEntry();
@@ -742,6 +794,19 @@ export const insertarLotesUltra = async (
       );
       onProgress(50 + chunkProgress);
     }
+
+    if (batchOpen) {
+      try {
+        await executeWithRetry(db, "COMMIT", []);
+      } catch (err) {
+        try {
+          await executeWithRetry(db, "ROLLBACK", []);
+        } catch {
+          // Conserva la causa original del commit.
+        }
+        throw err;
+      }
+    }
   }
 
   return { exitosos, erroresPorFila, createdByEntity };
@@ -759,7 +824,7 @@ export const importarPipeline = async (
 
   try {
     await db.execute("PRAGMA journal_mode = WAL;", []);
-    await db.execute("PRAGMA busy_timeout = 10000;", []); // Aumentado a 10s
+    await db.execute("PRAGMA busy_timeout = 30000;", []);
     await db.execute("PRAGMA synchronous = NORMAL;", []);
   } catch (e) {
     console.warn("Aviso: No se pudieron configurar los PRAGMAs de SQLite", e);
@@ -772,16 +837,23 @@ export const importarPipeline = async (
   const cache = await cargarCache(db);
 
   if (onProgress) onProgress(30);
-  const { validos, errores } = await validarExcel(file, db, cache);
+  const { validos, errores, advertencias } = await validarExcel(file, db, cache);
 
   if (onProgress) onProgress(50);
+  if (typeof window !== "undefined") {
+    window.__valeskaImportInFlight = true;
+  }
   const insertResult = await insertarLotesUltra(
     db,
     validos,
     ctx,
     cache,
     onProgress,
-  );
+  ).finally(() => {
+    if (typeof window !== "undefined") {
+      window.__valeskaImportInFlight = false;
+    }
+  });
 
   if (onProgress) onProgress(100);
 
@@ -798,6 +870,19 @@ export const importarPipeline = async (
     );
   }
 
+  const warningsByRow: ImportRowWarning[] = [
+    ...advertencias.sinIdentificadorVehiculo.map((filaId) => ({
+      filaId,
+      tipo: "VEHICULO_SIN_IDENTIFICADOR" as const,
+      detalle: "Vehiculo importado sin Chasis/VIN ni Motor.",
+    })),
+    ...advertencias.vehiculoReutilizado.map((filaId) => ({
+      filaId,
+      tipo: "VEHICULO_REUTILIZADO" as const,
+      detalle: "Tramite importado reutilizando vehiculo existente por Chasis/VIN o Motor.",
+    })),
+  ];
+
   return {
     exitosos: insertResult.exitosos,
     rowsRead: validos.length +
@@ -808,6 +893,7 @@ export const importarPipeline = async (
       errores.sinIdentificadorVehiculo.length +
       errores.otros.length,
     rowsImported: insertResult.exitosos,
+    rowsImportedWithWarnings: new Set(warningsByRow.map((warning) => warning.filaId)).size,
     rowsSkipped:
       errores.duplicadosChasis.length +
       errores.duplicadosMotor.length +
@@ -816,8 +902,10 @@ export const importarPipeline = async (
       errores.sinIdentificadorVehiculo.length +
       errores.otros.length +
       insertResult.erroresPorFila.length,
+    warningsByRow,
     erroresPorFila: insertResult.erroresPorFila,
     createdByEntity: insertResult.createdByEntity,
     errores,
+    advertencias,
   };
 };
