@@ -17,11 +17,38 @@ export class PullApplyError extends Error {
   }
 }
 
+type PullApplyContext = {
+  entityName?: string;
+  recordId?: unknown;
+  payload?: unknown;
+};
+
+const redactPullPayload = (payload: unknown) => {
+  if (!payload || typeof payload !== "object") return payload;
+
+  const redacted = { ...(payload as Record<string, unknown>) };
+  delete redacted.passwordHash;
+  delete redacted.password_hash;
+  return redacted;
+};
+
+const formatPullContext = (context?: PullApplyContext) => {
+  if (!context) return "";
+
+  const parts = [
+    context.entityName ? `entidad=${context.entityName}` : null,
+    context.recordId ? `id=${String(context.recordId)}` : null,
+  ].filter(Boolean);
+
+  return parts.length ? ` (${parts.join(", ")})` : "";
+};
+
 const executeWithRetry = async (
   db: any,
   query: string,
   params: any[],
   retries = 3,
+  context?: PullApplyContext,
 ) => {
   let lastError: any;
   for (let i = 0; i < retries; i++) {
@@ -36,8 +63,14 @@ const executeWithRetry = async (
       if (msg.includes("database is locked") || msg.includes("busy")) {
         await new Promise((res) => setTimeout(res, 50 + Math.random() * 100));
       } else {
+        console.error("SQLite rechazo una fila durante el PULL", {
+          entityName: context?.entityName,
+          recordId: context?.recordId,
+          payload: redactPullPayload(context?.payload),
+          error,
+        });
         throw new PullApplyError(
-          `SQLite rechazo una fila durante el PULL. Cursor conservado para reintento: ${msg}`,
+          `SQLite rechazo una fila durante el PULL${formatPullContext(context)}. Cursor conservado para reintento: ${msg}`,
           error,
         );
       }
@@ -49,12 +82,15 @@ const executeWithRetry = async (
   );
 };
 
-const versionParams = (record: any) => [
-  Number(record.version ?? 1),
-  Number(record.baseVersion ?? record.base_version ?? 0),
-  record.updatedByUserId ?? record.updated_by_user_id ?? null,
-  record.updatedByDeviceMac ?? record.updated_by_device_mac ?? null,
-];
+const versionParams = (record: any) => {
+  const version = Number(record.version ?? 1);
+  return [
+    version,
+    version,
+    record.updatedByUserId ?? record.updated_by_user_id ?? null,
+    record.updatedByDeviceMac ?? record.updated_by_device_mac ?? null,
+  ];
+};
 
 const createLocalPullConflictIfNeeded = async (
   sqlite: any,
@@ -109,9 +145,7 @@ export async function processPullSync(sqlite: any, pullData: any) {
   const fk = (val: any) => (!val || val === "" ? null : val);
   const str = (val: any) => (val === undefined ? null : val);
 
-  // APAGAMOS LAS REGLAS DE LLAVES FORÁNEAS (Para evitar rechazos por orden de llegada)
-  await sqlite.execute("PRAGMA foreign_keys = OFF;");
-
+  // Las foreign keys permanecen activas; las referencias circulares se difieren.
   try {
     // 1. Entidades Base y Seguridad
     // NOTA MAESTRA: Todo tiene "WHERE <tabla>.sync_status = 'SYNCED'"
@@ -140,8 +174,29 @@ export async function processPullSync(sqlite: any, pullData: any) {
       );
     }
 
+    const usuarioDispositivoLinks: Array<{
+      usuarioId: string;
+      dispositivoId: string;
+      payload: unknown;
+    }> = [];
+    const dispositivoUsuarioLinks: Array<{
+      dispositivoId: string;
+      usuarioId: string;
+      payload: unknown;
+    }> = [];
+
     for (const disp of pullData.dispositivos || []) {
       const autorizado = disp.autorizado ?? true;
+      const dispId = str(disp.id);
+      const usuarioId = fk(disp.usuarioId ?? disp.usuario_id);
+      if (dispId && usuarioId) {
+        dispositivoUsuarioLinks.push({
+          dispositivoId: String(dispId),
+          usuarioId: String(usuarioId),
+          payload: disp,
+        });
+      }
+
       await executeWithRetry(
         sqlite,
         `INSERT INTO dispositivos (id, mac_address, nombre_equipo, autorizado, sucursal_id, provision_id, usuario_id, created_at, updated_at, deleted_at, sync_status) 
@@ -152,17 +207,19 @@ export async function processPullSync(sqlite: any, pullData: any) {
          created_at=excluded.created_at, updated_at=excluded.updated_at, deleted_at=excluded.deleted_at, sync_status=excluded.sync_status
          WHERE dispositivos.sync_status = 'SYNCED'`,
         [
-          str(disp.id),
+          dispId,
           str(disp.macAddress ?? disp.mac_address),
           str(disp.nombreEquipo ?? disp.nombre_equipo),
           autorizado ? 1 : 0,
           fk(disp.sucursalId ?? disp.sucursal_id),
           fk(disp.provisionId ?? disp.provision_id),
-          fk(disp.usuarioId ?? disp.usuario_id),
+          null,
           str(disp.createdAt ?? disp.created_at),
           str(disp.updatedAt ?? disp.updated_at),
           str(disp.deletedAt ?? disp.deleted_at),
         ],
+        3,
+        { entityName: "dispositivo", recordId: dispId, payload: disp },
       );
     }
 
@@ -171,6 +228,15 @@ export async function processPullSync(sqlite: any, pullData: any) {
       const pwdHash = usr.passwordHash ?? usr.password_hash;
       const nombreCompl = usr.nombreCompleto ?? usr.nombre_completo;
       const dispId = usr.dispositivoId ?? usr.dispositivo_id;
+      const usuarioId = str(usr.id);
+      const dispositivoId = fk(dispId);
+      if (usuarioId && dispositivoId) {
+        usuarioDispositivoLinks.push({
+          usuarioId: String(usuarioId),
+          dispositivoId: String(dispositivoId),
+          payload: usr,
+        });
+      }
 
       await executeWithRetry(
         sqlite,
@@ -182,21 +248,73 @@ export async function processPullSync(sqlite: any, pullData: any) {
          deleted_at=excluded.deleted_at, sync_status=excluded.sync_status
          WHERE usuarios.sync_status = 'SYNCED'`,
         [
-          str(usr.id),
+          usuarioId,
           str(usr.username),
           str(pwdHash),
           str(usr.rol),
           str(nombreCompl),
           isActivo ? 1 : 0,
-          fk(dispId),
+          null,
           str(usr.createdAt ?? usr.created_at),
           str(usr.updatedAt ?? usr.updated_at),
           str(usr.deletedAt ?? usr.deleted_at),
         ],
+        3,
+        { entityName: "usuario", recordId: usuarioId, payload: usr },
       );
     }
 
     // 2. Catálogos Dinámicos
+    for (const link of dispositivoUsuarioLinks) {
+      await executeWithRetry(
+        sqlite,
+        `UPDATE dispositivos
+         SET usuario_id = $1
+         WHERE id = $2
+           AND sync_status = 'SYNCED'
+           AND EXISTS (SELECT 1 FROM usuarios WHERE id = $1)`,
+        [link.usuarioId, link.dispositivoId],
+        3,
+        { entityName: "dispositivo", recordId: link.dispositivoId, payload: link.payload },
+      );
+      await executeWithRetry(
+        sqlite,
+        `UPDATE usuarios
+         SET dispositivo_id = $1
+         WHERE id = $2
+           AND sync_status = 'SYNCED'
+           AND EXISTS (SELECT 1 FROM dispositivos WHERE id = $1)`,
+        [link.dispositivoId, link.usuarioId],
+        3,
+        { entityName: "usuario", recordId: link.usuarioId, payload: link.payload },
+      );
+    }
+
+    for (const link of usuarioDispositivoLinks) {
+      await executeWithRetry(
+        sqlite,
+        `UPDATE usuarios
+         SET dispositivo_id = $1
+         WHERE id = $2
+           AND sync_status = 'SYNCED'
+           AND EXISTS (SELECT 1 FROM dispositivos WHERE id = $1)`,
+        [link.dispositivoId, link.usuarioId],
+        3,
+        { entityName: "usuario", recordId: link.usuarioId, payload: link.payload },
+      );
+      await executeWithRetry(
+        sqlite,
+        `UPDATE dispositivos
+         SET usuario_id = $1
+         WHERE id = $2
+           AND sync_status = 'SYNCED'
+           AND EXISTS (SELECT 1 FROM usuarios WHERE id = $1)`,
+        [link.usuarioId, link.dispositivoId],
+        3,
+        { entityName: "dispositivo", recordId: link.dispositivoId, payload: link.payload },
+      );
+    }
+
     for (const c of pullData.catalogoTiposTramite || []) {
       const isActivo = c.activo ?? true;
       await executeWithRetry(
@@ -554,8 +672,7 @@ export async function processPullSync(sqlite: any, pullData: any) {
       );
     }
   } finally {
-    // Volvemos a encender las Foreign Keys pase lo que pase
-    await sqlite.execute("PRAGMA foreign_keys = ON;");
+    // Las foreign keys quedan activas; las referencias circulares se reparan en dos fases.
   }
 }
 
@@ -593,11 +710,8 @@ export const executePull = async (
         });
 
         const records = response.records || [];
-        let pageCommitted = false;
 
         try {
-          await sqlite.execute("BEGIN IMMEDIATE;", []);
-
           if (records.length > 0) {
             await processPullSync(sqlite, buildEntityPullData(entityName, records));
             aggregateData[localKey].push(...records);
@@ -607,18 +721,7 @@ export const executePull = async (
             await saveStoredCursor(sqlite, entityName, response.nextCursor);
             cursor = response.nextCursor;
           }
-
-          await sqlite.execute("COMMIT;", []);
-          pageCommitted = true;
         } catch (pageError: any) {
-          if (!pageCommitted) {
-            try {
-              await sqlite.execute("ROLLBACK;", []);
-            } catch (rollbackError) {
-              console.warn("No se pudo revertir la pagina de pull", rollbackError);
-            }
-          }
-
           const msg = pageError?.message || String(pageError);
           throw new PullApplyError(
             `No se pudo aplicar la pagina de ${entityName}. No se avanzo el cursor local. Detalle: ${msg}`,
