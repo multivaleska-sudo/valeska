@@ -164,7 +164,15 @@ export function useTramitesListLogic() {
         title: "Trámite Eliminado",
         description: "El expediente ha sido borrado del sistema exitosamente.",
       });
-      window.dispatchEvent(new Event("valeska_request_sync"));
+      window.dispatchEvent(
+        new CustomEvent("valeska_request_sync", {
+          detail: {
+            silent: true,
+            onlyEntities: ["tramite", "tramite_detalle"],
+            skipPull: true,
+          },
+        })
+      );
       fetchTramites();
     } catch (error: any) {
       console.error("Error eliminando trámite", error);

@@ -119,6 +119,7 @@ export const executePush = async (
   config: { apiUrl: string },
   _userId: string,
   sqlite: any,
+  onlyEntities?: SyncEntityName[],
 ) => {
   const fullPayload = (await buildPushPayload(sqlite)) as Record<string, any[]>;
   const pushedByEntity: EntityCountMap = {};
@@ -127,8 +128,10 @@ export const executePush = async (
   const aggregateAcceptedRecordIds: string[] = [];
   const aggregateConflictedRecordIds: string[] = [];
 
-  const hasDataToPush = Object.values(fullPayload).some(
-    (arr: any) => arr && arr.length > 0,
+  const entitiesToPush = onlyEntities || SYNC_PUSH_ORDER;
+
+  const hasDataToPush = entitiesToPush.some(
+    (entity) => fullPayload[SYNC_ENTITY_TO_LOCAL_KEY[entity]] && fullPayload[SYNC_ENTITY_TO_LOCAL_KEY[entity]].length > 0,
   );
   if (!hasDataToPush) {
     return {
@@ -146,7 +149,7 @@ export const executePush = async (
   const syncSessionId = crypto.randomUUID();
   let totalPushed = 0;
 
-  for (const entityName of SYNC_PUSH_ORDER) {
+  for (const entityName of entitiesToPush) {
     const localKey = SYNC_ENTITY_TO_LOCAL_KEY[entityName];
     const records = fullPayload[localKey];
     if (!records || records.length === 0) continue;
