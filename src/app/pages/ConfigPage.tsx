@@ -469,6 +469,31 @@ export function ConfigPage() {
                             Reparacion bloqueada: hay cambios locales pendientes por subir.
                           </p>
                         )}
+
+                        {syncDiagnostics.versionedRows.length > 0 && (
+                          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4">
+                            <p className="text-[10px] font-black text-slate-600 uppercase tracking-[0.2em]">
+                              Versiones y borrados
+                            </p>
+                            <div className="mt-3 max-h-48 overflow-auto space-y-2">
+                              {syncDiagnostics.versionedRows.slice(0, 12).map((row) => (
+                                <div
+                                  key={`${row.tableName}-${row.id}`}
+                                  className="text-[11px] font-bold text-slate-700 bg-white border border-slate-100 rounded-xl p-2"
+                                >
+                                  <div className="flex justify-between gap-2">
+                                    <span>{row.tableName}</span>
+                                    <span>{row.syncStatus}</span>
+                                  </div>
+                                  <div className="mt-1 text-slate-500 break-all">
+                                    {row.id} | v{row.version}/base {row.baseVersion}
+                                    {row.deletedAt ? ` | deleted_at ${row.deletedAt}` : ""}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
