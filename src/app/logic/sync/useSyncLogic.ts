@@ -34,6 +34,8 @@ export interface SyncContext {
   overrideUserName?: string;
   source?: "manual" | "auto" | "excel-import";
   silent?: boolean;
+  onlyEntities?: any[];
+  skipPull?: boolean;
 }
 
 export const shouldDeferSyncForImport = (
@@ -45,7 +47,7 @@ const isAuthSyncError = (error: any) =>
   error instanceof SyncHttpError && error.status === 401;
 
 const sumCounts = (counts: Record<string, number | undefined> = {}) =>
-  Object.values(counts).reduce((total, count) => total + (count || 0), 0);
+  Object.values(counts).reduce((total: number, count) => total + (count || 0), 0);
 
 const buildStatsBucket = (counts: Record<string, number | undefined> = {}) => {
   const sucursales = counts.sucursal || 0;
@@ -130,7 +132,7 @@ export function useSyncLogic() {
       let isTableEmpty = false;
       try {
         const repsCheck: any[] = await sqlite.select("SELECT count(id) as count FROM representantes_legales");
-        if (repsCheck[0].count === 0) isTableEmpty = true;
+        if (repsCheck[0]?.count === 0) isTableEmpty = true;
       } catch (e) {
         isTableEmpty = true;
       }
