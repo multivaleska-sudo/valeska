@@ -43,6 +43,16 @@ const formatPullContext = (context?: PullApplyContext) => {
   return parts.length ? ` (${parts.join(", ")})` : "";
 };
 
+const getErrorMessage = (error: unknown) => {
+  if (error instanceof Error && error.message) return error.message;
+  if (typeof error === "string") return error;
+  try {
+    return JSON.stringify(error);
+  } catch {
+    return String(error);
+  }
+};
+
 const executeWithRetry = async (
   db: any,
   query: string,
@@ -57,7 +67,7 @@ const executeWithRetry = async (
       return;
     } catch (error: any) {
       lastError = error;
-      const msg = error?.message || "";
+      const msg = getErrorMessage(error);
 
       // Manejo de bloqueos (Deadlocks)
       if (msg.includes("database is locked") || msg.includes("busy")) {
@@ -139,6 +149,82 @@ const createLocalPullConflictIfNeeded = async (
   );
   await sqlite.execute(`UPDATE ${tableName} SET sync_status = 'CONFLICT' WHERE id = $1`, [id]);
   return true;
+};
+
+const ensureLocalDependency = async (
+  sqlite: any,
+  input: {
+    entityName: string;
+    recordId: unknown;
+    tableName: string;
+    columnName: string;
+    value: unknown;
+    payload: unknown;
+  },
+) => {
+  const value = input.value;
+  if (!value) {
+    throw new PullApplyError(
+      `No se puede aplicar ${input.entityName} ${String(input.recordId)}: falta ${input.columnName}`,
+      { payload: redactPullPayload(input.payload) },
+    );
+  }
+
+  const rows: any[] = await sqlite.select(
+    `SELECT id FROM ${input.tableName} WHERE id = $1 LIMIT 1`,
+    [value],
+  );
+  if (rows.length === 0) {
+    throw new PullApplyError(
+      `No se puede aplicar ${input.entityName} ${String(input.recordId)}: falta ${input.columnName} ${String(value)}`,
+      { payload: redactPullPayload(input.payload) },
+    );
+  }
+};
+
+const ensureTramiteDependencies = async (sqlite: any, record: any) => {
+  const tramiteId = record.id;
+  const dependencies = [
+    {
+      tableName: "clientes",
+      columnName: "cliente_id",
+      value: record.clienteId ?? record.cliente_id,
+    },
+    {
+      tableName: "vehiculos",
+      columnName: "vehiculo_id",
+      value: record.vehiculoId ?? record.vehiculo_id,
+    },
+    {
+      tableName: "catalogo_tipos_tramite",
+      columnName: "tipo_tramite_id",
+      value: record.tipoTramiteId ?? record.tipo_tramite_id,
+    },
+    {
+      tableName: "catalogo_situaciones",
+      columnName: "situacion_id",
+      value: record.situacionId ?? record.situacion_id,
+    },
+    {
+      tableName: "usuarios",
+      columnName: "usuario_creador_id",
+      value: record.usuarioCreadorId ?? record.usuario_creador_id,
+    },
+    {
+      tableName: "sucursales",
+      columnName: "sucursal_id",
+      value: record.sucursalId ?? record.sucursal_id,
+    },
+  ];
+
+  for (const dependency of dependencies) {
+    await ensureLocalDependency(sqlite, {
+      entityName: "tramite",
+      recordId: tramiteId,
+      payload: record,
+      ...dependency,
+    });
+  }
 };
 
 export async function processPullSync(sqlite: any, pullData: any) {
@@ -541,6 +627,7 @@ export async function processPullSync(sqlite: any, pullData: any) {
       if (await createLocalPullConflictIfNeeded(sqlite, "tramites", t, (record) => record.nTitulo ?? record.n_titulo ?? record.codigoVerificacion ?? record.codigo_verificacion ?? record.id)) {
         continue;
       }
+      await ensureTramiteDependencies(sqlite, t);
       await executeWithRetry(
         sqlite,
         `INSERT INTO tramites (id, codigo_verificacion, tramite_anio, cliente_id, vehiculo_id, tipo_tramite_id, situacion_id, usuario_creador_id, sucursal_id, n_titulo, n_formato, fecha_presentacion, observaciones_generales, tarjeta_en_oficina, fecha_tarjeta_en_oficina, placa_en_oficina, fecha_placa_en_oficina, entrego_tarjeta, fecha_entrega_tarjeta, metodo_entrega_tarjeta, entrego_placa, fecha_entrega_placa, metodo_entrega_placa, observacion_placa, created_at, updated_at, deleted_at, sync_status, version, base_version, updated_by_user_id, updated_by_device_mac) 
@@ -586,6 +673,8 @@ export async function processPullSync(sqlite: any, pullData: any) {
           str(t.deletedAt ?? t.deleted_at),
           ...versionParams(t),
         ],
+        3,
+        { entityName: "tramite", recordId: t.id, payload: t },
       );
     }
 
@@ -628,6 +717,8 @@ export async function processPullSync(sqlite: any, pullData: any) {
           str(td.deletedAt ?? td.deleted_at),
           ...versionParams(td),
         ],
+        3,
+        { entityName: "tramite_detalle", recordId: td.id, payload: td },
       );
     }
 
@@ -681,7 +772,12 @@ export const executePull = async (
   _userId: string,
   sqlite: any,
   isRetry: boolean = false,
-): Promise<{ success: boolean; data: any }> => {
+): Promise<{
+  success: boolean;
+  data: any;
+  pulledByEntity: Partial<Record<SyncEntityName, number>>;
+  totalPulled: number;
+}> => {
   try {
     try {
       await sqlite.execute("PRAGMA journal_mode = WAL;", []);
@@ -692,6 +788,7 @@ export const executePull = async (
     }
 
     const aggregateData: Record<string, any[]> = {};
+    const pulledByEntity: Partial<Record<SyncEntityName, number>> = {};
     let lastServerTimestamp = new Date().toISOString();
 
     for (const entityName of SYNC_PULL_ORDER) {
@@ -710,6 +807,8 @@ export const executePull = async (
         });
 
         const records = response.records || [];
+        pulledByEntity[entityName] =
+          (pulledByEntity[entityName] || 0) + records.length;
 
         try {
           if (records.length > 0) {
@@ -738,6 +837,11 @@ export const executePull = async (
 
     return {
       success: true,
+      pulledByEntity,
+      totalPulled: Object.values(pulledByEntity).reduce(
+        (sum, count) => sum + (count || 0),
+        0,
+      ),
       data: {
         ...aggregateData,
         conflictos: aggregateData.conflictosResueltos || [],
