@@ -51,7 +51,28 @@ const versionFields = (row: any) => ({
 
 const PENDING_SYNC_WHERE = "sync_status IN ('LOCAL_INSERT','LOCAL_UPDATE','LOCAL_DELETE')";
 
+let syncConflictosSyncStatusReady = false;
+
+export const ensureSyncConflictosSyncStatusColumn = async (sqlite: any) => {
+    if (syncConflictosSyncStatusReady) return;
+
+    try {
+        await sqlite.execute(
+            "ALTER TABLE sync_conflictos ADD COLUMN sync_status TEXT NOT NULL DEFAULT 'LOCAL_INSERT'",
+        );
+    } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        if (!/duplicate column|already exists/i.test(message)) {
+            throw error;
+        }
+    }
+
+    syncConflictosSyncStatusReady = true;
+};
+
 export async function buildPushPayload(sqlite: any) {
+    await ensureSyncConflictosSyncStatusColumn(sqlite);
+
     const sucursalesRaw: any[] = await sqlite.select(`SELECT * FROM sucursales WHERE ${PENDING_SYNC_WHERE}`);
     const dispositivosRaw: any[] = await sqlite.select(`SELECT * FROM dispositivos WHERE ${PENDING_SYNC_WHERE}`);
     const usuariosRaw: any[] = await sqlite.select(`SELECT * FROM usuarios WHERE ${PENDING_SYNC_WHERE}`);
@@ -73,7 +94,9 @@ export async function buildPushPayload(sqlite: any) {
 
     const perfilesRaw: any[] = await sqlite.select(`SELECT * FROM perfiles_gestor WHERE ${PENDING_SYNC_WHERE}`);
 
-    const conflictosRaw: any[] = await sqlite.select("SELECT * FROM sync_conflictos WHERE resuelto = 1");
+    const conflictosRaw: any[] = await sqlite.select(
+        `SELECT * FROM sync_conflictos WHERE resuelto = 1 AND ${PENDING_SYNC_WHERE}`,
+    );
 
     return {
         sucursales: sucursalesRaw.map((s) => ({

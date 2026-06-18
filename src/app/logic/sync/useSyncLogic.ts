@@ -34,6 +34,8 @@ export interface SyncContext {
   overrideUserName?: string;
   source?: "manual" | "auto" | "excel-import";
   silent?: boolean;
+  onlyEntities?: any[];
+  skipPull?: boolean;
 }
 
 export const shouldDeferSyncForImport = (
@@ -45,7 +47,7 @@ const isAuthSyncError = (error: any) =>
   error instanceof SyncHttpError && error.status === 401;
 
 const sumCounts = (counts: Record<string, number | undefined> = {}) =>
-  Object.values(counts).reduce((total, count) => total + (count || 0), 0);
+  Object.values(counts).reduce((total: number, count) => total + (count || 0), 0);
 
 const buildStatsBucket = (counts: Record<string, number | undefined> = {}) => {
   const sucursales = counts.sucursal || 0;
@@ -130,7 +132,7 @@ export function useSyncLogic() {
       let isTableEmpty = false;
       try {
         const repsCheck: any[] = await sqlite.select("SELECT count(id) as count FROM representantes_legales");
-        if (repsCheck[0].count === 0) isTableEmpty = true;
+        if (repsCheck[0]?.count === 0) isTableEmpty = true;
       } catch (e) {
         isTableEmpty = true;
       }
@@ -141,18 +143,24 @@ export function useSyncLogic() {
 
       const config = { apiUrl: API_URL };
 
-      const pushResult = await executePush(config, userId, sqlite);
+      const onlyEntities = context?.onlyEntities;
+      const skipPull = context?.skipPull === true;
+
+      const pushResult = await executePush(config, userId, sqlite, onlyEntities);
 
       let pullData: any = null;
       let pullErrorMsg: string | null = null;
-      try {
-        const pullResult = await executePull(config, userId, sqlite);
-        pullData = pullResult.data;
-        pullData.__pulledByEntity = pullResult.pulledByEntity || {};
-        pullData.__totalPulled = pullResult.totalPulled || 0;
-      } catch (pullError: any) {
-        console.warn("Fallo de conexión en PULL. Ignorando porque el PUSH fue exitoso...", pullError);
-        pullErrorMsg = pullError.message || "Error al descargar actualizaciones.";
+      
+      if (!skipPull) {
+        try {
+          const pullResult = await executePull(config, userId, sqlite);
+          pullData = pullResult.data;
+          pullData.__pulledByEntity = pullResult.pulledByEntity || {};
+          pullData.__totalPulled = pullResult.totalPulled || 0;
+        } catch (pullError: any) {
+          console.warn("Fallo de conexión en PULL. Ignorando porque el PUSH fue exitoso...", pullError);
+          pullErrorMsg = pullError.message || "Error al descargar actualizaciones.";
+        }
       }
 
       const now = new Date();
@@ -161,7 +169,11 @@ export function useSyncLogic() {
         hour: "2-digit", minute: "2-digit", second: "2-digit",
       });
 
-      localStorage.setItem("valeska_last_sync_display", displayTime);
+      if (!skipPull) {
+        localStorage.setItem("valeska_last_sync", now.toISOString());
+        localStorage.setItem("valeska_last_sync_display", displayTime);
+        setLastSyncTime(displayTime);
+      }
       localStorage.setItem("valeska_last_sync_duration_ms", String(Math.round(performance.now() - syncStartedAt)));
 
       const currentStats = {

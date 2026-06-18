@@ -151,8 +151,48 @@ export async function pushSyncChunk(
     const errorData = await response.json().catch(() => null);
     if (response.status === 401) clearInvalidSyncSession();
     throw new SyncHttpError(
+      `Falló push de ${chunk.entityName}`,
+      response.status,
+      errorData,
+    );
+  }
+
+  return response.json();
+}
+
+export interface PushSyncBatchDto {
+  chunks: PushSyncChunkDto[];
+}
+
+export interface PushBatchAcceptedResponse {
+  accepted: boolean;
+  isBatch: boolean;
+  outboxes: {
+    jobId: string;
+    outboxId: string;
+    syncSessionId: string;
+    entityName: string;
+    status: SyncOutboxStatus;
+    conflictCount: number;
+  }[];
+}
+
+export async function pushSyncBatch(
+  apiUrl: string,
+  batch: PushSyncBatchDto,
+): Promise<PushBatchAcceptedResponse> {
+  const response = await fetch(`${apiUrl}/sync/push/batch`, {
+    method: "POST",
+    headers: await buildSyncHeaders(),
+    body: JSON.stringify(batch),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => null);
+    if (response.status === 401) clearInvalidSyncSession();
+    throw new SyncHttpError(
       errorData?.message ||
-        `HTTP ${response.status} al subir ${chunk.entityName}`,
+        `HTTP ${response.status} al subir batch`,
       response.status,
       errorData,
     );
@@ -209,6 +249,32 @@ export async function pullSyncEntity<TRecord = Record<string, unknown>>(
     if (response.status === 401) clearInvalidSyncSession();
     throw new SyncHttpError(
       errorData?.message || `HTTP ${response.status} descargando ${query.entityName}`,
+      response.status,
+      errorData,
+    );
+  }
+
+  return response.json();
+}
+
+export async function getSyncState(
+  apiUrl: string,
+  entities: string[],
+): Promise<any> {
+  const params = new URLSearchParams({
+    entities: entities.join(','),
+  });
+
+  const response = await fetch(`${apiUrl}/sync/state?${params.toString()}`, {
+    method: "GET",
+    headers: await buildSyncHeaders(),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => null);
+    if (response.status === 401) clearInvalidSyncSession();
+    throw new SyncHttpError(
+      errorData?.message || `HTTP ${response.status} consultando estado de sync`,
       response.status,
       errorData,
     );
@@ -323,10 +389,11 @@ export async function updatePushChunkStatus(
 export async function waitForPushCompletion(
   apiUrl: string,
   outboxId: string,
-  options: { attempts?: number; delayMs?: number } = {},
+  options: { attempts?: number; delayMs?: number; maxDelayMs?: number } = {},
 ) {
-  const attempts = options.attempts ?? 30;
-  const delayMs = options.delayMs ?? 800;
+  const attempts = options.attempts ?? 20;
+  let delayMs = options.delayMs ?? 1200;
+  const maxDelayMs = options.maxDelayMs ?? 5000;
 
   for (let attempt = 0; attempt < attempts; attempt += 1) {
     const status = await getPushStatus(apiUrl, outboxId);
@@ -338,8 +405,48 @@ export async function waitForPushCompletion(
       return status;
     }
 
-    await new Promise((resolve) => setTimeout(resolve, delayMs));
+    const jitterMs = Math.floor(Math.random() * 250);
+    await new Promise((resolve) => setTimeout(resolve, delayMs + jitterMs));
+    delayMs = Math.min(maxDelayMs, Math.round(delayMs * 1.5));
   }
 
   return getPushStatus(apiUrl, outboxId);
+}
+
+export async function resolveSyncConflict(
+  apiUrl: string,
+  conflictId: string,
+  dto: {
+    strategy: 'ACCEPT_REMOTE' | 'ACCEPT_LOCAL' | 'MERGE';
+    resolvedData?: Record<string, unknown>;
+    expectedRecordVersion?: number;
+    resolutionNote?: string;
+  },
+  token: string,
+  macAddress: string,
+) {
+  const url = `${apiUrl}/sync/conflicts/${conflictId}/resolve`;
+
+  const response = await fetch(url, {
+    method: "POST", // Fallback allowed per instruction
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+      "x-device-mac": macAddress,
+    },
+    body: JSON.stringify(dto),
+  });
+
+  if (!response.ok) {
+    let errorMessage = "Error al resolver conflicto en servidor";
+    try {
+      const errorBody = await response.json();
+      errorMessage = errorBody.message || errorMessage;
+    } catch {
+      errorMessage = `${errorMessage} (${response.status})`;
+    }
+    throw new Error(errorMessage);
+  }
+
+  return response.json();
 }
