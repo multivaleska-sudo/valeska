@@ -150,10 +150,8 @@ const createLocalPullConflictIfNeeded = async (
        datos_remotos = excluded.datos_remotos,
        resuelto = 0,
        fecha_conflicto = excluded.fecha_conflicto,
-       sync_status = CASE
-         WHEN sync_conflictos.sync_status = 'SYNCED' THEN 'LOCAL_UPDATE'
-         ELSE sync_conflictos.sync_status
-       END`,
+       sync_status = 'SYNCED'
+     `,
     [conflictId, tableName, id, identify(remote), JSON.stringify(local), JSON.stringify(remote), Date.now()],
   );
   await sqlite.execute(`UPDATE ${tableName} SET sync_status = 'CONFLICT' WHERE id = $1`, [id]);
