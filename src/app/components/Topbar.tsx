@@ -1,4 +1,4 @@
-import { Menu, CloudDownload } from "lucide-react";
+import { Menu, CloudDownload, RefreshCw } from "lucide-react";
 import { ConnectionBadge } from "./ConnectionBadge";
 import { SyncIndicator } from "./SyncIndicator";
 import { UserMenu } from "./UserMenu";
@@ -12,6 +12,7 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
   const [isOnline] = useState(true);
   const [isSyncing] = useState(false);
   const [hasUpdates, setHasUpdates] = useState(false);
+  const [isCheckingUpdates, setIsCheckingUpdates] = useState(false);
 
   useEffect(() => {
     const onUpdatesAvailable = () => setHasUpdates(true);
@@ -20,14 +21,21 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
     // Al terminar de sincronizar, quitamos el badge
     const onSyncCompleted = () => setHasUpdates(false);
 
+    const onCheckingStart = () => setIsCheckingUpdates(true);
+    const onCheckingEnd = () => setIsCheckingUpdates(false);
+
     window.addEventListener("valeska_updates_available", onUpdatesAvailable);
     window.addEventListener("valeska_updates_cleared", onUpdatesCleared);
     window.addEventListener("valeska_sync_completed", onSyncCompleted);
+    window.addEventListener("valeska_checking_updates_start", onCheckingStart);
+    window.addEventListener("valeska_checking_updates_end", onCheckingEnd);
 
     return () => {
       window.removeEventListener("valeska_updates_available", onUpdatesAvailable);
       window.removeEventListener("valeska_updates_cleared", onUpdatesCleared);
       window.removeEventListener("valeska_sync_completed", onSyncCompleted);
+      window.removeEventListener("valeska_checking_updates_start", onCheckingStart);
+      window.removeEventListener("valeska_checking_updates_end", onCheckingEnd);
     };
   }, []);
 
@@ -38,6 +46,11 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
         detail: { title: "Sincronización Manual", source: "manual", silent: false }
       })
     );
+  };
+
+  const handleCheckUpdates = () => {
+    if (isCheckingUpdates) return;
+    window.dispatchEvent(new Event("valeska_force_check_updates"));
   };
 
   return (
@@ -51,6 +64,18 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
           <Menu className="w-5 h-5 text-[#6B7280]" />
         </button>
         <h1 className="text-lg font-semibold text-[#111827]">Sistema Valeska</h1>
+        <button
+          onClick={handleCheckUpdates}
+          disabled={isCheckingUpdates || !isOnline}
+          className={`ml-2 p-1.5 rounded-md transition-all ${
+            isCheckingUpdates 
+              ? 'text-blue-500 bg-blue-50' 
+              : 'text-gray-400 hover:text-blue-600 hover:bg-blue-50'
+          }`}
+          title="Verificar actualizaciones"
+        >
+          <RefreshCw className={`w-4 h-4 ${isCheckingUpdates ? 'animate-spin' : ''}`} />
+        </button>
       </div>
       
       <div className="flex items-center gap-3">

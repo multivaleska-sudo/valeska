@@ -18,6 +18,7 @@ export function usePassivePolling() {
       if (isChecking || document.hidden || (window as any).__valeskaSyncInFlight) return;
 
       isChecking = true;
+      window.dispatchEvent(new Event("valeska_checking_updates_start"));
       try {
         const sqlite = await getUnsafeDb();
         const remoteState = await getSyncState(API_URL, SYNC_PULL_ORDER);
@@ -57,8 +58,11 @@ export function usePassivePolling() {
         console.warn("[Passive Polling] Error verificando actualizaciones", error);
       } finally {
         isChecking = false;
+        window.dispatchEvent(new Event("valeska_checking_updates_end"));
       }
     };
+
+    window.addEventListener("valeska_force_check_updates", checkUpdates);
 
     // Iniciar polling con un pequeño retraso inicial
     timeoutId = window.setTimeout(() => {
@@ -67,6 +71,7 @@ export function usePassivePolling() {
     }, 15000);
 
     return () => {
+      window.removeEventListener("valeska_force_check_updates", checkUpdates);
       if (timeoutId) {
         clearTimeout(timeoutId);
         clearInterval(timeoutId);
