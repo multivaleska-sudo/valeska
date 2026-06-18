@@ -83,7 +83,19 @@ export function useTramiteLogic(initialData?: Partial<TramiteFormData>) {
       aclaracion_dice: "",
       aclaracion_debe_decir: "",
       fecha_impresion: today,
-      ...(initialData || {}),
+      ...(function() {
+        if (!initialData) return {};
+        const safeData = { ...initialData };
+        Object.keys(safeData).forEach(key => {
+          if (key.startsWith('fecha_') && typeof (safeData as any)[key] === 'string') {
+            const val = (safeData as any)[key];
+            if (val && val.includes('T')) {
+              (safeData as any)[key] = val.split('T')[0];
+            }
+          }
+        });
+        return safeData;
+      })(),
     } as TramiteFormData & { creador?: string };
   });
 
