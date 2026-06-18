@@ -1,4 +1,5 @@
 import * as XLSX from "xlsx";
+import Database from "@tauri-apps/plugin-sql";
 import { getUnsafeDb } from "../../db/localDb";
 import { runExclusiveLocalDbOperation } from "../sync/localDbOperationGate";
 
@@ -865,44 +866,49 @@ export const insertarLotesUltra = async (
 export const importarPipeline = async (
   file: File,
   onProgress?: (p: number) => void,
-): Promise<ResultadoImportacion> => runExclusiveLocalDbOperation("excel-import", async () => {
-  if (onProgress) onProgress(5);
-  const db = await getUnsafeDb();
-
-  try {
-    await db.execute("PRAGMA journal_mode = WAL;", []);
-    await db.execute("PRAGMA busy_timeout = 30000;", []);
-    await db.execute("PRAGMA synchronous = NORMAL;", []);
-  } catch (e) {
-    console.warn("Aviso: No se pudieron configurar los PRAGMAs de SQLite", e);
-  }
-
+): Promise<ResultadoImportacion> => {
   if (onProgress) onProgress(10);
-  const ctx = await buildImportContext(db);
+  const formData = new FormData();
+  formData.append('file', file);
+  
+  const { getSyncAuthContext } = await import('../../services/syncService');
+  const auth = await getSyncAuthContext();
+  const API_URL = (import.meta as any).env.VITE_API_URL;
+  
+  const response = await fetch(`${API_URL}/tramites/import-excel`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${auth.accessToken}`,
+      "x-device-mac": auth.deviceMac,
+      "ngrok-skip-browser-warning": "true",
+    },
+    body: formData
+  });
 
-  if (onProgress) onProgress(20);
-  const cache = await cargarCache(db);
+  if (!response.ok) {
+     const text = await response.text();
+     let errorMsg = `Error en el servidor: ${response.status}`;
+     try {
+       const json = JSON.parse(text);
+       if (json.message) errorMsg = json.message;
+     } catch(e) {}
+     throw new Error(errorMsg);
+  }
+  
+  if (onProgress) onProgress(90);
 
-  if (onProgress) onProgress(30);
-  const { validos, errores, advertencias } = await validarExcel(file, db, cache);
-
-  if (onProgress) onProgress(50);
-  const insertResult = await insertarLotesUltra(
-    db,
-    validos,
-    ctx,
-    cache,
-    onProgress,
-  );
+  const data = await response.json();
+  const summary = data.summary;
 
   if (onProgress) onProgress(100);
 
-  if (insertResult.exitosos > 0 && typeof window !== "undefined") {
+  if (typeof window !== "undefined") {
+    // Force a pull sync immediately to get the newly imported data from the backend
     window.dispatchEvent(
       new CustomEvent("valeska_request_sync", {
         detail: {
           title: "Sincronización por Excel",
-          details: `Importación Excel: ${insertResult.exitosos} trámites guardados localmente.`,
+          details: `Importación Excel completada en el servidor. Descargando datos...`,
           source: "excel-import",
           silent: false,
         },
@@ -910,42 +916,26 @@ export const importarPipeline = async (
     );
   }
 
-  const warningsByRow: ImportRowWarning[] = [
-    ...advertencias.sinIdentificadorVehiculo.map((filaId) => ({
-      filaId,
-      tipo: "VEHICULO_SIN_IDENTIFICADOR" as const,
-      detalle: "Vehiculo importado sin Chasis/VIN ni Motor.",
-    })),
-    ...advertencias.vehiculoReutilizado.map((filaId) => ({
-      filaId,
-      tipo: "VEHICULO_REUTILIZADO" as const,
-      detalle: "Tramite importado reutilizando vehiculo existente por Chasis/VIN o Motor.",
-    })),
-  ];
-
   return {
-    exitosos: insertResult.exitosos,
-    rowsRead: validos.length +
-      errores.duplicadosChasis.length +
-      errores.duplicadosMotor.length +
-      errores.duplicadosBDChasis.length +
-      errores.duplicadosBDMotor.length +
-      errores.sinIdentificadorVehiculo.length +
-      errores.otros.length,
-    rowsImported: insertResult.exitosos,
-    rowsImportedWithWarnings: new Set(warningsByRow.map((warning) => warning.filaId)).size,
-    rowsSkipped:
-      errores.duplicadosChasis.length +
-      errores.duplicadosMotor.length +
-      errores.duplicadosBDChasis.length +
-      errores.duplicadosBDMotor.length +
-      errores.sinIdentificadorVehiculo.length +
-      errores.otros.length +
-      insertResult.erroresPorFila.length,
-    warningsByRow,
-    erroresPorFila: insertResult.erroresPorFila,
-    createdByEntity: insertResult.createdByEntity,
-    errores,
-    advertencias,
+    exitosos: summary.imported,
+    rowsRead: summary.totalRows,
+    rowsImported: summary.imported,
+    rowsImportedWithWarnings: 0,
+    rowsSkipped: summary.errors || summary.skipped || 0,
+    warningsByRow: [],
+    erroresPorFila: [],
+    createdByEntity: {},
+    errores: {
+      duplicadosChasis: [],
+      duplicadosMotor: [],
+      duplicadosBDChasis: [],
+      duplicadosBDMotor: [],
+      sinIdentificadorVehiculo: [],
+      otros: []
+    },
+    advertencias: {
+      sinIdentificadorVehiculo: [],
+      vehiculoReutilizado: []
+    }
   };
-});
+};
