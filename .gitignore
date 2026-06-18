@@ -73,3 +73,5 @@ valeska.key.pub
 *.njsproj
 *.sln
 *.sw?
+
+docs/
