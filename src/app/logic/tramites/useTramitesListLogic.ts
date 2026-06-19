@@ -302,11 +302,12 @@ export function useTramitesListLogic() {
           t.n_titulo, t.tramite_anio, c.razon_social_nombres, c.telefono, c.numero_documento,
           eg.razon_social as empresa_gestora, tt.nombre as tramite, cs.nombre as situacion,
           t.observaciones_generales, t.fecha_presentacion, t.fecha_tarjeta_en_oficina, t.fecha_placa_en_oficina,
-          v.marca, v.chasis_vin, v.color, v.modelo, v.motor, v.anio_modelo, v.placa, v.carroceria,
+          v.marca, v.chasis_vin, v.color, v.modelo, v.motor, v.anio_fabricacion, v.placa, v.carroceria,
           p.nombres as p_nombres, p.primer_apellido as p_apellido1, p.segundo_apellido as p_apellido2,
           td.tipo_boleta, td.fecha_boleta, td.dua, td.num_formato_inmatriculacion, td.numero_boleta,
           t.codigo_verificacion, td.clausula_monto, td.clausula_forma_pago, td.clausula_pago_bancarizado,
-          td.aclaracion_dice, td.aclaracion_debe_decir, u.username as creador
+          td.aclaracion_dice, td.aclaracion_debe_decir, u.username as creador,
+          t.fecha_entrega_tarjeta, t.metodo_entrega_tarjeta, t.fecha_entrega_placa, t.metodo_entrega_placa
         FROM tramites t
         LEFT JOIN tramite_detalles td ON t.id = td.tramite_id
         LEFT JOIN clientes c ON t.cliente_id = c.id
@@ -321,54 +322,93 @@ export function useTramitesListLogic() {
       `;
       const tramitesEspeciales: any[] = await db.select(queryEspecial);
 
-      // AGENTE: Configuro la estructura exacta en Array de Arrays (AOA) para garantizar el orden de columnas y asegurar que las posiciones N y V sean en blanco.
+      // AGENTE: Configuro la estructura exacta en Array de Arrays (AOA) para garantizar el orden de columnas y asegurar que las posiciones coincidan con el Excel importado.
       const headers = [
-        "N°", "N° TÍTULO", "Año", "CLIENTE", "Teléfono", "DNI / RUC", "EMPRESA", "TRÁMITE", "SITUACIÓN", "Observaciones", 
-        "FECHA", "Tarjeta en Oficina", "Placa en Oficina", " ", "Marca", "Chasis / VIN", "Color", "Modelo", "Motor", 
-        "Año Vehículo", "PLACA", "  ", "Presentante Físico (Trabajador / Tramitador Asignado)", "Tipo de Boleta", 
-        "Fecha Boleta", "DUA", "N° Formato Inmatriculación", "Número Boleta", "Código Verificación", "Monto Total", 
-        "Forma de Pago", "Pago Bancarizado Según", "Dice", "Debe Decir", "Carrocería", "CREADOR"
+        " ", // A (vacía)
+        "Nº Titulo", // B
+        "Año", // C
+        "Cliente", // D
+        "Teléfono", // E
+        "Nº DNI", // F
+        "Empresa", // G
+        "Trámite", // H
+        "Estado", // I
+        "Obs", // J
+        "F_Presentación", // K
+        "F_Ent_Tarj.", // L
+        "F_Ent_Placa", // M
+        "  ", // N (vacía)
+        "Marca", // O
+        "Chasis", // P
+        "Color", // Q
+        "Modelo", // R
+        "Motor", // S
+        "Año ", // T (Año vehículo)
+        "placa", // U
+        "   ", // V (vacía)
+        "Presentante", // W
+        "Boleta", // X
+        "F_Boleta", // Y
+        "DUA", // Z
+        "Form_Inmatriculación", // AA
+        "Nº Boleta", // AB
+        "Cod_Ver", // AC
+        "Monto total", // AD
+        "Forma de Pago", // AE
+        "Pago Bancarizado Según", // AF
+        "Dice:", // AG
+        "Debería Decir", // AH
+        "Carrocería", // AI
+        "correo /usuario", // AJ
+        "Recepción en Oficina (Gestora)-Tarjeta en Oficina", // AK
+        "Recepción en Oficina (Gestora)-Placa en Oficina", // AL
+        "Entrega al Cliente Final-Entregó Tarjeta", // AM
+        "Entrega al Cliente Final-Entregó Placa" // AN
       ];
 
       const dataAOA = [headers];
-      tramitesEspeciales.forEach((r, index) => {
+      tramitesEspeciales.forEach((r) => {
         const row = [
-          index + 1, // A: N°
-          r.n_titulo || "", // B: N° TÍTULO
-          r.tramite_anio || "", // C: Año
-          r.razon_social_nombres || "", // D: CLIENTE
-          r.telefono || "", // E: Teléfono
-          r.numero_documento || "", // F: DNI / RUC
-          r.empresa_gestora || "", // G: EMPRESA
-          r.tramite || "", // H: TRÁMITE
-          r.situacion || "", // I: SITUACIÓN
-          r.observaciones_generales || "", // J: Observaciones
-          r.fecha_presentacion || "", // K: FECHA
-          r.fecha_tarjeta_en_oficina || "", // L: Tarjeta en Oficina
-          r.fecha_placa_en_oficina || "", // M: Placa en Oficina
-          "", // N: (COLUMNA EN BLANCO INTENCIONAL)
-          r.marca || "", // O: Marca
-          r.chasis_vin || "", // P: Chasis / VIN
-          r.color || "", // Q: Color
-          r.modelo || "", // R: Modelo
-          r.motor || "", // S: Motor
-          r.anio_modelo || "", // T: Año Vehículo
-          r.placa || "", // U: PLACA
-          "", // V: (COLUMNA EN BLANCO INTENCIONAL)
-          `${r.p_nombres || ""} ${r.p_apellido1 || ""} ${r.p_apellido2 || ""}`.trim(), // W: Presentante Físico
-          r.tipo_boleta || "", // X: Tipo de Boleta
-          r.fecha_boleta || "", // Y: Fecha Boleta
-          r.dua || "", // Z: DUA
-          r.num_formato_inmatriculacion || "", // AA: N° Formato Inmatriculacion
-          r.numero_boleta || "", // AB: Numero Boleta
-          r.codigo_verificacion || "", // AC: Codigo Verificacion
-          r.clausula_monto || "", // AD: Monto Total
-          r.clausula_forma_pago || "", // AE: Forma de Pago
-          r.clausula_pago_bancarizado || "", // AF: Pago Bancarizado
-          r.aclaracion_dice || "", // AG: Dice
-          r.aclaracion_debe_decir || "", // AH: Debe Decir
-          r.carroceria || "", // AI: Carrocería
-          r.creador || "" // AJ: CREADOR
+          "", // A (vacía)
+          r.n_titulo || "", // B Nº Titulo
+          r.tramite_anio || "", // C Año
+          r.razon_social_nombres || "", // D Cliente
+          r.telefono || "", // E Teléfono
+          r.numero_documento || "", // F Nº DNI
+          r.empresa_gestora || "", // G Empresa
+          r.tramite || "", // H Trámite
+          r.situacion || "", // I Estado
+          r.observaciones_generales || "", // J Obs
+          r.fecha_presentacion || "", // K F_Presentación
+          r.fecha_tarjeta_en_oficina || "", // L F_Ent_Tarj.
+          r.fecha_placa_en_oficina || "", // M F_Ent_Placa
+          "", // N (vacía)
+          r.marca || "", // O Marca
+          r.chasis_vin || "", // P Chasis
+          r.color || "", // Q Color
+          r.modelo || "", // R Modelo
+          r.motor || "", // S Motor
+          r.anio_fabricacion || "", // T Año (de Vehículo)
+          r.placa || "", // U placa
+          "", // V (vacía)
+          `${r.p_nombres || ""} ${r.p_apellido1 || ""} ${r.p_apellido2 || ""}`.trim(), // W Presentante
+          r.tipo_boleta || "", // X Boleta
+          r.fecha_boleta || "", // Y F_Boleta
+          r.dua || "", // Z DUA
+          r.num_formato_inmatriculacion || "", // AA Form_Inmatriculación
+          r.numero_boleta || "", // AB Nº Boleta
+          r.codigo_verificacion || "", // AC Cod_Ver
+          r.clausula_monto || "", // AD Monto total
+          r.clausula_forma_pago || "", // AE Forma de Pago
+          r.clausula_pago_bancarizado || "", // AF Pago Bancarizado Según
+          r.aclaracion_dice || "", // AG Dice:
+          r.aclaracion_debe_decir || "", // AH Debería Decir
+          r.carroceria || "", // AI Carrocería
+          r.creador || "", // AJ correo /usuario
+          r.fecha_tarjeta_en_oficina || "", // AK Recepción en Oficina (Gestora)-Tarjeta en Oficina
+          r.fecha_placa_en_oficina || "", // AL Recepción en Oficina (Gestora)-Placa en Oficina
+          (r.fecha_entrega_tarjeta ? r.fecha_entrega_tarjeta + (r.metodo_entrega_tarjeta ? ` ${r.metodo_entrega_tarjeta}` : "") : ""), // AM Entrega al Cliente Final-Entregó Tarjeta
+          (r.fecha_entrega_placa ? r.fecha_entrega_placa + (r.metodo_entrega_placa ? ` ${r.metodo_entrega_placa}` : "") : "") // AN Entrega al Cliente Final-Entregó Placa
         ];
         dataAOA.push(row);
       });

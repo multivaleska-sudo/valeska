@@ -30,7 +30,7 @@ export function useTramiteDetail(id: string | undefined) {
           
           c.id as cliente_local_id, c.razon_social_nombres as cliente, c.numero_documento as dni, c.telefono,
           v.id as vehiculo_local_id,
-          v.marca as vehiculo_marca, v.motor as vehiculo_motor, v.chasis_vin as vehiculo_chasis, v.anio_fabricacion as vehiculo_anio, v.color as vehiculo_color, v.placa as vehiculo_placa, v.modelo as vehiculo_modelo,
+          v.marca as vehiculo_marca, v.motor as vehiculo_motor, v.chasis_vin as vehiculo_chasis, v.anio_fabricacion as vehiculo_anio, v.color as vehiculo_color, v.placa as vehiculo_placa, v.modelo as vehiculo_modelo, v.carroceria as vehiculo_carroceria,
           ctt.id as tipo_tramite_local_id,
           ctt.nombre as tipo_tramite,
           cs.id as situacion_local_id,
@@ -121,6 +121,7 @@ export function useTramiteDetail(id: string | undefined) {
           vehiculo_chasis: row.vehiculo_chasis || "",
           vehiculo_anio: row.vehiculo_anio || "",
           vehiculo_color: row.vehiculo_color || "",
+          vehiculo_carroceria: row.vehiculo_carroceria || "",
           vehiculo_placa: row.vehiculo_placa || "",
           vehiculo_modelo: row.vehiculo_modelo || "",
 
