@@ -13,8 +13,10 @@ import {
   Mail,
   ShieldCheck,
   UploadCloud,
+  DownloadCloud,
 } from "lucide-react";
 import { useAuthLogic } from "../../logic/auth/useAuthLogic";
+import { useAppUpdater } from "../../logic/updates/useAppUpdater";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -40,6 +42,8 @@ export function WelcomeSetupPage() {
   const [success, setSuccess] = useState(false);
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
   const [existingIdentifier, setExistingIdentifier] = useState<string | null>(null);
+
+  const { checkAndInstallUpdate, isChecking, isInstalling, progress, latestVersion } = useAppUpdater();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -325,6 +329,33 @@ export function WelcomeSetupPage() {
                   <p className="text-xs text-blue-800 font-medium leading-relaxed">
                     Cualquiera de las dos opciones configura catálogos y enlaza la tarjeta de red (MAC) al sistema. Solo se requiere una vez por computadora.
                   </p>
+                </div>
+
+                <div className="pt-6 mt-6 border-t border-gray-100 flex flex-col gap-3">
+                  <button
+                    type="button"
+                    onClick={checkAndInstallUpdate}
+                    disabled={isChecking || isInstalling}
+                    className="w-full bg-blue-50 text-blue-600 border border-blue-100 py-3 rounded-xl font-bold text-xs flex justify-center items-center gap-2 hover:bg-blue-100 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {isChecking || isInstalling ? (
+                      <Loader2 className="animate-spin" size={16} />
+                    ) : (
+                      <DownloadCloud size={16} />
+                    )}
+                    {isInstalling ? "Instalando actualización..." : isChecking ? "Buscando actualizaciones..." : "Actualizar Valeska"}
+                  </button>
+                  {latestVersion && !isInstalling && (
+                     <p className="text-center text-[10px] text-blue-500 font-bold">Nueva versión disponible: {latestVersion}</p>
+                  )}
+                  {isInstalling && (
+                    <div className="h-1.5 w-full bg-blue-100 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-blue-600 transition-all"
+                        style={{ width: `${progress}%` }}
+                      />
+                    </div>
+                  )}
                 </div>
               </>
             )}

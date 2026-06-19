@@ -1,12 +1,13 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation } from "react-router";
-import { AlertCircle, Loader2, Lock, User } from "lucide-react";
+import { AlertCircle, Loader2, Lock, User, DownloadCloud } from "lucide-react";
 import { ConnectionBadge } from "../../components/ConnectionBadge";
 import {
   getLoginHistory,
   recordSuccessfulLogin,
   useAuthLogic,
 } from "../../logic/auth/useAuthLogic";
+import { useAppUpdater } from "../../logic/updates/useAppUpdater";
 
 type LoginLocationState = {
   prefillIdentifier?: string;
@@ -22,6 +23,8 @@ export function LoginPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isOnline] = useState(true);
   const [history, setHistory] = useState(() => getLoginHistory());
+
+  const { checkAndInstallUpdate, isChecking, isInstalling, progress, latestVersion } = useAppUpdater();
 
   useEffect(() => {
     const state = location.state as LoginLocationState | null;
@@ -168,6 +171,33 @@ export function LoginPage() {
             <Link to="/auth/welcome" className="text-gray-500 hover:text-gray-800">
               Configurar equipo
             </Link>
+          </div>
+
+          <div className="pt-4 mt-4 border-t border-gray-100 flex flex-col gap-3">
+            <button
+              type="button"
+              onClick={checkAndInstallUpdate}
+              disabled={isChecking || isInstalling}
+              className="w-full bg-violet-50 text-violet-600 border border-violet-100 py-3 rounded-xl font-bold text-xs flex justify-center items-center gap-2 hover:bg-violet-100 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+            >
+              {isChecking || isInstalling ? (
+                <Loader2 className="animate-spin" size={16} />
+              ) : (
+                <DownloadCloud size={16} />
+              )}
+              {isInstalling ? "Instalando actualización..." : isChecking ? "Buscando actualizaciones..." : "Buscar actualizaciones"}
+            </button>
+            {latestVersion && !isInstalling && (
+               <p className="text-center text-[10px] text-violet-500 font-bold">Nueva versión disponible: {latestVersion}</p>
+            )}
+            {isInstalling && (
+              <div className="h-1.5 w-full bg-violet-100 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-violet-600 transition-all"
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+            )}
           </div>
         </form>
       </div>
