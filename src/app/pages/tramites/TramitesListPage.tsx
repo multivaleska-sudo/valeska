@@ -37,6 +37,8 @@ export function TramitesListPage() {
     isExporting,
     isLoading,
     deleteTramite,
+    sortOrder,
+    setSortOrder,
   } = useTramitesListLogic();
 
   const handlePlateScan = useCallback(
@@ -110,6 +112,20 @@ export function TramitesListPage() {
               </h2>
             </div>
             <div className="flex gap-2">
+              <button
+                onClick={() => setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc')}
+                className="text-slate-600 hover:bg-slate-100 px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-colors border border-slate-200"
+              >
+                {sortOrder === 'desc' ? (
+                  <>
+                    <ChevronDown size={16} /> Más Recientes
+                  </>
+                ) : (
+                  <>
+                    <ChevronUp size={16} /> Más Antiguos
+                  </>
+                )}
+              </button>
               <button
                 onClick={() => {
                   filtros.setSearchBusquedaRapida("");
