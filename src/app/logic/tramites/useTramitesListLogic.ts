@@ -49,6 +49,8 @@ export function useTramitesListLogic() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 15;
 
+  const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
+
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
@@ -126,7 +128,7 @@ export function useTramitesListLogic() {
         creador: row.creador || "Desconocido",
         motor: row.motor || "",
         chasis_vin: row.chasis_vin || "",
-        timestamp: row.updated_at || row.created_at || 0,
+        timestamp: new Date(row.updated_at || row.created_at || 0).getTime(),
       }));
 
       formattedData.sort((a, b) => b.timestamp - a.timestamp);
@@ -247,7 +249,7 @@ export function useTramitesListLogic() {
         matchEmpresa &&
         matchFecha
       );
-    });
+    }).sort((a, b) => sortOrder === 'desc' ? b.timestamp - a.timestamp : a.timestamp - b.timestamp);
   }, [
     rawData,
     searchBusquedaRapida,
@@ -262,6 +264,7 @@ export function useTramitesListLogic() {
     filterEmpresa,
     fechaInicio,
     fechaFin,
+    sortOrder,
   ]);
 
   const totalPages = Math.ceil(filteredTramites.length / itemsPerPage);
@@ -495,5 +498,7 @@ export function useTramitesListLogic() {
     opcionesSituacion,
     handleExportExcel,
     deleteTramite,
+    sortOrder,
+    setSortOrder,
   };
 }
