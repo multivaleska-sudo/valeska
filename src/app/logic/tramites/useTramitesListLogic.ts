@@ -115,21 +115,33 @@ export function useTramitesListLogic() {
             `;
       const result: any[] = await sqlite.select(query);
 
-      const formattedData: TramiteRow[] = result.map((row) => ({
-        id: row.id,
-        n_titulo: row.n_titulo || "SIN TÍTULO",
-        cliente: row.cliente || "DESCONOCIDO",
-        dni: row.dni || "",
-        placa: row.placa || "---",
-        tramite: row.tramite || "",
-        situacion: row.situacion || "",
-        fecha_presentacion: row.fecha_presentacion || "",
-        empresa_gestiona: row.empresa_gestiona || "--",
-        creador: row.creador || "Desconocido",
-        motor: row.motor || "",
-        chasis_vin: row.chasis_vin || "",
-        timestamp: new Date(row.updated_at || row.created_at || 0).getTime(),
-      }));
+      const formattedData: TramiteRow[] = result.map((row) => {
+        let ts = row.updated_at || row.created_at || 0;
+        if (typeof ts === 'string' && /^\d+$/.test(ts)) {
+          ts = parseInt(ts, 10);
+        }
+        let parsedTs = new Date(ts).getTime();
+        if (isNaN(parsedTs)) {
+          parsedTs = row.fecha_presentacion ? new Date(row.fecha_presentacion).getTime() : 0;
+          if (isNaN(parsedTs)) parsedTs = 0;
+        }
+
+        return {
+          id: row.id,
+          n_titulo: row.n_titulo || "SIN TÍTULO",
+          cliente: row.cliente || "DESCONOCIDO",
+          dni: row.dni || "",
+          placa: row.placa || "---",
+          tramite: row.tramite || "",
+          situacion: row.situacion || "",
+          fecha_presentacion: row.fecha_presentacion || "",
+          empresa_gestiona: row.empresa_gestiona || "--",
+          creador: row.creador || "Desconocido",
+          motor: row.motor || "",
+          chasis_vin: row.chasis_vin || "",
+          timestamp: parsedTs,
+        };
+      });
 
       formattedData.sort((a, b) => b.timestamp - a.timestamp);
 
