@@ -172,10 +172,18 @@ const provisionDeviceWithBackend = async (
       }),
     });
 
-    if (!response.ok) return null;
+    if (!response.ok) {
+      if (response.status === 401) {
+        throw new Error("Contraseña incorrecta en la nube. Sincronización deshabilitada o credenciales revocadas.");
+      }
+      return null;
+    }
     return response.json();
-  } catch {
-    return null;
+  } catch (err: any) {
+    if (err.message && err.message.includes("Contraseña incorrecta en la nube")) {
+      throw err;
+    }
+    return null; // Fallback para errores de red reales (offline)
   }
 };
 
@@ -790,7 +798,9 @@ export function useAuthLogic() {
 
       sileo.success({
         title: "Bienvenido",
-        description: "Sesión iniciada correctamente.",
+        description: cloudLogin?.access_token 
+          ? "Sesión iniciada correctamente." 
+          : "Sesión local iniciada (Modo Offline o sin conexión a la nube).",
       });
       navigate("/");
       return true;

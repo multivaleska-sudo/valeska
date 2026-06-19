@@ -339,7 +339,7 @@ export function useTramitesListLogic() {
 
       // AGENTE: Configuro la estructura exacta en Array de Arrays (AOA) para garantizar el orden de columnas y asegurar que las posiciones coincidan con el Excel importado.
       const headers = [
-        " ", // A (vacía)
+        "N°", // A (Índice)
         "Nº Titulo", // B
         "Año", // C
         "Cliente", // D
@@ -350,8 +350,8 @@ export function useTramitesListLogic() {
         "Estado", // I
         "Obs", // J
         "F_Presentación", // K
-        "F_Ent_Tarj.", // L
-        "F_Ent_Placa", // M
+        "F_Ent_Tarj.", // L (Ahora recibe AM)
+        "F_Ent_Placa", // M (Ahora recibe AN)
         "  ", // N (vacía)
         "Marca", // O
         "Chasis", // P
@@ -377,14 +377,14 @@ export function useTramitesListLogic() {
         "correo /usuario", // AJ
         "Recepción en Oficina (Gestora)-Tarjeta en Oficina", // AK
         "Recepción en Oficina (Gestora)-Placa en Oficina", // AL
-        "Entrega al Cliente Final-Entregó Tarjeta", // AM
-        "Entrega al Cliente Final-Entregó Placa" // AN
+        "Entrega al Cliente Final-Método Tarjeta", // AM
+        "Entrega al Cliente Final-Método Placa" // AN
       ];
 
       const dataAOA = [headers];
-      tramitesEspeciales.forEach((r) => {
+      tramitesEspeciales.forEach((r, index) => {
         const row = [
-          "", // A (vacía)
+          (index + 1).toString(), // A (N°)
           r.n_titulo || "", // B Nº Titulo
           r.tramite_anio || "", // C Año
           r.razon_social_nombres || "", // D Cliente
@@ -394,9 +394,9 @@ export function useTramitesListLogic() {
           r.tramite || "", // H Trámite
           r.situacion || "", // I Estado
           r.observaciones_generales || "", // J Obs
-          r.fecha_presentacion || "", // K F_Presentación
-          r.fecha_tarjeta_en_oficina || "", // L F_Ent_Tarj.
-          r.fecha_placa_en_oficina || "", // M F_Ent_Placa
+          r.fecha_presentacion ? r.fecha_presentacion.split('T')[0] : "", // K F_Presentación (Solo fecha)
+          r.fecha_tarjeta_en_oficina || "", // L F_Ent_Tarj. (Recepción en Oficina)
+          r.fecha_placa_en_oficina || "", // M F_Ent_Placa (Recepción en Oficina)
           "", // N (vacía)
           r.marca || "", // O Marca
           r.chasis_vin || "", // P Chasis
@@ -408,7 +408,7 @@ export function useTramitesListLogic() {
           "", // V (vacía)
           `${r.p_nombres || ""} ${r.p_apellido1 || ""} ${r.p_apellido2 || ""}`.trim(), // W Presentante
           r.tipo_boleta || "", // X Boleta
-          r.fecha_boleta || "", // Y F_Boleta
+          r.fecha_boleta ? r.fecha_boleta.split('T')[0] : "", // Y F_Boleta (Solo fecha)
           r.dua || "", // Z DUA
           r.num_formato_inmatriculacion || "", // AA Form_Inmatriculación
           r.numero_boleta || "", // AB Nº Boleta
@@ -420,10 +420,10 @@ export function useTramitesListLogic() {
           r.aclaracion_debe_decir || "", // AH Debería Decir
           r.carroceria || "", // AI Carrocería
           r.creador || "", // AJ correo /usuario
-          r.fecha_tarjeta_en_oficina || "", // AK Recepción en Oficina (Gestora)-Tarjeta en Oficina
-          r.fecha_placa_en_oficina || "", // AL Recepción en Oficina (Gestora)-Placa en Oficina
-          (r.fecha_entrega_tarjeta ? r.fecha_entrega_tarjeta + (r.metodo_entrega_tarjeta ? ` ${r.metodo_entrega_tarjeta}` : "") : ""), // AM Entrega al Cliente Final-Entregó Tarjeta
-          (r.fecha_entrega_placa ? r.fecha_entrega_placa + (r.metodo_entrega_placa ? ` ${r.metodo_entrega_placa}` : "") : "") // AN Entrega al Cliente Final-Entregó Placa
+          r.fecha_entrega_tarjeta ? r.fecha_entrega_tarjeta.split('T')[0] : "", // AK Recepción en Oficina (Gestora)-Tarjeta en Oficina (Solo fecha)
+          r.fecha_entrega_placa ? r.fecha_entrega_placa.split('T')[0] : "", // AL Recepción en Oficina (Gestora)-Placa en Oficina (Solo fecha)
+          r.metodo_entrega_tarjeta || "", // AM Entrega al Cliente Final-Método Tarjeta
+          r.metodo_entrega_placa || "" // AN Entrega al Cliente Final-Método Placa
         ];
         dataAOA.push(row);
       });
