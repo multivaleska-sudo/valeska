@@ -17,6 +17,7 @@ import {
 import { useNavigate } from "react-router";
 import { useDashboardLogic } from "../logic/dashboard/useDashboardLogic";
 import { toast } from "sonner";
+import { sileo } from "sileo";
 import { importarPipeline } from "../logic/dashboard/inyectorDataLogic";
 
 export function DashboardPage() {
@@ -38,6 +39,7 @@ export function DashboardPage() {
     "loading" | "success" | "warning" | "error"
   >("loading");
   const [injectionLogs, setInjectionLogs] = useState<string[]>([]);
+  const [injectionErrorMessage, setInjectionErrorMessage] = useState<string | null>(null);
 
   const [injectionSummary, setInjectionSummary] = useState<{
     exitosos: number;
@@ -65,6 +67,7 @@ export function DashboardPage() {
     setInjectionProgress(0);
     setInjectionLogs([]);
     setInjectionSummary(null);
+    setInjectionErrorMessage(null);
     setInjectionStatus("loading");
     setIsInjectionModalOpen(true);
 
@@ -132,6 +135,10 @@ export function DashboardPage() {
         error.message === "Usuario sin sucursal"
       ) {
         errorMsg = `Acceso denegado: ${error.message}`;
+      } else if (error.message && error.message.includes("El formato es estricto") || error.message.includes("plantilla estandarizada") || error.message.includes("vacío")) {
+        // Errores de validación estricta del backend
+        errorMsg = error.message;
+        setInjectionErrorMessage(errorMsg);
       }
 
       addLog(`[ERROR CRÍTICO] ${errorMsg}`);
@@ -439,6 +446,24 @@ export function DashboardPage() {
                         : "Error en la importación"}
                 </span>
               </div>
+
+              {injectionErrorMessage && (
+                <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-md shadow-sm">
+                  <div className="flex items-start">
+                    <div className="flex-shrink-0">
+                      <AlertTriangle className="h-5 w-5 text-red-500" />
+                    </div>
+                    <div className="ml-3">
+                      <h3 className="text-sm font-bold text-red-800">
+                        Formato de Excel Inválido
+                      </h3>
+                      <div className="mt-2 text-sm text-red-700">
+                        <p>{injectionErrorMessage}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {injectionStatus === "loading" && (
                 <>
