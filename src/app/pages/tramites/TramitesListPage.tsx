@@ -445,7 +445,7 @@ export function TramitesListPage() {
                         {row.tramite}
                         <br />
                         <span className="text-gray-400 text-[10px]">
-                          {row.fecha_presentacion}
+                          {row.fecha_presentacion?.split('T')[0]}
                         </span>
                       </td>
                       <td className="p-4">
