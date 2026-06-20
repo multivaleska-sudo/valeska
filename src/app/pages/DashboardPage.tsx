@@ -17,7 +17,6 @@ import {
 import { useNavigate } from "react-router";
 import { useDashboardLogic } from "../logic/dashboard/useDashboardLogic";
 import { toast } from "sonner";
-import { sileo } from "sileo";
 import { importarPipeline } from "../logic/dashboard/inyectorDataLogic";
 
 export function DashboardPage() {

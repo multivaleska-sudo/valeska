@@ -98,7 +98,7 @@ export const clientes = sqliteTable('clientes', {
     ...syncColumns,
     ...optimisticSyncColumns
 }, (table) => ({
-    documentoIdx: uniqueIndex('cliente_documento_idx').on(table.numeroDocumento),
+    documentoIdx: index('cliente_documento_idx').on(table.numeroDocumento),
     nombreIdx: index('cliente_nombre_idx').on(table.razonSocialNombres),
 }));
 

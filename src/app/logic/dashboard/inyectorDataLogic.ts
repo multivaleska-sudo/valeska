@@ -202,7 +202,7 @@ const safeParams = (params: any[]) =>
 const cargarCache = async (db: Database) => {
   const [clientes, vehiculos, tipos, situaciones, empresas, presentantes] =
     await Promise.all([
-      db.select("SELECT id, numero_documento FROM clientes"),
+      db.select("SELECT id, numero_documento, razon_social_nombres, telefono FROM clientes"),
       db.select("SELECT id, chasis_vin, motor FROM vehiculos"),
       db.select("SELECT id, nombre FROM catalogo_tipos_tramite"),
       db.select("SELECT id, nombre FROM catalogo_situaciones"),
@@ -212,7 +212,10 @@ const cargarCache = async (db: Database) => {
 
   return {
     clientesMap: new Map(
-      (clientes as any[]).map((c) => [c.numero_documento, c.id]),
+      (clientes as any[]).map((c) => [
+        `${c.numero_documento}|${(c.razon_social_nombres || "").toUpperCase()}|${c.telefono || ""}`,
+        c.id,
+      ]),
     ),
     chasisMap: new Map(
       (vehiculos as any[])
@@ -574,7 +577,8 @@ export const insertarLotesUltra = async (
 
       try {
         // Cliente
-        let clienteId = cache.clientesMap.get(r.dni);
+        const clientCacheKey = `${r.dni}|${(r.clienteNombre || "").toUpperCase()}|${r.telefono || ""}`;
+        let clienteId = cache.clientesMap.get(clientCacheKey);
         if (!clienteId) {
           currentEntity = "clientes";
           clienteId = crypto.randomUUID();
@@ -592,8 +596,8 @@ export const insertarLotesUltra = async (
               "LOCAL_INSERT",
             ]),
           );
-          cache.clientesMap.set(r.dni, clienteId);
-          createdCacheEntries.push(() => cache.clientesMap.delete(r.dni));
+          cache.clientesMap.set(clientCacheKey, clienteId);
+          createdCacheEntries.push(() => cache.clientesMap.delete(clientCacheKey));
           createdThisRow.clientes++;
         }
 

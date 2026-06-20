@@ -60,6 +60,8 @@ export function TramiteForm({ mode, initialData }: TramiteFormProps) {
     showPresentanteDropdown,
     setShowPresentanteDropdown,
     seleccionarPresentante,
+    duplicationErrors,
+    setDuplicationErrors,
   } = useTramiteLogic(initialData);
 
   const [scanSuccess, setScanSuccess] = useState(false);
@@ -136,6 +138,36 @@ export function TramiteForm({ mode, initialData }: TramiteFormProps) {
             }));
           }}
         />
+      )}
+
+      {duplicationErrors && duplicationErrors.length > 0 && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="bg-red-600 p-6 text-center">
+              <XCircle className="w-16 h-16 text-white mx-auto mb-4" />
+              <h2 className="text-2xl font-black text-white">¡Duplicidad Detectada!</h2>
+            </div>
+            <div className="p-6">
+              <p className="text-gray-600 mb-4 text-center">
+                El sistema ha bloqueado el guardado porque la siguiente información ya existe en otro trámite activo:
+              </p>
+              <ul className="space-y-2 mb-6 bg-red-50 p-4 rounded-xl border border-red-100">
+                {duplicationErrors.map((err, idx) => (
+                  <li key={idx} className="flex items-center gap-2 text-red-700 font-bold">
+                    <span className="w-2 h-2 rounded-full bg-red-600" />
+                    {err}
+                  </li>
+                ))}
+              </ul>
+              <button
+                onClick={() => setDuplicationErrors([])}
+                className="w-full bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold py-3 rounded-xl transition-colors"
+              >
+                Volver y Corregir
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       <div className="max-w-[1400px] mx-auto space-y-6">

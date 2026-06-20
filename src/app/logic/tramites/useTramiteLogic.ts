@@ -7,6 +7,7 @@ import { sileo } from "sileo";
 export function useTramiteLogic(initialData?: Partial<TramiteFormData>) {
   const [isSaving, setIsSaving] = useState(false);
   const [isFilling, setIsFilling] = useState(false);
+  const [duplicationErrors, setDuplicationErrors] = useState<string[]>([]);
 
   const [opcionesTipos, setOpcionesTipos] = useState<string[]>([]);
   const [opcionesSituacion, setOpcionesSituacion] = useState<string[]>([]);
@@ -479,17 +480,21 @@ export function useTramiteLogic(initialData?: Partial<TramiteFormData>) {
         }
       }
 
-      const chasisToCheck = (formData.vehiculo_chasis || "")
-        .trim()
-        .toUpperCase();
+      const chasisToCheck = (formData.vehiculo_chasis || "").trim().toUpperCase();
       const motorToCheck = (formData.vehiculo_motor || "").trim().toUpperCase();
+      const placaToCheck = (formData.vehiculo_placa || "").trim().toUpperCase();
+      const boletaToCheck = (formData.numero_boleta || "").trim().toUpperCase();
 
       const tieneChasis = chasisToCheck && chasisToCheck !== "S/N";
       const tieneMotor = motorToCheck && motorToCheck !== "S/N";
+      const tienePlaca = placaToCheck && placaToCheck !== "S/N" && placaToCheck !== "EN TRAMITE" && placaToCheck !== "EN TRÁMITE";
+      const tieneBoleta = boletaToCheck && boletaToCheck !== "S/N" && boletaToCheck !== "S/B";
 
-      if (tieneChasis || tieneMotor) {
-        let dupQuery =
-          "SELECT t.id, t.n_titulo FROM tramites t JOIN vehiculos v ON t.vehiculo_id = v.id WHERE t.deleted_at IS NULL AND (";
+      let currentDuplicatedFields: string[] = [];
+
+      // 1. Chequear Vehículos (Placa, Motor, Chasis)
+      if (tieneChasis || tieneMotor || tienePlaca) {
+        let dupQuery = "SELECT t.id, t.n_titulo, v.chasis_vin, v.motor, v.placa FROM tramites t JOIN vehiculos v ON t.vehiculo_id = v.id WHERE t.deleted_at IS NULL AND (";
         const dupConditions = [];
         const dupParams: any[] = [];
 
@@ -501,6 +506,10 @@ export function useTramiteLogic(initialData?: Partial<TramiteFormData>) {
           dupConditions.push(`v.motor = $${dupParams.length + 1}`);
           dupParams.push(motorToCheck);
         }
+        if (tienePlaca) {
+          dupConditions.push(`v.placa = $${dupParams.length + 1}`);
+          dupParams.push(placaToCheck);
+        }
 
         dupQuery += dupConditions.join(" OR ") + ")";
 
@@ -509,16 +518,36 @@ export function useTramiteLogic(initialData?: Partial<TramiteFormData>) {
           dupParams.push(formData.id);
         }
 
-        const duplicados: any[] = await sqlite.select(dupQuery, dupParams);
-
-        if (duplicados.length > 0) {
-          sileo.error({
-            title: "Trámite Duplicado Bloqueado",
-            description: `Ya existe un trámite activo en el sistema utilizando este mismo Motor o Chasis.`,
-          });
-          setIsSaving(false);
-          return null;
+        const duplicadosVeh: any[] = await sqlite.select(dupQuery, dupParams);
+        
+        if (duplicadosVeh.length > 0) {
+           for (const row of duplicadosVeh) {
+              if (tieneChasis && row.chasis_vin === chasisToCheck) currentDuplicatedFields.push("Chasis / VIN");
+              if (tieneMotor && row.motor === motorToCheck) currentDuplicatedFields.push("Motor");
+              if (tienePlaca && row.placa === placaToCheck) currentDuplicatedFields.push("Placa");
+           }
         }
+      }
+
+      // 2. Chequear Boleta
+      if (tieneBoleta) {
+         let dupQuery = "SELECT t.id, td.numero_boleta FROM tramites t JOIN tramite_detalles td ON t.id = td.tramite_id WHERE t.deleted_at IS NULL AND td.numero_boleta = $1";
+         const dupParams: any[] = [boletaToCheck];
+         if (formData.id) {
+            dupQuery += " AND t.id != $2";
+            dupParams.push(formData.id);
+         }
+         const duplicadosBoleta: any[] = await sqlite.select(dupQuery, dupParams);
+         if (duplicadosBoleta.length > 0) {
+            currentDuplicatedFields.push("Número de Boleta");
+         }
+      }
+
+      if (currentDuplicatedFields.length > 0) {
+        currentDuplicatedFields = [...new Set(currentDuplicatedFields)];
+        setDuplicationErrors(currentDuplicatedFields);
+        setIsSaving(false);
+        return null;
       }
 
       const sessionStr = localStorage.getItem("valeska_session_user");
@@ -554,22 +583,25 @@ export function useTramiteLogic(initialData?: Partial<TramiteFormData>) {
       const docCliente = (formData.dni || "").trim() || getSafeDni();
       try {
         const cliRes: any[] = await sqlite.select(
-          "SELECT id FROM clientes WHERE numero_documento = $1",
+          "SELECT id, razon_social_nombres, telefono FROM clientes WHERE numero_documento = $1",
           [docCliente],
         );
+        let matchExacto = false;
+
         if (cliRes.length > 0) {
-          finalClienteId = cliRes[0].id;
-          await sqlite.execute(
-            "UPDATE clientes SET tipo_documento=$1, razon_social_nombres=$2, telefono=$3, updated_at=$4, sync_status='LOCAL_UPDATE' WHERE id=$5",
-            [
-              docCliente.length === 11 ? "RUC" : "DNI",
-              (formData.cliente || "").toUpperCase(),
-              formData.telefono || "",
-              now,
-              finalClienteId,
-            ],
-          );
-        } else {
+          for (const cli of cliRes) {
+            if (
+              cli.razon_social_nombres === (formData.cliente || "").toUpperCase() &&
+              cli.telefono === (formData.telefono || "")
+            ) {
+              finalClienteId = cli.id;
+              matchExacto = true;
+              break;
+            }
+          }
+        }
+
+        if (!matchExacto) {
           finalClienteId = crypto.randomUUID();
           await sqlite.execute(
             "INSERT INTO clientes (id, tipo_documento, numero_documento, razon_social_nombres, telefono, created_at, updated_at, sync_status) VALUES ($1, $2, $3, $4, $5, $6, $7, 'LOCAL_INSERT')",
@@ -887,5 +919,7 @@ export function useTramiteLogic(initialData?: Partial<TramiteFormData>) {
     showPresentanteDropdown,
     setShowPresentanteDropdown,
     seleccionarPresentante,
+    duplicationErrors,
+    setDuplicationErrors,
   };
 }
